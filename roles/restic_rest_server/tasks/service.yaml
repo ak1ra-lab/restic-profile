@@ -91,8 +91,9 @@
   ansible.builtin.debug:
     msg: >-
       restic-rest-server binary was not found at
-      /usr/bin/restic-rest-server or /usr/local/bin/restic-rest-server.
+      /usr/bin/restic-rest-server or {{ restic_rest_server_binary_install_path }}.
       The systemd unit has been deployed but the service has NOT been
       started. Please copy the restic-rest-server binary to
-      /usr/local/bin/restic-rest-server and then run:
+      {{ restic_rest_server_binary_install_path }} or set
+      restic_rest_server_binary_install_source to 'go_build', and then run:
       systemctl daemon-reload && systemctl enable --now restic-rest-server

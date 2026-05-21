@@ -1,4 +1,13 @@
 ---
+- name: assert restic install source is supported
+  ansible.builtin.assert:
+    that:
+      - restic_profile_restic_install_source in ['apt', 'go_build', 'existing']
+    fail_msg: >-
+      restic_profile_restic_install_source must be one of
+      ['apt', 'go_build', 'existing'] (got:
+      {{ restic_profile_restic_install_source | to_json }})
+
 - name: assert restic_profile_profiles is a dict
   ansible.builtin.assert:
     that:

@@ -7,7 +7,7 @@ page focuses on what the role manages and what it validates.
 
 The `restic_profile` role:
 
-1. Installs `restic` from Debian APT.
+1. Installs or reuses `restic` according to `restic_profile_restic_install_source`.
 2. Installs `restic-profile` into `/var/lib/restic-profile/venv`.
 3. Renders `/etc/restic-profile/restic-profile.toml` (mode `0640`).
 4. Renders one per-profile environment file and optional exclude file.
@@ -21,6 +21,7 @@ The `restic_profile` role:
 | ----------------------------------- | --------- | ----------------------------------------------------- |
 | `restic_profile_state`              | `present` | `present` deploys; `absent` removes managed resources |
 | `restic_profile_pip_install_source` | `local`   | `local`, `pypi`, or `testpypi`                        |
+| `restic_profile_restic_install_source` | `apt` | `apt`, `go_build`, or `existing` for the restic binary |
 | `restic_profile_restic_binary`      | `""`     | Global restic executable; empty means resolve from PATH/common locations |
 | `restic_profile_no_cache`           | `false`   | Global `--no-cache` toggle                            |
 | `restic_profile_retry_lock`         | `""`     | Global `--retry-lock` duration; opt-in because unsupported builds fail directly |
@@ -29,6 +30,23 @@ When you configure `retry_lock`, `no_cache`, or `one_file_system`,
 `restic-profile` passes those flags through unchanged. If the selected restic
 binary does not support them, the restic command fails and surfaces that error
 directly instead of being silently downgraded.
+
+### Restic binary installation
+
+`restic_profile_restic_install_source` controls how the role ensures a usable
+`restic` binary is present:
+
+- `apt`: install the distro package on the managed host.
+- `go_build`: build a static binary on the control node with `roles/go_build`
+	and copy it to `restic_profile_restic_install_path`.
+- `existing`: skip installation and rely on an already available binary.
+
+When you use `go_build`, the control node must have `go` in `PATH`. The role's
+defaults build `https://github.com/restic/restic.git` at `master`, target
+`linux/amd64`, and copy the resulting binary to `/usr/local/bin/restic`.
+
+For one-off refreshes outside the main role flow, use
+`playbooks/go_build/restic.yaml`.
 
 ### Profile dictionary
 
@@ -70,12 +88,14 @@ When `state: absent`, the role:
 3. Removes `/etc/restic-profile/restic-profile.toml`.
 4. Removes `/var/lib/restic-profile/venv`.
 
-It does not remove the `restic` package.
+It does not remove the distro `restic` package or any go-build-managed restic
+binary.
 
 ## Preflight checks
 
 Before writing files, the role asserts that:
 
+1. `restic_profile_restic_install_source` is one of `apt`, `go_build`, or `existing`.
 1. `restic_profile_profiles` is a mapping.
 2. Every enabled profile has non-empty `repository` and `password` fields.
 3. Every enabled retention-only profile (`sources: []`) has at least one non-zero `keep_*` field.

@@ -1,0 +1,26 @@
+---
+# ansible-playbook playbooks/go_build/restic-rest-server.yaml -e 'playbook_hosts=localhost'
+- name: execute go build restic/rest-server
+  hosts: "{{ playbook_hosts | default('localhost') }}"
+  gather_facts: false
+  become: false
+
+  tasks:
+    - name: build restic/rest-server binary on localhost
+      become: false
+      ansible.builtin.import_role:
+        name: go_build
+      vars:
+        go_build_repo_url: "https://github.com/restic/rest-server.git"
+        go_build_repo_version: "master"
+        go_build_package: "."
+        go_build_output_name: "restic-rest-server"
+
+    - name: copy restic-rest-server binary to /usr/local/bin
+      become: true
+      ansible.builtin.copy:
+        src: "{{ go_build_binary_path }}"
+        dest: "/usr/local/bin/restic-rest-server"
+        mode: "0755"
+        owner: root
+        group: root

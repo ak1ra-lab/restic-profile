@@ -1,4 +1,13 @@
 ---
+- name: assert restic_rest_server binary install source is supported
+  ansible.builtin.assert:
+    that:
+      - restic_rest_server_binary_install_source in ['apt', 'go_build', 'existing']
+    fail_msg: >-
+      restic_rest_server_binary_install_source must be one of
+      ['apt', 'go_build', 'existing'] (got:
+      {{ restic_rest_server_binary_install_source | default('') | to_json }})
+
 - name: assert restic_rest_server_listen is set
   ansible.builtin.assert:
     that:

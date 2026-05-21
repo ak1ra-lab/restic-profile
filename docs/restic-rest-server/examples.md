@@ -63,7 +63,27 @@ restic_rest_server_htpasswd_users:
 Clients still use an HTTPS `rest:` repository URL that points at the reverse
 proxy, not at the loopback listen address shown here.
 
-## Scenario 3: same host with server-side prune via standalone restic-profile
+## Scenario 3: Debian 12 with go-build-managed restic-rest-server
+
+```yaml
+# host_vars/backup-server-03/restic-rest-server.yaml
+---
+restic_rest_server_binary_install_source: go_build
+restic_rest_server_go_build_repo_version: "master"
+restic_rest_server_listen: ":8000"
+restic_rest_server_append_only: true
+restic_rest_server_private_repos: true
+restic_rest_server_backup_dir: /srv/restic
+
+restic_rest_server_htpasswd_users:
+  - name: alice
+    password: "{{ vault_restic_rest_server_alice_password }}"
+```
+
+This keeps the repository host self-contained on releases where Debian does not
+yet package `restic-rest-server`.
+
+## Scenario 4: same host with server-side prune via standalone restic-profile
 
 When `append_only: true`, clients cannot run `forget` or `prune` through the
 REST API. Schedule retention on the repository host with the standalone
@@ -72,7 +92,7 @@ role, and timer examples for retention-only profiles.
 
 ## Debian 12 note
 
-On Debian 12 and other environments where the package is unavailable, keep the
-same inventory variables and place the binary at
-`/usr/local/bin/restic-rest-server`. The role starts the service automatically on
-subsequent runs once that path exists.
+On Debian 12 and other environments where the package is unavailable, prefer
+`restic_rest_server_binary_install_source: go_build`. If you already manage the
+binary out of band, set `restic_rest_server_binary_install_source: existing`
+and point `restic_rest_server_binary_install_path` at that file.

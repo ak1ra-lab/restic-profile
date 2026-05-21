@@ -1,10 +1,37 @@
 ---
 - name: install restic via apt
+  when: restic_profile_restic_install_source == 'apt'
   become: true
   ansible.builtin.apt:
     name: restic
     state: present
     update_cache: true
+
+- name: build restic on control node
+  when: restic_profile_restic_install_source == 'go_build'
+  ansible.builtin.include_role:
+    name: go_build
+    apply:
+      become: false
+  vars:
+    go_build_repo_url: https://github.com/restic/restic.git
+    go_build_repo_version: "{{ restic_profile_restic_go_build_repo_version }}"
+    go_build_package: ./cmd/restic
+    go_build_output_name: restic
+    go_build_goos: "{{ restic_profile_restic_go_build_goos }}"
+    go_build_goarch: "{{ restic_profile_restic_go_build_goarch }}"
+    go_build_static: "{{ restic_profile_restic_go_build_static }}"
+    go_build_ldflags: "{{ restic_profile_restic_go_build_ldflags }}"
+
+- name: install go_build restic binary
+  when: restic_profile_restic_install_source == 'go_build'
+  become: true
+  ansible.builtin.copy:
+    src: "{{ go_build_binary_path }}"
+    dest: "{{ restic_profile_restic_install_path }}"
+    owner: root
+    group: root
+    mode: "0755"
 
 - name: install restic-profile into a dedicated venv
   ansible.builtin.include_role:

@@ -17,6 +17,7 @@
 # restic-rest-server is available starting from Debian 13 (trixie);
 # on Debian 12 (bookworm) this will silently fail.
 - name: install restic-rest-server via apt
+  when: restic_rest_server_binary_install_source == 'apt'
   become: true
   ansible.builtin.apt:
     name:
@@ -25,14 +26,40 @@
     update_cache: true
   failed_when: false
 
+- name: build restic-rest-server on control node
+  when: restic_rest_server_binary_install_source == 'go_build'
+  ansible.builtin.include_role:
+    name: go_build
+    apply:
+      become: false
+  vars:
+    go_build_repo_url: https://github.com/restic/rest-server.git
+    go_build_repo_version: "{{ restic_rest_server_go_build_repo_version }}"
+    go_build_package: .
+    go_build_output_name: restic-rest-server
+    go_build_goos: "{{ restic_rest_server_go_build_goos }}"
+    go_build_goarch: "{{ restic_rest_server_go_build_goarch }}"
+    go_build_static: "{{ restic_rest_server_go_build_static }}"
+    go_build_ldflags: "{{ restic_rest_server_go_build_ldflags }}"
+
+- name: install go_build restic-rest-server binary
+  when: restic_rest_server_binary_install_source == 'go_build'
+  become: true
+  ansible.builtin.copy:
+    src: "{{ go_build_binary_path }}"
+    dest: "{{ restic_rest_server_binary_install_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: check if /usr/bin/restic-rest-server exists (installed via apt)
   ansible.builtin.stat:
     path: /usr/bin/restic-rest-server
   register: restic_rest_server_apt_stat
 
-- name: check if /usr/local/bin/restic-rest-server exists (placed manually)
+- name: check if configured restic-rest-server binary exists
   ansible.builtin.stat:
-    path: /usr/local/bin/restic-rest-server
+    path: "{{ restic_rest_server_binary_install_path }}"
   register: restic_rest_server_local_stat
 
 - name: set restic-rest-server availability facts
@@ -44,4 +71,4 @@
     restic_rest_server_exec_path: >-
       {{ '/usr/bin/restic-rest-server'
          if restic_rest_server_apt_stat.stat.exists
-         else '/usr/local/bin/restic-rest-server' }}
+         else restic_rest_server_binary_install_path }}

@@ -9,15 +9,23 @@ The `restic_rest_server` role:
 
 1. Validates listen, user, and group inputs plus every non-empty htpasswd user entry.
 2. Installs `restic`, `python3-passlib`, and `python3-bcrypt` via APT.
-3. Attempts to install `restic-rest-server` via APT.
-4. Detects the server binary at `/usr/bin/restic-rest-server` or `/usr/local/bin/restic-rest-server`.
+3. Installs or reuses `restic-rest-server` according to `restic_rest_server_binary_install_source`.
+4. Detects the server binary at `/usr/bin/restic-rest-server` or `restic_rest_server_binary_install_path`.
 5. Creates the configured system user and group.
 6. Manages `/etc/restic-rest-server/users.htpasswd`.
 7. Renders `/etc/default/restic-rest-server`.
 8. Renders a custom systemd unit only when the binary is not APT-managed.
 9. Enables and starts the service when the binary is present.
 
-## Binary detection
+## Binary installation and detection
+
+`restic_rest_server_binary_install_source` controls how the role ensures a
+usable server binary is present:
+
+- `apt`: install the distro package on the managed host.
+- `go_build`: build a static binary on the control node with `roles/go_build`
+	and copy it to `restic_rest_server_binary_install_path`.
+- `existing`: skip installation and rely on an already available binary.
 
 `restic-rest-server` is packaged in Debian starting from Debian 13 (trixie).
 The role checks both supported locations and prefers the APT-managed binary when
@@ -26,17 +34,27 @@ both exist.
 | Path                                | Source                 | Priority  |
 | ----------------------------------- | ---------------------- | --------- |
 | `/usr/bin/restic-rest-server`       | Debian package         | Preferred |
-| `/usr/local/bin/restic-rest-server` | Manually placed binary | Fallback  |
+| `restic_rest_server_binary_install_path` | go_build or existing | Fallback  |
 
 If neither path exists, the role still creates the user, htpasswd file, and
 `/etc/default/restic-rest-server`. It also deploys the custom systemd unit, but
 it does not start the service and instead emits an operator reminder.
+
+When you use `go_build`, the control node must have `go` in `PATH`. The role's
+defaults build `https://github.com/restic/rest-server.git` at `master`, target
+`linux/amd64`, and copy the resulting binary to
+`/usr/local/bin/restic-rest-server`.
+
+For one-off refreshes outside the main role flow, use
+`playbooks/go_build/restic-rest-server.yaml`.
 
 ## Role inputs
 
 The authoritative defaults live in `roles/restic_rest_server/defaults/main.yaml`.
 These are the inputs you will usually override from inventory:
 
+- `restic_rest_server_binary_install_source`: `apt`, `go_build`, or `existing`
+- `restic_rest_server_binary_install_path`: destination or lookup path for a locally managed binary
 - `restic_rest_server_listen`: TCP listen address such as `":8000"` or `"127.0.0.1:8000"`
 - `restic_rest_server_append_only`: pass `--append-only` so clients cannot delete snapshots
 - `restic_rest_server_private_repos`: pass `--private-repos` so each user gets an isolated subdirectory
@@ -63,6 +81,7 @@ separate filesystem resource.
 
 Before it manages files, the role asserts that:
 
+1. `restic_rest_server_binary_install_source` is one of `apt`, `go_build`, or `existing`.
 1. `restic_rest_server_listen` is a non-empty string.
 2. `restic_rest_server_user` is a non-empty string.
 3. `restic_rest_server_group` is a non-empty string.

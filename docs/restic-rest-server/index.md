@@ -56,6 +56,7 @@ accessing the repository directly on the local filesystem.
 ## Packaging note
 
 `restic-rest-server` is packaged in Debian starting from Debian 13 (trixie).
-On earlier releases, place the binary at `/usr/local/bin/restic-rest-server`.
-The role detects both locations and starts the service automatically once one of
-them exists.
+On earlier releases, set `restic_rest_server_binary_install_source: go_build`
+to build and distribute a static binary, or place an existing binary at the
+configured `restic_rest_server_binary_install_path`. The role detects both the
+APT-managed path and the configured local path automatically.

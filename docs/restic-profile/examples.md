@@ -32,6 +32,7 @@ Use this page together with:
 ---
 restic_profile_state: present
 restic_profile_pip_install_source: local
+restic_profile_restic_install_source: go_build
 restic_profile_restic_binary: "/usr/local/bin/restic"
 # retry_lock is opt-in; keep it empty on older distro packages that do not support it.
 restic_profile_retry_lock: "10m"
@@ -104,7 +105,7 @@ restic_profile_profiles:
 
 This is the most feature-complete single-host example in the role docs: REST
 credentials, an explicit `tag`, inline and file-based excludes, retention,
-hooks, and timer/runtime overrides.
+hooks, timer/runtime overrides, and a go-build-managed `restic` binary.
 
 ## Scenario 2: append-only client plus repository-host retention
 

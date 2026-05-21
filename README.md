@@ -20,6 +20,9 @@ uv tool install ansible-dev-tools --with ansible \
 
 Routine Ansible validation currently uses `ansible-lint`. Molecule scenarios remain in the repository as dormant assets and are not part of the supported validation loop.
 
+If you use `roles/go_build` or the playbooks under `playbooks/go_build/`, the
+control node also needs a working `go` toolchain in `PATH`.
+
 ## Usage
 
 ```shell
