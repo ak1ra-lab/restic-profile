@@ -8,7 +8,10 @@
     _venv_dir: /var/lib/restic-profile/venv
     _python: /var/lib/restic-profile/venv/bin/python
     _bin: /var/lib/restic-profile/venv/bin/restic-profile
+    _cli_link: /usr/local/bin/restic-profile
+    _restic_wrapper: /usr/local/bin/restic.sh
     _config_file: /etc/restic-profile/restic-profile.toml
+    _backup_env_file: /etc/restic-profile/restic-profile-test_backup.env
     _backup_service: /etc/systemd/system/restic-profile-backup-test_backup.service
     _backup_timer: /etc/systemd/system/restic-profile-backup-test_backup.timer
     _forget_service: /etc/systemd/system/restic-profile-forget-test_prune.service
@@ -48,6 +51,33 @@
           - _restic_profile_bin.stat.executable
         fail_msg: >-
           Expected the restic-profile entry-point at {{ _bin }} but it was not found. Confirm that restic-profile was installed and that the entry points are wired correctly in pyproject.toml.
+
+    - name: stat restic-profile CLI symlink
+      ansible.builtin.stat:
+        path: "{{ _cli_link }}"
+      register: _restic_profile_cli_link
+
+    - name: assert restic-profile CLI symlink points at the venv entry-point
+      ansible.builtin.assert:
+        that:
+          - _restic_profile_cli_link.stat.exists
+          - _restic_profile_cli_link.stat.islnk
+          - _restic_profile_cli_link.stat.lnk_source == _bin
+        fail_msg: >-
+          Expected {{ _cli_link }} to be a symlink to {{ _bin }}, but got {{ _restic_profile_cli_link.stat.lnk_source | default('missing') }}.
+
+    - name: stat restic helper wrapper
+      ansible.builtin.stat:
+        path: "{{ _restic_wrapper }}"
+      register: _restic_wrapper_stat
+
+    - name: assert restic helper wrapper exists and is executable
+      ansible.builtin.assert:
+        that:
+          - _restic_wrapper_stat.stat.exists
+          - _restic_wrapper_stat.stat.executable
+        fail_msg: >-
+          Expected the restic helper wrapper at {{ _restic_wrapper }} but it was not found.
     # ------------------------------------------------------------------ #
     # 3. CLI --help sanity check                                           #
     # ------------------------------------------------------------------ #
@@ -108,6 +138,24 @@
           - _config_stat.stat.mode == '0640'
         fail_msg: >-
           Expected {{ _config_file }} to have mode 0640 (got: {{ _config_stat.stat.mode }}). The file contains credentials and must not be world-readable.
+
+    - name: source per-profile env file and print RESTIC_PASSWORD
+      ansible.builtin.shell: |
+        set -eu
+        # shellcheck disable=SC1090
+        source "{{ _backup_env_file }}"
+        printf '%s' "$RESTIC_PASSWORD"
+      args:
+        executable: /usr/bin/bash
+      register: _sourced_backup_password
+      changed_when: false
+
+    - name: assert sourced RESTIC_PASSWORD preserves shell-special characters
+      ansible.builtin.assert:
+        that:
+          - _sourced_backup_password.stdout == "molecule-$ecret'pw"
+        fail_msg: >-
+          Expected sourcing {{ _backup_env_file }} to preserve the original password, got {{ _sourced_backup_password.stdout | to_json }}.
 
     - name: read config file content
       ansible.builtin.slurp:
@@ -308,6 +356,32 @@
           - >-
             'Type=oneshot' in (_backup_svc_content.content | ansible.builtin.b64decode)
         fail_msg: "Expected Type=oneshot in {{ _backup_service }}"
+
+    - name: list available profiles through restic helper wrapper
+      ansible.builtin.command:
+        argv:
+          - "{{ _restic_wrapper }}"
+          - --list
+      register: _restic_wrapper_list
+      changed_when: false
+
+    - name: assert restic helper wrapper lists both test profiles
+      ansible.builtin.assert:
+        that:
+          - "'test_backup' in _restic_wrapper_list.stdout_lines"
+          - "'test_prune' in _restic_wrapper_list.stdout_lines"
+        fail_msg: >-
+          Expected {{ _restic_wrapper }} --list to show test profiles. Output: {{ _restic_wrapper_list.stdout_lines | to_json }}
+
+    - name: run restic helper wrapper with the backup profile
+      ansible.builtin.command:
+        argv:
+          - "{{ _restic_wrapper }}"
+          - test_backup
+          - snapshots
+      register: _restic_wrapper_run
+      changed_when: false
+      failed_when: _restic_wrapper_run.rc != 0
 
     - name: stat backup profile timer file
       ansible.builtin.stat:

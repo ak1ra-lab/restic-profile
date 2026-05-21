@@ -66,6 +66,18 @@
     path: "{{ restic_profile_config_file }}"
     state: absent
 
+- name: remove restic-profile CLI symlink
+  become: true
+  ansible.builtin.file:
+    path: "{{ restic_profile_cli_link }}"
+    state: absent
+
+- name: remove restic helper wrapper
+  become: true
+  ansible.builtin.file:
+    path: "{{ restic_profile_restic_wrapper_path }}"
+    state: absent
+
 - name: remove restic-profile virtual environment
   become: true
   ansible.builtin.file:

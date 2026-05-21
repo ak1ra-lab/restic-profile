@@ -58,4 +58,6 @@ just sync
 ```
 
 The role installs into `/var/lib/restic-profile/venv` and installs
-`restic` from APT.
+`restic` from APT. It also exposes `/usr/local/bin/restic-profile` as a stable
+CLI entry point on the managed host and `/usr/local/bin/restic.sh` as a direct
+restic helper that sources one named profile's rendered `.env` file.

@@ -9,9 +9,31 @@ The `restic_profile` role:
 
 1. Installs or reuses `restic` according to `restic_profile_restic_install_source`.
 2. Installs `restic-profile` into `/var/lib/restic-profile/venv`.
-3. Renders `/etc/restic-profile/restic-profile.toml` (mode `0640`).
-4. Renders one per-profile environment file and optional exclude file.
-5. Deploys one systemd service+timer pair per enabled profile.
+3. Exposes `/usr/local/bin/restic-profile` as a symlink to the venv entry point for interactive use.
+4. Exposes `/usr/local/bin/restic.sh` as a helper that sources one profile `.env` file and then executes the raw `restic` CLI.
+5. Renders `/etc/restic-profile/restic-profile.toml` (mode `0640`).
+6. Renders one per-profile environment file and optional exclude file.
+7. Deploys one systemd service+timer pair per enabled profile.
+
+The systemd units still execute `restic_profile_bin` directly. The
+`/usr/local/bin/restic-profile` symlink is only a stable operator-facing PATH
+entry so you can run `restic-profile list`, `validate`, `backup`, or `forget`
+without activating the dedicated virtual environment.
+
+`/usr/local/bin/restic.sh` is separate from the `restic-profile` CLI. It is an
+operator helper for direct ad-hoc restic commands such as snapshots, ls,
+mount, or restore while reusing the credentials already rendered for one named
+profile:
+
+```shell
+restic.sh myprofile snapshots
+restic.sh myprofile restore latest --target /tmp/restore
+restic.sh --list
+```
+
+The wrapper sources `/etc/restic-profile/restic-profile-<name>.env`, so it
+requires the caller to have read access to that file. With the role defaults,
+that usually means running it as `root`.
 
 ## Role variables
 
@@ -72,6 +94,8 @@ to be overridden.
 | `restic_profile_config_file`        | `/etc/restic-profile/restic-profile.toml`                 |
 | `restic_profile_venv_dir`           | `/var/lib/restic-profile/venv`                            |
 | `restic_profile_bin`                | `/var/lib/restic-profile/venv/bin/restic-profile`         |
+| `restic_profile_cli_link`           | `/usr/local/bin/restic-profile`                           |
+| `restic_profile_restic_wrapper_path` | `/usr/local/bin/restic.sh`                               |
 | `restic_profile_backup_unit_prefix` | `restic-profile-backup-`                                  |
 | `restic_profile_forget_unit_prefix` | `restic-profile-forget-`                                  |
 
@@ -86,7 +110,9 @@ When `state: absent`, the role:
 1. Stops and disables managed timers.
 2. Removes generated service/timer units from `/etc/systemd/system`.
 3. Removes `/etc/restic-profile/restic-profile.toml`.
-4. Removes `/var/lib/restic-profile/venv`.
+4. Removes `/usr/local/bin/restic-profile`.
+5. Removes `/usr/local/bin/restic.sh`.
+6. Removes `/var/lib/restic-profile/venv`.
 
 It does not remove the distro `restic` package or any go-build-managed restic
 binary.
@@ -104,6 +130,7 @@ Before writing files, the role asserts that:
 
 - `/etc/restic-profile/restic-profile.toml` is mode `0640` (`root:root`).
 - `/etc/restic-profile/restic-profile-<name>.env` and rendered exclude files are also mode `0640`.
+- The `.env` files are rendered with shell-safe quoting so they can be sourced by `restic.sh` without expanding characters such as `$` inside secrets.
 - If `system_user` is non-root, ensure that account can read the config file.
 - Store secrets in Ansible Vault (`password`, `rest_password`, `aws_secret_access_key`, etc.).
 - CLI credentials are passed to `restic` via environment variables only.

@@ -16,6 +16,12 @@ restic_profile_venv_dir: "{{ restic_profile_state_dir }}/venv"
 # str: restic-profile binary path (derived from venv_dir; do not override)
 restic_profile_bin: "{{ restic_profile_venv_dir }}/bin/restic-profile"
 
+# str: operator-facing convenience symlink for the venv entry point
+restic_profile_cli_link: /usr/local/bin/restic-profile
+
+# str: operator-facing helper that sources a profile env file before running restic
+restic_profile_restic_wrapper_path: /usr/local/bin/restic.sh
+
 # --- Systemd unit naming prefixes ---
 # Backup profiles  (sources non-empty): <backup_prefix><name>.{service,timer}
 # Retention-only profiles (sources: []): <forget_prefix><name>.{service,timer}

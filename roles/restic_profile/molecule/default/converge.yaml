@@ -14,7 +14,7 @@
       # Backup profile — sources non-empty → restic-profile-backup-test_backup.{service,timer}
       test_backup:
         repository: "/tmp/restic-repos/test_backup"
-        password: "molecule-test-password"
+        password: "molecule-$ecret'pw"
         sources:
           - /tmp/test-data
         tag: "molecule"
