@@ -1,0 +1,44 @@
+---
+- name: prepare instance for restic_profile molecule test
+  hosts: all
+  gather_facts: false
+  become: true
+
+  tasks:
+    # ansible.builtin.raw is used here intentionally: it executes commands
+    # directly over the transport (SSH / Docker exec) without requiring a
+    # Python interpreter on the target host.  At this early stage of the
+    # molecule lifecycle the container may not yet have Python installed,
+    # so any module that relies on the Ansible module subsystem (including
+    # ansible.builtin.command, ansible.builtin.apt, etc.) would fail.
+    # Once python3 is installed by the second raw task below, subsequent
+    # plays can use the full Ansible module library.
+    - name: wait for systemd to reach a running state
+      ansible.builtin.raw: >-
+        timeout 30 bash -c 'until systemctl is-system-running 2>/dev/null | grep -qE "running|degraded"; do sleep 1; done'
+      changed_when: false
+      failed_when: false
+
+    - name: install bootstrap packages via raw apt-get
+      ansible.builtin.raw: |
+        set -e
+        apt-get update -qq
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+          python3 python3-venv
+      changed_when: true
+
+    - name: install restic stub at /usr/local/bin/restic
+      # Place the stub before the real binary (apt puts it at /usr/bin/restic).
+      # /usr/local/bin takes precedence in PATH, so this stub is used by any
+      # restic invocations during the molecule run.  Since all timers are
+      # disabled in converge.yaml, restic is never actually called; the stub
+      # is present purely as a safety net and to satisfy any path-existence checks.
+      ansible.builtin.copy:
+        dest: /usr/local/bin/restic
+        owner: root
+        group: root
+        mode: "0755"
+        content: |
+          #!/bin/sh
+          # restic stub for molecule testing — always exits 0
+          exit 0

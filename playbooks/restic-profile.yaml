@@ -1,0 +1,10 @@
+---
+- name: manage restic backup profiles
+  hosts: "{{ playbook_hosts | default('restic_profile_nodes') }}"
+  gather_facts: false
+  become: true
+
+  tasks:
+    - name: apply restic_profile role
+      ansible.builtin.import_role:
+        name: restic_profile

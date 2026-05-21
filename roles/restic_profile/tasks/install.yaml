@@ -1,0 +1,16 @@
+---
+- name: install restic via apt
+  become: true
+  ansible.builtin.apt:
+    name: restic
+    state: present
+    update_cache: true
+
+- name: install restic-profile into a dedicated venv
+  ansible.builtin.include_role:
+    name: pyproject_install
+  vars:
+    pyproject_install_source: "{{ restic_profile_pip_install_source }}"
+    pyproject_install_package_name: restic-profile
+    pyproject_install_package_extras: ""
+    pyproject_install_venv_dir: "{{ restic_profile_venv_dir }}"

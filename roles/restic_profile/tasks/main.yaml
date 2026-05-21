@@ -1,0 +1,20 @@
+---
+- name: run preflight checks
+  ansible.builtin.import_tasks: preflight.yaml
+  when: restic_profile_state == 'present'
+
+- name: install restic and restic-profile CLI
+  ansible.builtin.import_tasks: install.yaml
+  when: restic_profile_state == 'present'
+
+- name: configure restic-profile
+  ansible.builtin.import_tasks: config.yaml
+  when: restic_profile_state == 'present'
+
+- name: manage restic-profile systemd units
+  ansible.builtin.import_tasks: service.yaml
+  when: restic_profile_state == 'present'
+
+- name: remove restic-profile
+  ansible.builtin.import_tasks: remove.yaml
+  when: restic_profile_state == 'absent'

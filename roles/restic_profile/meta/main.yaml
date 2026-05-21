@@ -1,0 +1,14 @@
+---
+galaxy_info:
+  role_name: restic_profile
+  author: ak1ra-lab
+  description: >-
+    Profile-based restic backup management via TOML config; deploys per-profile systemd service and timer units for backup and server-side prune operations
+  license: MIT
+  min_ansible_version: "2.18"
+  platforms:
+    - name: Debian
+      versions:
+        - trixie
+
+dependencies: []

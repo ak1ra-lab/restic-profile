@@ -1,0 +1,60 @@
+---
+- name: ensure restic-profile config directory exists
+  become: true
+  ansible.builtin.file:
+    path: "{{ restic_profile_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: deploy per-profile exclude file from exclude_file_content
+  become: true
+  ansible.builtin.copy:
+    content: "{{ _profile_item.value.exclude_file_content }}"
+    dest: "{{ restic_profile_config_dir }}/restic-profile-{{ _profile_item.key }}.exclude"
+    owner: root
+    group: root
+    # 0640: same restriction as the main TOML config — contains path patterns
+    # that reveal the host's filesystem layout, treat as mildly sensitive.
+    mode: "0640"
+  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
+  loop_control:
+    loop_var: _profile_item
+    label: "{{ _profile_item.key }}"
+  when:
+    - _profile_item.value.enabled | default(true) | ansible.builtin.bool
+    - _profile_item.value.exclude_file_content | default('') | length > 0
+  no_log: true
+
+- name: deploy per-profile .env file
+  become: true
+  ansible.builtin.template:
+    src: etc/restic-profile/restic-profile.env.j2
+    dest: "{{ restic_profile_config_dir }}/restic-profile-{{ _profile_item.key }}.env"
+    owner: root
+    group: root
+    # 0640: same restriction as the main TOML config — contains path patterns
+    # that reveal the host's filesystem layout, treat as mildly sensitive.
+    mode: "0640"
+  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
+  loop_control:
+    loop_var: _profile_item
+    label: "{{ _profile_item.key }}"
+  when:
+    - _profile_item.value.enabled | default(true) | ansible.builtin.bool
+  no_log: true
+
+- name: deploy restic-profile.toml
+  become: true
+  ansible.builtin.template:
+    src: etc/restic-profile/restic-profile.toml.j2
+    dest: "{{ restic_profile_config_file }}"
+    owner: root
+    group: root
+    # 0640: root owns; members of root group can read.
+    # The systemd services run as system_user (default: root) which can always
+    # read this file.  For non-root service users, add them to the root group
+    # or adjust the group/mode after deployment.
+    mode: "0640"
+  no_log: true

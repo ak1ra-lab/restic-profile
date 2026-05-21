@@ -1,0 +1,98 @@
+---
+# Deploy a systemd service + timer pair for each enabled profile.
+#
+# Naming convention (defined in vars/main.yaml):
+#   Backup profiles   (sources non-empty): restic-profile-backup-<name>.{service,timer}
+#   Retention-only profiles (sources: []): restic-profile-forget-<name>.{service,timer}
+#
+# The CLI command in ExecStart varies accordingly:
+#   backup profiles  → restic-profile backup <name>
+#   retention-only   → restic-profile forget <name>
+
+- name: deploy systemd service unit for each enabled profile
+  become: true
+  ansible.builtin.template:
+    src: etc/systemd/system/restic-profile.service.j2
+    dest: >-
+      /etc/systemd/system/{{
+        restic_profile_backup_unit_prefix if (_profile_item.value.sources | default([]) | length > 0)
+        else restic_profile_forget_unit_prefix
+      }}{{ _profile_item.key }}.service
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
+  loop_control:
+    loop_var: _profile_item
+    label: "{{ _profile_item.key }}"
+  when: _profile_item.value.enabled | default(true) | ansible.builtin.bool
+  notify: systemctl daemon-reload
+  no_log: true
+
+- name: deploy systemd timer unit for each enabled profile
+  become: true
+  ansible.builtin.template:
+    src: etc/systemd/system/restic-profile.timer.j2
+    dest: >-
+      /etc/systemd/system/{{
+        restic_profile_backup_unit_prefix if (_profile_item.value.sources | default([]) | length > 0)
+        else restic_profile_forget_unit_prefix
+      }}{{ _profile_item.key }}.timer
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
+  loop_control:
+    loop_var: _profile_item
+    label: "{{ _profile_item.key }}"
+  when: _profile_item.value.enabled | default(true) | ansible.builtin.bool
+  notify: systemctl daemon-reload
+  no_log: true
+
+# Check the current unit state so that the ensure-state task below can
+# also stop/disable a timer that was previously enabled (but is now set to
+# timer_enabled: false) without unconditionally calling systemctl on every run.
+- name: check current timer unit state for each enabled profile  # noqa: command-instead-of-module
+  ansible.builtin.command:
+    cmd: >-
+      systemctl show --property=ActiveState --property=UnitFileState {{
+        restic_profile_backup_unit_prefix if (_profile_item.value.sources | default([]) | length > 0)
+        else restic_profile_forget_unit_prefix
+      }}{{ _profile_item.key }}.timer
+  register: _restic_profile_timer_check
+  changed_when: false
+  failed_when: false
+  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items | default([]) }}"
+  loop_control:
+    loop_var: _profile_item
+    label: "{{ _profile_item.key }}"
+  when: _profile_item.value.enabled | default(true) | ansible.builtin.bool
+  no_log: true
+
+- name: ensure timer state for each enabled profile
+  become: true
+  ansible.builtin.systemd_service:
+    name: >-
+      {{
+        restic_profile_backup_unit_prefix if (_profile_item.value.sources | default([]) | length > 0)
+        else restic_profile_forget_unit_prefix
+      }}{{ _profile_item.key }}.timer
+    state: "{{ 'started' if _profile_item.value.timer_enabled | default(true) | ansible.builtin.bool else 'stopped' }}"
+    enabled: "{{ _profile_item.value.timer_enabled | default(true) | ansible.builtin.bool }}"
+    daemon_reload: true
+  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items | default([]) }}"
+  loop_control:
+    loop_var: _profile_item
+    index_var: _profile_index
+    label: "{{ _profile_item.key }}"
+  # Run when the timer should be enabled, OR when it is currently active/enabled
+  # (so that setting timer_enabled: false actually stops a previously running timer).
+  when:
+    - _profile_item.value.enabled | default(true) | ansible.builtin.bool
+    - >-
+      _profile_item.value.timer_enabled | default(true) | ansible.builtin.bool or
+      'ActiveState=active' in (
+        _restic_profile_timer_check.results[_profile_index].stdout_lines | default([]))
+      or 'UnitFileState=enabled' in (
+        _restic_profile_timer_check.results[_profile_index].stdout_lines | default([]))
+  no_log: true

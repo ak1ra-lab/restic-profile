@@ -1,0 +1,73 @@
+---
+- name: find all restic-profile managed systemd unit files
+  become: true
+  ansible.builtin.find:
+    paths: /etc/systemd/system
+    patterns:
+      - "restic-profile-*.service"
+      - "restic-profile-*.timer"
+  register: _restic_profile_found_units
+
+- name: stop and disable all managed timers
+  become: true
+  ansible.builtin.systemd_service:
+    name: "{{ item | ansible.builtin.basename }}"
+    state: stopped
+    enabled: false
+    daemon_reload: false
+  loop: >-
+    {{
+      _restic_profile_found_units.files
+      | map(attribute='path')
+      | select('search', '\\.timer$')
+      | list
+    }}
+  failed_when: false
+
+- name: remove all managed systemd unit files
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ _restic_profile_found_units.files }}"
+  notify: systemctl daemon-reload
+
+- name: find all restic-profile managed exclude files
+  become: true
+  ansible.builtin.find:
+    paths: "{{ restic_profile_config_dir }}"
+    patterns: "restic-profile-*.exclude"
+  register: _restic_profile_found_excludes
+
+- name: remove all managed exclude files
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ _restic_profile_found_excludes.files }}"
+
+- name: find all restic-profile managed .env files
+  become: true
+  ansible.builtin.find:
+    paths: "{{ restic_profile_config_dir }}"
+    patterns: "restic-profile-*.env"
+  register: _restic_profile_found_env
+
+- name: remove all managed .env files
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ _restic_profile_found_env.files }}"
+
+- name: remove restic-profile TOML config
+  become: true
+  ansible.builtin.file:
+    path: "{{ restic_profile_config_file }}"
+    state: absent
+
+- name: remove restic-profile virtual environment
+  become: true
+  ansible.builtin.file:
+    path: "{{ restic_profile_venv_dir }}"
+    state: absent

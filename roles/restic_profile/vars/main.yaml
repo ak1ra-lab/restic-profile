@@ -1,0 +1,25 @@
+---
+# --- Paths (following FHS) ---
+
+# str: dedicated restic-profile configuration directory
+restic_profile_config_dir: /etc/restic-profile
+
+# str: restic-profile TOML config file path
+restic_profile_config_file: "{{ restic_profile_config_dir }}/restic-profile.toml"
+
+# str: restic-profile state directory (FHS state dir)
+restic_profile_state_dir: /var/lib/restic-profile
+
+# str: restic-profile dedicated venv directory (isolated, safe to delete)
+restic_profile_venv_dir: "{{ restic_profile_state_dir }}/venv"
+
+# str: restic-profile binary path (derived from venv_dir; do not override)
+restic_profile_bin: "{{ restic_profile_venv_dir }}/bin/restic-profile"
+
+# --- Systemd unit naming prefixes ---
+# Backup profiles  (sources non-empty): <backup_prefix><name>.{service,timer}
+# Retention-only profiles (sources: []): <forget_prefix><name>.{service,timer}
+# These are defined here so that tasks and templates reference a single source
+# of truth instead of duplicating the string literals in multiple places.
+restic_profile_backup_unit_prefix: "restic-profile-backup-"
+restic_profile_forget_unit_prefix: "restic-profile-forget-"

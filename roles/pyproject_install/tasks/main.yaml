@@ -1,0 +1,22 @@
+---
+- name: install required system packages
+  ansible.builtin.apt:
+    name: "{{ pyproject_install_system_packages }}"
+    state: present
+    update_cache: false
+
+- name: ensure venv parent directory exists
+  ansible.builtin.file:
+    path: "{{ pyproject_install_venv_dir | dirname }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+- name: install from local wheel
+  when: pyproject_install_source == 'local'
+  ansible.builtin.import_tasks: local_wheel.yaml
+
+- name: install from PyPI or TestPyPI
+  when: pyproject_install_source in ['pypi', 'testpypi']
+  ansible.builtin.import_tasks: from_pypi.yaml

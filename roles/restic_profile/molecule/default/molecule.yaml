@@ -1,0 +1,53 @@
+---
+# Molecule default scenario for roles/restic_profile
+#
+# What this tests
+# ---------------
+# * restic is installed via apt.
+# * The restic-profile package is installed into a dedicated venv at
+#   /var/lib/restic-profile/venv.
+# * /etc/restic-profile/restic-profile.toml is rendered with the correct
+#   content and
+#   file permissions (0640).
+# * Per-profile systemd service + timer unit files are deployed:
+#     restic-profile-backup-test_backup.{service,timer}   (backup profile)
+#     restic-profile-forget-test_prune.{service,timer} (retention-only profile)
+# * The restic-profile CLI responds to --help with exit code 0.
+#
+# Status
+# ------
+# This scenario is currently dormant and is not part of the routine
+# validation loop. Keep it aligned with the role if you edit it, but do not
+# treat it as a required check unless Molecule is explicitly re-enabled.
+
+dependency:
+  name: galaxy
+
+driver:
+  name: docker
+
+platforms:
+  - name: restic-profile-debian12
+    image: ghcr.io/geerlingguy/docker-debian12-ansible:latest
+    pre_build_image: true
+    privileged: true
+    cgroupns_mode: host
+    command: /lib/systemd/systemd
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: "../../../../roles"
+  config_options:
+    defaults:
+      interpreter_python: auto_silent
+      callbacks_enabled: ""
+  playbooks:
+    prepare: prepare.yaml
+    converge: converge.yaml
+    verify: verify.yaml
+
+verifier:
+  name: ansible

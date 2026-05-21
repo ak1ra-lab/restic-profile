@@ -1,0 +1,44 @@
+---
+# Molecule default scenario for the pyproject_install role.
+#
+# What this tests
+# ---------------
+# * The role creates the target venv at the expected path.
+# * The local restic-profile package is built as a wheel and installed into the
+#   target venv.
+# * The restic-profile CLI entry-point is executable and responds to
+#   --help without error.
+#
+# Status
+# ------
+# This scenario is currently dormant and is not part of the routine
+# validation loop. Keep it aligned with the role if you edit it, but do not
+# treat it as a required check unless Molecule is explicitly re-enabled.
+
+dependency:
+  name: galaxy
+
+driver:
+  name: docker
+
+platforms:
+  - name: pyproject-install-debian12
+    # Plain slim image — no systemd required for this role.
+    image: debian:12-slim
+    pre_build_image: true
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      # Silence interpreter-discovery warnings inside the container.
+      interpreter_python: auto_silent
+      # Avoid callback plugins that may not be available in the venv.
+      callbacks_enabled: ""
+  playbooks:
+    prepare: prepare.yml
+    converge: converge.yml
+    verify: verify.yml
+
+verifier:
+  name: ansible
