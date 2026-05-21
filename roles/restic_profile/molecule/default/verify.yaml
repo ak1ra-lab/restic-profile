@@ -9,7 +9,7 @@
     _python: /var/lib/restic-profile/venv/bin/python
     _bin: /var/lib/restic-profile/venv/bin/restic-profile
     _cli_link: /usr/local/bin/restic-profile
-    _restic_wrapper: /usr/local/bin/restic.sh
+    _selector_script: /etc/restic-profile/restic-profile-select.bash
     _config_file: /etc/restic-profile/restic-profile.toml
     _backup_env_file: /etc/restic-profile/restic-profile-test_backup.env
     _backup_service: /etc/systemd/system/restic-profile-backup-test_backup.service
@@ -66,18 +66,18 @@
         fail_msg: >-
           Expected {{ _cli_link }} to be a symlink to {{ _bin }}, but got {{ _restic_profile_cli_link.stat.lnk_source | default('missing') }}.
 
-    - name: stat restic helper wrapper
+    - name: stat interactive profile selector
       ansible.builtin.stat:
-        path: "{{ _restic_wrapper }}"
-      register: _restic_wrapper_stat
+        path: "{{ _selector_script }}"
+      register: _selector_script_stat
 
-    - name: assert restic helper wrapper exists and is executable
+    - name: assert interactive profile selector exists and is readable
       ansible.builtin.assert:
         that:
-          - _restic_wrapper_stat.stat.exists
-          - _restic_wrapper_stat.stat.executable
+          - _selector_script_stat.stat.exists
+          - _selector_script_stat.stat.readable
         fail_msg: >-
-          Expected the restic helper wrapper at {{ _restic_wrapper }} but it was not found.
+          Expected the interactive profile selector at {{ _selector_script }} but it was not found.
     # ------------------------------------------------------------------ #
     # 3. CLI --help sanity check                                           #
     # ------------------------------------------------------------------ #
@@ -357,31 +357,39 @@
             'Type=oneshot' in (_backup_svc_content.content | ansible.builtin.b64decode)
         fail_msg: "Expected Type=oneshot in {{ _backup_service }}"
 
-    - name: list available profiles through restic helper wrapper
+    - name: source selector and choose the first profile
       ansible.builtin.command:
         argv:
-          - "{{ _restic_wrapper }}"
-          - --list
-      register: _restic_wrapper_list
+          - /bin/bash
+          - -lc
+          - >-
+            printf '1\n' | {
+              source "{{ _selector_script }}";
+              restic-profile-select >/dev/null;
+              printf '%s\n' "${RESTIC_PROFILE_NAME}";
+            }
+      register: _selector_choice
       changed_when: false
 
-    - name: assert restic helper wrapper lists both test profiles
+    - name: assert selector injects the chosen profile env
       ansible.builtin.assert:
         that:
-          - "'test_backup' in _restic_wrapper_list.stdout_lines"
-          - "'test_prune' in _restic_wrapper_list.stdout_lines"
+          - _selector_choice.stdout == 'test_backup'
         fail_msg: >-
-          Expected {{ _restic_wrapper }} --list to show test profiles. Output: {{ _restic_wrapper_list.stdout_lines | to_json }}
+          Expected {{ _selector_script }} to load the first test profile. Output: {{ _selector_choice.stdout | to_json }}
 
-    - name: run restic helper wrapper with the backup profile
+    - name: run raw restic with the backup profile env
       ansible.builtin.command:
         argv:
-          - "{{ _restic_wrapper }}"
-          - test_backup
-          - snapshots
-      register: _restic_wrapper_run
+          - /bin/bash
+          - -lc
+          - >-
+            source "{{ _backup_env_file }}" &&
+            restic_cmd="${RESTIC_PROFILE_RESTIC_BINARY:-restic}" &&
+            "${restic_cmd}" snapshots
+      register: _restic_direct_run
       changed_when: false
-      failed_when: _restic_wrapper_run.rc != 0
+      failed_when: _restic_direct_run.rc != 0
 
     - name: stat backup profile timer file
       ansible.builtin.stat:

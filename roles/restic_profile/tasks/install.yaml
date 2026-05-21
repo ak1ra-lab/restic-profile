@@ -49,11 +49,17 @@
     dest: "{{ restic_profile_cli_link }}"
     state: link
 
-- name: install restic helper wrapper in /usr/local/bin
+- name: remove legacy restic.sh helper
+  become: true
+  ansible.builtin.file:
+    path: /usr/local/bin/restic.sh
+    state: absent
+
+- name: "install interactive profile selector in {{ restic_profile_config_dir }}"
   become: true
   ansible.builtin.copy:
-    src: restic.sh
-    dest: "{{ restic_profile_restic_wrapper_path }}"
+    src: restic-profile-select.bash
+    dest: "{{ restic_profile_select_script_path }}"
     owner: root
     group: root
-    mode: "0755"
+    mode: "0644"

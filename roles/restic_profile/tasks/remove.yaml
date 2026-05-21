@@ -72,10 +72,16 @@
     path: "{{ restic_profile_cli_link }}"
     state: absent
 
-- name: remove restic helper wrapper
+- name: remove legacy restic.sh helper
   become: true
   ansible.builtin.file:
-    path: "{{ restic_profile_restic_wrapper_path }}"
+    path: /usr/local/bin/restic.sh
+    state: absent
+
+- name: remove interactive profile selector
+  become: true
+  ansible.builtin.file:
+    path: "{{ restic_profile_select_script_path }}"
     state: absent
 
 - name: remove restic-profile virtual environment
