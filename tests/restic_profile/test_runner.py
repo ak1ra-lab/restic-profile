@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import pwd
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -36,6 +38,36 @@ def test_build_env_sets_required_credentials(backup_profile: Profile) -> None:
 
     assert env["RESTIC_REPOSITORY"] == backup_profile.repository
     assert env["RESTIC_PASSWORD"] == backup_profile.password
+
+
+def test_build_env_sets_home_and_xdg_cache_home_fallbacks(
+    backup_profile: Profile,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """build_env() derives HOME and XDG_CACHE_HOME when the parent env lacks them."""
+    current_user = pwd.getpwuid(os.getuid())
+    backup_profile.system_user = current_user.pw_name
+    monkeypatch.delenv("HOME", raising=False)
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+
+    env = build_env(backup_profile)
+
+    assert env["HOME"] == current_user.pw_dir
+    assert env["XDG_CACHE_HOME"] == f"{current_user.pw_dir}/.cache"
+
+
+def test_build_env_uses_existing_home_for_xdg_cache_home_fallback(
+    backup_profile: Profile,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """build_env() preserves HOME and derives XDG_CACHE_HOME from it when needed."""
+    monkeypatch.setenv("HOME", "/tmp/restic-home")
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+
+    env = build_env(backup_profile)
+
+    assert env["HOME"] == "/tmp/restic-home"
+    assert env["XDG_CACHE_HOME"] == "/tmp/restic-home/.cache"
 
 
 # build_env — REST backend credentials

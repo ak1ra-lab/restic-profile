@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import pwd
 import shutil
 import socket
 import subprocess
@@ -43,6 +44,15 @@ def build_env(profile: Profile) -> dict[str, str]:
     import os
 
     env = os.environ.copy()
+
+    if not env.get("HOME"):
+        try:
+            env["HOME"] = pwd.getpwnam(profile.system_user).pw_dir
+        except KeyError:
+            pass
+
+    if not env.get("XDG_CACHE_HOME") and env.get("HOME"):
+        env["XDG_CACHE_HOME"] = str(Path(env["HOME"]) / ".cache")
 
     env["RESTIC_REPOSITORY"] = profile.repository
     env["RESTIC_PASSWORD"] = profile.password
