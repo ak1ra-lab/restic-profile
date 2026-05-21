@@ -1,0 +1,14 @@
+---
+# Step 0: validate required variables and assumptions.
+- name: validate restic-rest-server configuration
+  ansible.builtin.import_tasks: validation.yaml
+
+# Step 1: install packages and detect the binary location.
+# Produces facts: restic_rest_server_available, restic_rest_server_exec_path
+- name: install and detect restic-rest-server
+  ansible.builtin.import_tasks: install.yaml
+
+# Step 2: manage the restic-rest-server daemon (user, unit file, optional start).
+# Depends on facts set in install.yaml.
+- name: configure restic-rest-server service
+  ansible.builtin.import_tasks: service.yaml

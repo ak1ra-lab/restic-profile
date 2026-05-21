@@ -2,6 +2,9 @@
 
 `restic-profile` is a profile-based `restic` wrapper for Linux backup automation.
 
+This repository also carries the `restic_rest_server` Ansible role so client
+profiles and server-side storage automation live together.
+
 The recommended deployment path is the Ansible role `roles/restic_profile`, which
 installs the CLI, renders TOML config, and manages systemd units end-to-end.
 
@@ -41,6 +44,8 @@ Credentials are passed to `restic` via environment variables only.
 - Inspecting generated TOML: [restic-profile/config.md](restic-profile/config.md)
 - Understanding CLI behavior: [restic-profile/cli.md](restic-profile/cli.md)
 - Role behavior, validation, and security notes: [restic-profile/ansible.md](restic-profile/ansible.md)
+- Backup server deployment: [restic-rest-server/index.md](restic-rest-server/index.md)
+- Backup server examples: [restic-rest-server/examples.md](restic-rest-server/examples.md)
 
 ## Quick install
 

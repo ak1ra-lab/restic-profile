@@ -1,0 +1,47 @@
+---
+- name: install restic and passlib
+  become: true
+  ansible.builtin.apt:
+    name:
+      - restic
+      # python3-passlib + python3-bcrypt are required by community.general.htpasswd
+      # on the managed node. passlib is the interface layer; python3-bcrypt provides
+      # the actual bcrypt backend passlib calls for crypt_scheme: bcrypt.
+      # Ansible modules run on the managed node's Python interpreter, so these
+      # libraries must be installed there (not in the Ansible venv on the control node).
+      - python3-passlib
+      - python3-bcrypt
+    state: present
+    update_cache: true
+
+# restic-rest-server is available starting from Debian 13 (trixie);
+# on Debian 12 (bookworm) this will silently fail.
+- name: install restic-rest-server via apt
+  become: true
+  ansible.builtin.apt:
+    name:
+      - restic-rest-server
+    state: present
+    update_cache: true
+  failed_when: false
+
+- name: check if /usr/bin/restic-rest-server exists (installed via apt)
+  ansible.builtin.stat:
+    path: /usr/bin/restic-rest-server
+  register: restic_rest_server_apt_stat
+
+- name: check if /usr/local/bin/restic-rest-server exists (placed manually)
+  ansible.builtin.stat:
+    path: /usr/local/bin/restic-rest-server
+  register: restic_rest_server_local_stat
+
+- name: set restic-rest-server availability facts
+  ansible.builtin.set_fact:
+    # true when binary is reachable via either path
+    restic_rest_server_available: >-
+      {{ restic_rest_server_apt_stat.stat.exists or restic_rest_server_local_stat.stat.exists }}
+    # prefer the apt-managed path; fall back to the manually placed one
+    restic_rest_server_exec_path: >-
+      {{ '/usr/bin/restic-rest-server'
+         if restic_rest_server_apt_stat.stat.exists
+         else '/usr/local/bin/restic-rest-server' }}

@@ -1,7 +1,7 @@
 # restic-profile
 
-Profile-based `restic` automation with a Python CLI and an Ansible role for
-rendering config, deploying systemd units, and managing routine backups.
+Repository for the `restic-profile` Python CLI plus Ansible roles for
+`restic-profile` and `restic-rest-server` deployments.
 
 ## Installation
 
@@ -25,6 +25,9 @@ Routine Ansible validation currently uses `ansible-lint`. Molecule scenarios rem
 ```shell
 uv run restic-profile --help
 ```
+
+For Ansible-managed backup servers, see the `restic_rest_server` role and the
+documentation under `docs/restic-rest-server/`.
 
 ## Development
 

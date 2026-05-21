@@ -1,0 +1,98 @@
+---
+- name: ensure restic-rest-server group exists
+  become: true
+  ansible.builtin.group:
+    name: "{{ restic_rest_server_group }}"
+    system: true
+
+- name: ensure restic-rest-server user exists
+  become: true
+  ansible.builtin.user:
+    name: "{{ restic_rest_server_user }}"
+    group: "{{ restic_rest_server_group }}"
+    system: true
+    create_home: false
+
+# Only deploy the systemd unit if the binary isn't already managed by apt;
+# this allows manual placement of the binary without worrying about conflicts with the package manager.
+- name: deploy restic-rest-server.service
+  become: true
+  when: not restic_rest_server_apt_stat.stat.exists
+  ansible.builtin.template:
+    src: restic-rest-server.service.j2
+    dest: /etc/systemd/system/restic-rest-server.service
+    mode: "0644"
+  notify:
+    - systemctl daemon-reload
+
+- name: ensure /etc/restic-rest-server directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/restic-rest-server
+    state: directory
+    owner: root
+    group: "{{ restic_rest_server_group }}"
+    mode: "0750"
+
+# Seed an empty (comment-only) htpasswd file when none exists yet.
+# force: false guarantees the file is never overwritten once real entries
+# have been added by the htpasswd task below.
+- name: seed users.htpasswd from template if absent
+  become: true
+  ansible.builtin.copy:
+    src: users.htpasswd
+    dest: "{{ restic_rest_server_htpasswd_file }}"
+    owner: root
+    group: "{{ restic_rest_server_group }}"
+    mode: "0640"
+    force: false
+
+# Manage HTTP Basic Auth users in the htpasswd file.
+# Entries with an empty name are silently skipped so inventories can template or
+# conditionally construct the list without extra filtering tasks.
+- name: manage restic-rest-server htpasswd users
+  become: true
+  community.general.htpasswd:
+    path: "{{ restic_rest_server_htpasswd_file }}"
+    name: "{{ item.name }}"
+    password: "{{ item.password }}"
+    crypt_scheme: "{{ restic_rest_server_htpasswd_crypt_scheme }}"
+    owner: root
+    group: "{{ restic_rest_server_group }}"
+    mode: "0640"
+  loop: "{{ restic_rest_server_htpasswd_users }}"
+  when: item.name | length > 0
+  no_log: true
+  notify:
+    - restart restic-rest-server
+
+- name: deploy /etc/default/restic-rest-server
+  become: true
+  ansible.builtin.template:
+    src: restic-rest-server.default.j2
+    dest: /etc/default/restic-rest-server
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - restart restic-rest-server
+
+- name: enable and start restic-rest-server
+  become: true
+  when: restic_rest_server_available | ansible.builtin.bool
+  ansible.builtin.systemd_service:
+    name: restic-rest-server.service
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: remind operator to place binary manually
+  when: not (restic_rest_server_available | ansible.builtin.bool)
+  ansible.builtin.debug:
+    msg: >-
+      restic-rest-server binary was not found at
+      /usr/bin/restic-rest-server or /usr/local/bin/restic-rest-server.
+      The systemd unit has been deployed but the service has NOT been
+      started. Please copy the restic-rest-server binary to
+      /usr/local/bin/restic-rest-server and then run:
+      systemctl daemon-reload && systemctl enable --now restic-rest-server

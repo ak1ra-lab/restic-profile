@@ -1,0 +1,35 @@
+---
+- name: assert restic_rest_server_listen is set
+  ansible.builtin.assert:
+    that:
+      - restic_rest_server_listen is string
+      - restic_rest_server_listen | length > 0
+    fail_msg: "restic_rest_server_listen must be a non-empty string (got: {{ restic_rest_server_listen | default('') | to_json }})"
+
+- name: assert restic_rest_server_user is set
+  ansible.builtin.assert:
+    that:
+      - restic_rest_server_user is string
+      - restic_rest_server_user | length > 0
+    fail_msg: "restic_rest_server_user must be a non-empty string (got: {{ restic_rest_server_user | default('') | to_json }})"
+
+- name: assert restic_rest_server_group is set
+  ansible.builtin.assert:
+    that:
+      - restic_rest_server_group is string
+      - restic_rest_server_group | length > 0
+    fail_msg: "restic_rest_server_group must be a non-empty string (got: {{ restic_rest_server_group | default('') | to_json }})"
+
+- name: assert each htpasswd user entry with a non-empty name also has a password
+  ansible.builtin.assert:
+    that:
+      - item.password is defined
+      - item.password | string | length > 0
+    fail_msg: >-
+      htpasswd user {{ item.name | to_json }} has no password set.
+      Every entry in restic_rest_server_htpasswd_users with a non-empty
+      name must also provide a password (use Ansible Vault to protect
+      the value).
+  loop: "{{ restic_rest_server_htpasswd_users }}"
+  when: item.name | default('') | length > 0
+  no_log: true

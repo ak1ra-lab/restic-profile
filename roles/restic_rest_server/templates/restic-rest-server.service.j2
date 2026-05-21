@@ -1,0 +1,54 @@
+[Unit]
+Description=Restic REST Server
+Documentation=https://github.com/restic/rest-server
+After=network.target
+
+[Service]
+Type=simple
+User={{ restic_rest_server_user }}
+Group={{ restic_rest_server_group }}
+
+EnvironmentFile=/etc/default/restic-rest-server
+ExecCondition=/bin/sh -c '[ -n "$BACKUP_DIR" ]'
+
+ExecStart={{ restic_rest_server_exec_path }} --path $BACKUP_DIR --listen $LISTEN $ARGS
+Restart=on-failure
+RestartSec=5
+
+# The following options are available (in systemd v247) to restrict the
+# actions of the daemon.
+
+# Replace ProtectSystem and uncomment ReadWritePaths this to limit the daemon's
+# write access.
+ProtectSystem=full
+#ProtectSystem=strict
+#ReadWritePaths=$BACKUP_DIR
+
+# Makes created files group-readable, but inaccessible by others
+UMask=027
+
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+LockPersonality=true
+MemoryDenyWriteExecute=true
+NoNewPrivileges=yes
+
+PrivateTmp=yes
+PrivateDevices=true
+PrivateUsers=true
+ProtectHome=yes
+ProtectClock=true
+ProtectControlGroups=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectProc=invisible
+ProtectHostname=true
+RemoveIPC=true
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service @network-io
+
+[Install]
+WantedBy=multi-user.target

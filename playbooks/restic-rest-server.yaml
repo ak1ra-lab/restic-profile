@@ -1,0 +1,10 @@
+---
+- name: setup restic-rest-server
+  hosts: "{{ playbook_hosts | default('restic_rest_server') }}"
+  gather_facts: false
+  become: true
+
+  tasks:
+    - name: apply restic_rest_server role
+      ansible.builtin.import_role:
+        name: restic_rest_server
