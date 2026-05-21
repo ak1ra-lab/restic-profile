@@ -7,30 +7,6 @@ restic_profile_state: present
 #      "pypi" installs the latest published release from the public PyPI index.
 restic_profile_pip_install_source: local
 
-# str: source for the restic binary — "apt" | "go_build" | "existing"
-#      "apt" installs the distro package on the managed host.
-#      "go_build" builds a static binary on the control node and copies it to the managed host.
-#      "existing" leaves restic binary management to the operator.
-restic_profile_restic_install_source: apt
-
-# str: destination path used when restic_profile_restic_install_source == "go_build"
-restic_profile_restic_install_path: /usr/local/bin/restic
-
-# str: git ref used when go_build builds restic from source
-restic_profile_restic_go_build_repo_version: master
-
-# str: target GOOS used when go_build builds restic
-restic_profile_restic_go_build_goos: linux
-
-# str: target GOARCH used when go_build builds restic
-restic_profile_restic_go_build_goarch: amd64
-
-# bool: whether go_build disables CGO for a static restic binary
-restic_profile_restic_go_build_static: true
-
-# str: linker flags passed when go_build builds restic
-restic_profile_restic_go_build_ldflags: "-s -w"
-
 # str: global restic executable.
 #      Leave empty to resolve `restic` from PATH (the runner also falls back to
 #      common absolute paths like /usr/local/bin/restic and /usr/bin/restic).
@@ -117,3 +93,27 @@ restic_profile_retry_lock: ""
 #
 # See docs/restic-profile/examples.md for scenario-based host_vars examples.
 restic_profile_profiles: {}
+
+# str: source for the restic binary — "apt" | "go_build" | "existing"
+#      "apt" installs the distro package on the managed host.
+#      "go_build" builds a static binary on the control node and copies it to the managed host.
+#      "existing" leaves restic binary management to the operator.
+restic_profile_restic_install_source: apt
+
+# str: destination path used when restic_profile_restic_install_source == "go_build"
+restic_profile_restic_install_path: /usr/local/bin/restic
+
+# str: git ref used when go_build builds restic from source
+restic_profile_restic_go_build_repo_version: master
+
+# str: target GOOS used when go_build builds restic
+restic_profile_restic_go_build_goos: linux
+
+# str: target GOARCH used when go_build builds restic
+restic_profile_restic_go_build_goarch: amd64
+
+# bool: whether go_build disables CGO for a static restic binary
+restic_profile_restic_go_build_static: true
+
+# str: linker flags passed when go_build builds restic
+restic_profile_restic_go_build_ldflags: "-s -w"
