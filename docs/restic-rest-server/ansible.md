@@ -8,7 +8,7 @@ page focuses on what the role manages and what it validates.
 The `restic_rest_server` role:
 
 1. Validates listen, user, and group inputs plus every non-empty htpasswd user entry.
-2. Installs `restic`, `python3-passlib`, and `python3-bcrypt` via APT.
+2. Installs `python3-passlib` and `python3-bcrypt` via APT for `community.general.htpasswd`.
 3. Installs or reuses `restic-rest-server` according to `restic_rest_server_binary_install_source`.
 4. Detects the server binary at `/usr/bin/restic-rest-server` or `restic_rest_server_binary_install_path`.
 5. Creates the configured system user and group.
@@ -16,6 +16,10 @@ The `restic_rest_server` role:
 7. Renders `/etc/default/restic-rest-server`.
 8. Renders a custom systemd unit only when the binary is not APT-managed.
 9. Enables and starts the service when the binary is present.
+
+The role does not install the `restic` client. If the same host also needs
+restic for backup or restore jobs, manage that separately with the
+`restic_profile` role.
 
 ## Binary installation and detection
 

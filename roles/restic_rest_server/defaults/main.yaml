@@ -1,12 +1,36 @@
 ---
 # restic-rest-server configuration
-restic_rest_server_listen: ":8000"
+restic_rest_server_listen: ":8012"
 restic_rest_server_append_only: true
 restic_rest_server_private_repos: true
 restic_rest_server_htpasswd_file: /etc/restic-rest-server/users.htpasswd
 restic_rest_server_extra_args: ""
 restic_rest_server_user: restic-rest-server
 restic_rest_server_group: restic-rest-server
+
+# Basic-auth user list for community.general.htpasswd.
+# Override in host_vars or Vault to manage one or more users:
+#   restic_rest_server_htpasswd_users:
+#     - name: alice
+#       password: "{{ vault_alice_password }}"
+#     - name: bob
+#       password: "{{ vault_bob_password }}"
+#
+# Requires the python3-passlib + python3-bcrypt packages on the *managed node*
+# (installed automatically by this role via apt). Ansible modules execute on the
+# managed node's Python interpreter, so installing passlib only in the Ansible
+# venv on the control node has no effect.
+restic_rest_server_htpasswd_users: []
+# - name: "alice"
+#   password: "very-secure-password"
+
+# htpasswd crypt scheme — bcrypt is strongly recommended by rest-server.
+restic_rest_server_htpasswd_crypt_scheme: bcrypt
+
+# Local filesystem path to the backup storage root — passed to rest-server as --path.
+# Keep this value in sync with the prune profile's repository base path when
+# both roles run on the same host.
+restic_rest_server_backup_dir: /srv/restic
 
 # str: source for the restic-rest-server binary — "apt" | "go_build" | "existing"
 #      "apt" installs the distro package on the managed host.
@@ -32,27 +56,3 @@ restic_rest_server_go_build_static: true
 
 # str: linker flags passed when go_build builds restic-rest-server
 restic_rest_server_go_build_ldflags: "-s -w"
-
-# Basic-auth user list for community.general.htpasswd.
-# Override in host_vars or Vault to manage one or more users:
-#   restic_rest_server_htpasswd_users:
-#     - name: alice
-#       password: "{{ vault_alice_password }}"
-#     - name: bob
-#       password: "{{ vault_bob_password }}"
-#
-# Requires the python3-passlib + python3-bcrypt packages on the *managed node*
-# (installed automatically by this role via apt). Ansible modules execute on the
-# managed node's Python interpreter, so installing passlib only in the Ansible
-# venv on the control node has no effect.
-restic_rest_server_htpasswd_users: []
-# - name: "alice"
-#   password: "very-secure-password"
-
-# htpasswd crypt scheme — bcrypt is strongly recommended by rest-server.
-restic_rest_server_htpasswd_crypt_scheme: bcrypt
-
-# Local filesystem path to the backup storage root — passed to rest-server as --path.
-# Keep this value in sync with the prune profile's repository base path when
-# both roles run on the same host.
-restic_rest_server_backup_dir: /srv/restic

@@ -1,9 +1,7 @@
----
-- name: install restic and passlib
+- name: install htpasswd Python dependencies
   become: true
   ansible.builtin.apt:
     name:
-      - restic
       # python3-passlib + python3-bcrypt are required by community.general.htpasswd
       # on the managed node. passlib is the interface layer; python3-bcrypt provides
       # the actual bcrypt backend passlib calls for crypt_scheme: bcrypt.
