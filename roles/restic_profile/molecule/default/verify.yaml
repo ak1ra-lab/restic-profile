@@ -9,6 +9,7 @@
     _python: /var/lib/restic-profile/venv/bin/python
     _bin: /var/lib/restic-profile/venv/bin/restic-profile
     _cli_link: /usr/local/bin/restic-profile
+    _scope_helper: /usr/local/bin/restic-profile-scope
     _selector_script: /etc/restic-profile/restic-profile-select.bash
     _config_file: /etc/restic-profile/restic-profile.toml
     _backup_env_file: /etc/restic-profile/restic-profile-test_backup.env
@@ -78,6 +79,19 @@
           - _selector_script_stat.stat.readable
         fail_msg: >-
           Expected the interactive profile selector at {{ _selector_script }} but it was not found.
+
+    - name: stat scoped helper
+      ansible.builtin.stat:
+        path: "{{ _scope_helper }}"
+      register: _scope_helper_stat
+
+    - name: assert scoped helper exists and is executable
+      ansible.builtin.assert:
+        that:
+          - _scope_helper_stat.stat.exists
+          - _scope_helper_stat.stat.executable
+        fail_msg: >-
+          Expected the scoped helper at {{ _scope_helper }} but it was not found.
     # ------------------------------------------------------------------ #
     # 3. CLI --help sanity check                                           #
     # ------------------------------------------------------------------ #
@@ -357,6 +371,13 @@
             'Type=oneshot' in (_backup_svc_content.content | ansible.builtin.b64decode)
         fail_msg: "Expected Type=oneshot in {{ _backup_service }}"
 
+    - name: assert backup service CPUQuota is capped to one CPU
+      ansible.builtin.assert:
+        that:
+          - >-
+            'CPUQuota=100%' in (_backup_svc_content.content | ansible.builtin.b64decode)
+        fail_msg: "Expected CPUQuota=100% in {{ _backup_service }}"
+
     - name: source selector and choose the first profile
       ansible.builtin.command:
         argv:
@@ -468,6 +489,13 @@
           - >-
             'Type=oneshot' in (_forget_svc_content.content | ansible.builtin.b64decode)
         fail_msg: "Expected Type=oneshot in {{ _forget_service }}"
+
+    - name: assert retention-only service CPUQuota is capped to one CPU
+      ansible.builtin.assert:
+        that:
+          - >-
+            'CPUQuota=100%' in (_forget_svc_content.content | ansible.builtin.b64decode)
+        fail_msg: "Expected CPUQuota=100% in {{ _forget_service }}"
 
     - name: stat retention-only profile timer file
       ansible.builtin.stat:

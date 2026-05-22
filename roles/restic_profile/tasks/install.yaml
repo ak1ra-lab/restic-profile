@@ -48,3 +48,12 @@
     src: "{{ restic_profile_bin }}"
     dest: "{{ restic_profile_cli_link }}"
     state: link
+
+- name: install restic-profile scoped helper in /usr/local/bin
+  become: true
+  ansible.builtin.template:
+    src: usr/local/bin/restic-profile-scope.j2
+    dest: "{{ restic_profile_scope_helper_path }}"
+    owner: root
+    group: root
+    mode: "0755"

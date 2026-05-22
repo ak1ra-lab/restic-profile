@@ -41,9 +41,9 @@ restic_profile_profiles:
 | Backup flow         | `sources`, `tag`, `exclude_patterns`, `one_file_system`, `forget`, `forget_current_host`, `prune`   | `sources: []` makes the profile retention-only                                                                      |
 | Exclude file helper | `exclude_file_content`                                                                              | Role-only input; writes `/etc/restic-profile/restic-profile-<name>.exclude` and then renders `exclude_file = ...` into TOML |
 | Retention           | `keep_last`, `keep_hourly`, `keep_daily`, `keep_weekly`, `keep_monthly`, `keep_yearly`              | Retention-only profiles need at least one non-zero `keep_*`                                                         |
-| Timer/runtime       | `on_calendar`, `randomized_delay_sec`, `system_user`, `restic_binary`, `no_cache`, `retry_lock`     | Present in TOML and reused by the role when generating units; `restic_binary` and `no_cache` can inherit from the global setting |
+| Timer/runtime       | `on_calendar`, `randomized_delay_sec`, `system_user`, `restic_binary`, `no_cache`, `retry_lock` | Present in TOML and reused by the role when generating units; `restic_binary` and `no_cache` can inherit from the global setting |
 | Hooks               | `hooks.shell`, `hooks.prevalidate`, `hooks.before`, `hooks.after`, `hooks.failure`, `hooks.success` | Rendered under `[profiles.<name>.hooks]`                                                                            |
-| Role-only lifecycle | `enabled`, `timer_enabled`                                                                          | Never rendered into TOML                                                                                            |
+| Role-only lifecycle | `enabled`, `timer_enabled`, `cpu_quota`, `nice`, `io_scheduling_class`, `io_scheduling_priority`   | Never rendered into TOML; used only when generating systemd units                                                   |
 
 ## Defaults that matter operationally
 
@@ -52,6 +52,9 @@ restic_profile_profiles:
 - `forget_current_host: false`: standalone forget runs are tag-scoped, not host-scoped
 - `prune: false`: standalone forget does not add `--prune` unless you opt in
 - `restic_binary`: inherits `restic_profile_restic_binary`; leave it empty to use PATH-based resolution, or set an absolute path when you want an exact binary
+- `cpu_quota`: inherits `restic_profile_systemd_cpu_quota`; set it to `""` on a profile to remove the generated unit's `CPUQuota=` override
+- `nice`: inherits `restic_profile_systemd_nice`; leave it empty unless you want the generated unit to run below the default scheduler priority
+- `io_scheduling_class` and `io_scheduling_priority`: inherit the global systemd I/O scheduling defaults and apply only to generated service units
 - `no_cache`: inherits `restic_profile_no_cache` unless the profile overrides it
 - `retry_lock`: inherits `restic_profile_retry_lock`; leave it empty unless the selected restic build supports `--retry-lock`
 - `keep_hourly: 6`, `keep_daily: 7`, `keep_weekly: 4`, `keep_monthly: 3`: retention-only profiles are valid out of the box unless you explicitly zero all `keep_*`

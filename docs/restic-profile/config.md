@@ -28,6 +28,11 @@ Two role-only controls never appear in the TOML:
 - `enabled`: skip deployment entirely when `false`
 - `timer_enabled`: deploy units but stop/disable the timer when `false`
 
+The Ansible role's systemd resource controls (`cpu_quota`, `nice`,
+`io_scheduling_class`, `io_scheduling_priority`) also stay outside the TOML.
+They are applied only when rendering the generated service units and the
+optional `restic-profile-scope` helper.
+
 `exclude_file_content` is also Ansible-only input: the role writes a separate
 exclude file and then renders its path into `exclude_file`.
 

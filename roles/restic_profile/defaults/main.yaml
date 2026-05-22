@@ -12,6 +12,24 @@ restic_profile_pip_install_source: local
 #      common absolute paths like /usr/local/bin/restic and /usr/bin/restic).
 restic_profile_restic_binary: ""
 
+# str: global CPUQuota= applied to managed restic-profile systemd services and
+#      the optional restic-profile-scope helper. "100%" caps execution to one
+#      CPU worth of runtime; set to "" to disable the quota entirely.
+restic_profile_systemd_cpu_quota: "100%"
+
+# int|str: global Nice= value applied to managed systemd runs.
+#          Set to "" to keep the system default priority.
+restic_profile_systemd_nice: ""
+
+# str: global IOSchedulingClass= value applied to managed systemd runs.
+#      Allowed values are "realtime", "best-effort", and "idle".
+#      Set to "" to keep the system default.
+restic_profile_systemd_io_scheduling_class: ""
+
+# int|str: global IOSchedulingPriority= value applied to managed systemd runs.
+#          Valid values are 0-7. Set to "" to keep the kernel default.
+restic_profile_systemd_io_scheduling_priority: ""
+
 # bool: global --no-cache toggle for every restic invocation.
 #       Individual profiles can override this with their own no_cache field.
 restic_profile_no_cache: false
@@ -85,6 +103,12 @@ restic_profile_retry_lock: ""
 #   system_user                       str   "root"   User= field in the systemd service unit
 #   on_calendar                       str   "hourly" OnCalendar value for the systemd timer
 #   randomized_delay_sec              str   "10min"  RandomizedDelaySec value for the timer
+#
+#   # Role-only systemd resource controls (not rendered into TOML)
+#   cpu_quota                         str   <global> CPUQuota= value for the generated service unit
+#   nice                              int   <global> Nice= value for the generated service unit
+#   io_scheduling_class               str   <global> IOSchedulingClass= value for the generated service unit
+#   io_scheduling_priority            int   <global> IOSchedulingPriority= value for the generated service unit
 #
 # See docs/restic-profile/examples.md for scenario-based host_vars examples.
 restic_profile_profiles: {}

@@ -10,15 +10,27 @@ The `restic_profile` role:
 1. Installs or reuses `restic` according to `restic_profile_restic_install_source`.
 2. Installs `restic-profile` into `/var/lib/restic-profile/venv`.
 3. Exposes `/usr/local/bin/restic-profile` as a symlink to the venv entry point for interactive use.
-4. Installs `/etc/restic-profile/restic-profile-select.bash`, a sourced shell helper that defines `restic-profile-select` for interactive profile selection.
-5. Renders `/etc/restic-profile/restic-profile.toml` (mode `0640`).
-6. Renders one per-profile environment file and optional exclude file.
-7. Deploys one systemd service+timer pair per enabled profile.
+4. Installs `/usr/local/bin/restic-profile-scope`, a transient `systemd-run --scope` helper for manually throttled CLI runs.
+5. Installs `/etc/restic-profile/restic-profile-select.bash`, a sourced shell helper that defines `restic-profile-select` for interactive profile selection.
+6. Renders `/etc/restic-profile/restic-profile.toml` (mode `0640`).
+7. Renders one per-profile environment file and optional exclude file.
+8. Deploys one systemd service+timer pair per enabled profile.
 
 The systemd units still execute `restic_profile_bin` directly. The
 `/usr/local/bin/restic-profile` symlink is only a stable operator-facing PATH
 entry so you can run `restic-profile list`, `validate`, `backup`, or `forget`
 without activating the dedicated virtual environment.
+
+If you want an interactive `restic-profile` run to use the same global systemd
+resource controls as the managed timer services, use the separate helper:
+
+```shell
+restic-profile-scope backup myapp
+restic-profile-scope forget repo-prune
+```
+
+The scope helper uses the global role defaults such as `CPUQuota=`. Per-profile
+systemd overrides still apply only to the generated service units.
 
 `/etc/restic-profile/restic-profile-select.bash` is separate from the
 `restic-profile` CLI. Source it once in an interactive Bash shell to define the
@@ -54,6 +66,10 @@ file. With the role defaults, that usually means running it as `root`.
 | `restic_profile_pip_install_source` | `local`   | `local`, `pypi`, or `testpypi`                        |
 | `restic_profile_restic_install_source` | `apt` | `apt`, `go_build`, or `existing` for the restic binary |
 | `restic_profile_restic_binary`      | `""`     | Global restic executable; empty means resolve from PATH/common locations |
+| `restic_profile_systemd_cpu_quota`  | `100%`    | Global `CPUQuota=` cap for generated services and `restic-profile-scope`; set `""` to disable |
+| `restic_profile_systemd_nice`       | `""`     | Global `Nice=` value for generated services and `restic-profile-scope` |
+| `restic_profile_systemd_io_scheduling_class` | `""` | Global `IOSchedulingClass=` value for generated services and `restic-profile-scope` |
+| `restic_profile_systemd_io_scheduling_priority` | `""` | Global `IOSchedulingPriority=` value for generated services and `restic-profile-scope` |
 | `restic_profile_no_cache`           | `false`   | Global `--no-cache` toggle                            |
 | `restic_profile_retry_lock`         | `""`     | Global `--retry-lock` duration; opt-in because unsupported builds fail directly |
 
@@ -61,6 +77,10 @@ When you configure `retry_lock`, `no_cache`, or `one_file_system`,
 `restic-profile` passes those flags through unchanged. If the selected restic
 binary does not support them, the restic command fails and surfaces that error
 directly instead of being silently downgraded.
+
+Systemd resource controls are applied only to the generated service units and
+the `restic-profile-scope` helper. The plain `restic-profile` symlink and the
+interactive selector-generated raw `restic` environment stay unmodified.
 
 ### Restic binary installation
 
@@ -87,10 +107,14 @@ The profile schema is documented in
 Practical deployment examples are in
 [examples.md](examples.md).
 
-Two profile fields are role-only:
+Role-only profile fields include:
 
 - `enabled`: skip deploying the profile entirely
 - `timer_enabled`: still render the units, but stop/disable the timer
+- `cpu_quota`: override the generated service unit's `CPUQuota=`
+- `nice`: override the generated service unit's `Nice=`
+- `io_scheduling_class`: override the generated service unit's `IOSchedulingClass=`
+- `io_scheduling_priority`: override the generated service unit's `IOSchedulingPriority=`
 
 ### Fixed role paths
 
@@ -104,6 +128,7 @@ to be overridden.
 | `restic_profile_venv_dir`           | `/var/lib/restic-profile/venv`                            |
 | `restic_profile_bin`                | `/var/lib/restic-profile/venv/bin/restic-profile`         |
 | `restic_profile_cli_link`           | `/usr/local/bin/restic-profile`                           |
+| `restic_profile_scope_helper_path`  | `/usr/local/bin/restic-profile-scope`                     |
 | `restic_profile_select_script_path` | `/etc/restic-profile/restic-profile-select.bash`         |
 | `restic_profile_backup_unit_prefix` | `restic-profile-backup-`                                  |
 | `restic_profile_forget_unit_prefix` | `restic-profile-forget-`                                  |
@@ -120,8 +145,9 @@ When `state: absent`, the role:
 2. Removes generated service/timer units from `/etc/systemd/system`.
 3. Removes `/etc/restic-profile/restic-profile.toml`.
 4. Removes `/usr/local/bin/restic-profile`.
-5. Removes `/etc/restic-profile/restic-profile-select.bash`.
-6. Removes `/var/lib/restic-profile/venv`.
+5. Removes `/usr/local/bin/restic-profile-scope`.
+6. Removes `/etc/restic-profile/restic-profile-select.bash`.
+7. Removes `/var/lib/restic-profile/venv`.
 
 It does not remove the distro `restic` package or any go-build-managed restic
 binary.

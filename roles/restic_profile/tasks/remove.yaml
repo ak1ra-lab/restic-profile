@@ -72,6 +72,12 @@
     path: "{{ restic_profile_cli_link }}"
     state: absent
 
+- name: remove restic-profile scoped helper
+  become: true
+  ansible.builtin.file:
+    path: "{{ restic_profile_scope_helper_path }}"
+    state: absent
+
 - name: remove legacy restic.sh helper
   become: true
   ansible.builtin.file:

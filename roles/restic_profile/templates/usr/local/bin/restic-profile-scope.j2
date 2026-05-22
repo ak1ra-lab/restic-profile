@@ -1,0 +1,50 @@
+#!/bin/sh
+
+set -e
+set -u
+
+if [ "$#" -eq 0 ]; then
+    printf 'Usage: %s <restic-profile args...>\n' "$0" >&2
+    exit 1
+fi
+
+if [ "$(id -u)" -eq 0 ]; then
+    exec systemd-run \
+{% if restic_profile_systemd_cpu_quota | default('') != '' %}
+        --property=CPUQuota={{ restic_profile_systemd_cpu_quota }} \
+{% endif %}
+{% if restic_profile_systemd_nice | default('') != '' %}
+        --property=Nice={{ restic_profile_systemd_nice }} \
+{% endif %}
+{% if restic_profile_systemd_io_scheduling_class | default('') != '' %}
+        --property=IOSchedulingClass={{ restic_profile_systemd_io_scheduling_class }} \
+{% if restic_profile_systemd_io_scheduling_priority | default('') != '' %}
+        --property=IOSchedulingPriority={{ restic_profile_systemd_io_scheduling_priority }} \
+{% endif %}
+{% endif %}
+        --scope \
+        --same-dir \
+        --quiet \
+        --description=restic-profile\ scoped\ run \
+        -- {{ restic_profile_cli_link }} "$@"
+fi
+
+exec systemd-run \
+    --user \
+{% if restic_profile_systemd_cpu_quota | default('') != '' %}
+    --property=CPUQuota={{ restic_profile_systemd_cpu_quota }} \
+{% endif %}
+{% if restic_profile_systemd_nice | default('') != '' %}
+    --property=Nice={{ restic_profile_systemd_nice }} \
+{% endif %}
+{% if restic_profile_systemd_io_scheduling_class | default('') != '' %}
+    --property=IOSchedulingClass={{ restic_profile_systemd_io_scheduling_class }} \
+{% if restic_profile_systemd_io_scheduling_priority | default('') != '' %}
+    --property=IOSchedulingPriority={{ restic_profile_systemd_io_scheduling_priority }} \
+{% endif %}
+{% endif %}
+    --scope \
+    --same-dir \
+    --quiet \
+    --description=restic-profile\ scoped\ run \
+    -- {{ restic_profile_cli_link }} "$@"
