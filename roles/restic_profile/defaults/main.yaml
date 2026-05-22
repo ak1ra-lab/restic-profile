@@ -1,16 +1,103 @@
 ---
+# dict: profile definitions. Each key becomes the profile name, which is used as
+#   the TOML section key ([profiles.<name>]) and as the systemd unit suffix.
+#   Using a dict instead of a list keeps names unique and mirrors the rendered
+#   TOML layout.
+#
+# Required fields per profile:
+#   repository                        str   restic repository URL or local path
+#   password                          str   repository encryption password (use Ansible Vault)
+#
+# Fields rendered into /etc/restic-profile/restic-profile.toml:
+#   # REST backend (rendered when non-empty)
+#   rest_username                     str   ""       HTTP Basic Auth username
+#   rest_password                     str   ""       HTTP Basic Auth password
+#   cacert                            str   ""       path to CA cert for self-signed TLS
+#
+#   # S3-compatible backend (rendered when aws_access_key_id is set)
+#   aws_default_region                str   ""
+#   aws_access_key_id                 str   ""
+#   aws_secret_access_key             str   ""
+#
+#   # Google Cloud Storage backend (rendered when google_project_id is set)
+#   google_project_id                 str   ""       required for gs: repositories
+#   google_application_credentials    str   ""       service-account JSON path
+#   google_access_token               str   ""       short-lived OAuth2 token; takes precedence
+#
+#   # Backup / forget behavior
+#   sources                           list  []       source paths; [] makes a retention-only profile
+#   tag                               str   <name>   snapshot tag; defaults to the profile name
+#   exclude_patterns                  list  []       each entry becomes one --exclude
+#   one_file_system                   bool  false    add --one-file-system to restic backup
+#   forget                            bool  true     run post-backup restic forget after backup
+#   forget_current_host               bool  false    add --host <current host> to standalone forget
+#   prune                             bool  false    add --prune to standalone forget
+#
+#   # Retention policy (retention-only profiles need at least one non-zero keep_*)
+#   keep_last                         int   0        keep last N snapshots (0 = disabled)
+#   keep_hourly                       int   6        keep last N hourly snapshots
+#   keep_daily                        int   7        keep last N daily snapshots
+#   keep_weekly                       int   4        keep last N weekly snapshots
+#   keep_monthly                      int   3        keep last N monthly snapshots
+#   keep_yearly                       int   0        keep last N yearly snapshots
+#
+#   # Schedule and runtime fields shared by the role and CLI
+#   system_user                       str   "root"   User= field in the generated systemd service unit
+#   on_calendar                       str   "hourly" OnCalendar value for the systemd timer
+#   randomized_delay_sec              str   "10min"  RandomizedDelaySec value for the timer
+#   restic_binary                     str   <global> override the global restic binary for this profile
+#   no_cache                          bool  <global> override the global --no-cache toggle for this profile
+#   retry_lock                        str   <global> override the global --retry-lock duration for this profile
+#
+#   # Hooks (rendered under [profiles.<name>.hooks])
+#   hooks.shell                       str   "/bin/sh"
+#   hooks.prevalidate                 list  []       inline commands before repository checks / auto-init
+#   hooks.before                      list  []       inline commands before backup
+#   hooks.after                       list  []       inline commands after the backup attempt
+#   hooks.failure                     list  []       inline commands when prevalidate/before/backup fails
+#   hooks.success                     list  []       inline commands when the full backup flow succeeds
+#
+# Role-only inputs consumed by the role and not rendered directly into TOML:
+#   exclude_file_content              str   ""       rendered to
+#                                                      /etc/restic-profile/restic-profile-<name>.exclude;
+#                                                      the generated path is then written into exclude_file
+#   hooks.<phase>_scripts             list  []       local script files copied to
+#                                                      /etc/restic-profile/hooks.d/restic-profile-<name>.<phase>-<seq>.sh
+#                                                      and appended to hooks.<phase>
+#   hooks.<phase>_templates           list  []       local Jinja script templates rendered to
+#                                                      /etc/restic-profile/hooks.d/restic-profile-<name>.<phase>-<seq>.sh
+#                                                      and appended after hooks.<phase>_scripts
+#   enabled                           bool  true     skip deploying this profile when false
+#   timer_enabled                     bool  true     deploy units but stop/disable the timer when false
+#
+# Role-only systemd resource controls (never rendered into TOML):
+#   cpu_quota                         str   <global> CPUQuota= value for the generated service unit
+#   nice                              int   <global> Nice= value for the generated service unit
+#   io_scheduling_class               str   <global> IOSchedulingClass= value for the generated service unit
+#   io_scheduling_priority            int   <global> IOSchedulingPriority= value for the generated service unit
+#
+# See docs/restic-profile/examples.md for scenario-based host_vars examples and
+# docs/restic-profile/profiles.md for a rendered-vs-role-only field map.
+restic_profile_profiles: {}
+
 # str: deployment state; set "absent" to stop timers and remove all managed files
 restic_profile_state: present
-
-# str: install source for the restic-profile Python package — "local" | "pypi" | "testpypi"
-#      "local" builds the wheel on the control node and uploads it to the managed host.
-#      "pypi" installs the latest published release from the public PyPI index.
-restic_profile_pip_install_source: local
 
 # str: global restic executable.
 #      Leave empty to resolve `restic` from PATH (the runner also falls back to
 #      common absolute paths like /usr/local/bin/restic and /usr/bin/restic).
 restic_profile_restic_binary: ""
+
+# bool: global --no-cache toggle for every restic invocation.
+#       Individual profiles can override this with their own no_cache field.
+restic_profile_no_cache: false
+
+# str: global retry-lock duration passed to every restic invocation.
+#      This is opt-in because older restic builds (for example Debian 12's 0.14)
+#      do not support --retry-lock and will fail directly when it is configured.
+#      Individual profiles can override this with their own retry_lock field.
+#      Set to "" to disable globally.
+restic_profile_retry_lock: ""
 
 # str: global CPUQuota= applied to managed restic-profile systemd services and
 #      the optional restic-profile-scope helper. "100%" caps execution to one
@@ -30,94 +117,10 @@ restic_profile_systemd_io_scheduling_class: ""
 #          Valid values are 0-7. Set to "" to keep the kernel default.
 restic_profile_systemd_io_scheduling_priority: ""
 
-# bool: global --no-cache toggle for every restic invocation.
-#       Individual profiles can override this with their own no_cache field.
-restic_profile_no_cache: false
-
-# str: global retry-lock duration passed to every restic invocation.
-#      This is opt-in because older restic builds (for example Debian 12's 0.14)
-#      do not support --retry-lock and will fail directly when it is configured.
-#      Individual profiles can override this with their own retry_lock field.
-#      Set to "" to disable globally.
-restic_profile_retry_lock: ""
-
-# dict: profile definitions.  Each key becomes the profile name, which is used as
-#   the TOML section key ([profiles.<name>]) and as the systemd unit suffix.
-#   Using a dict instead of a list keeps names unique and mirrors the rendered
-#   TOML layout. Most fields below are rendered into /etc/restic-profile/restic-profile.toml
-#   by templates/etc/restic-profile/restic-profile.toml.j2; role-only fields are called out.
-#
-# Required fields per profile:
-#   repository                        str   restic repository URL or local path
-#   password                          str   repository encryption password (use Ansible Vault)
-#
-# Optional fields (defaults shown):
-#   # REST backend (rendered when non-empty)
-#   rest_username                     str   ""       HTTP Basic Auth username
-#   rest_password                     str   ""       HTTP Basic Auth password
-#   cacert                            str   ""       path to CA cert for self-signed TLS
-#
-#   # S3-compatible backend (rendered when aws_access_key_id is set)
-#   aws_default_region                str   ""
-#   aws_access_key_id                 str   ""
-#   aws_secret_access_key             str   ""
-#
-#   # Google Cloud Storage backend (rendered when google_project_id is set)
-#   google_project_id                 str   ""       required for gs: repositories
-#   google_application_credentials    str   ""       service-account JSON path
-#   google_access_token               str   ""       short-lived OAuth2 token; takes precedence
-#
-#   # Backup / forget behavior (rendered to TOML)
-#   sources                           list  []       source paths; [] makes a retention-only profile
-#   tag                               str   <name>   snapshot tag; defaults to the profile name
-#   exclude_patterns                  list  []       each entry becomes one --exclude
-#   exclude_file_content              str   ""       role-only input rendered to
-#                                                      /etc/restic-profile/restic-profile-<name>.exclude;
-#                                                      also writes exclude_file into TOML
-#   one_file_system                   bool  false    add --one-file-system to restic backup
-#   forget                            bool  true     run post-backup restic forget after backup
-#   forget_current_host               bool  false    add --host <current host> to standalone forget
-#   prune                             bool  false    add --prune to standalone forget
-#
-#   # Retention policy (retention-only profiles need at least one non-zero keep_*)
-#   keep_last                         int   0        keep last N snapshots (0 = disabled)
-#   keep_hourly                       int   6        keep last N hourly snapshots
-#   keep_daily                        int   7        keep last N daily snapshots
-#   keep_weekly                       int   4        keep last N weekly snapshots
-#   keep_monthly                      int   3        keep last N monthly snapshots
-#   keep_yearly                       int   0        keep last N yearly snapshots
-#
-#   # Hooks (rendered under [profiles.<name>.hooks])
-#   hooks.shell                       str   "/bin/sh"
-#   hooks.prevalidate                 list  []       inline commands before repository checks / auto-init
-#   hooks.before                      list  []       inline commands before backup
-#   hooks.after                       list  []       inline commands after the backup attempt
-#   hooks.failure                     list  []       inline commands when prevalidate/before/backup fails
-#   hooks.success                     list  []       inline commands when the full backup flow succeeds
-#   hooks.<phase>_scripts             list  []       role-only local script files copied to
-#                                                      /etc/restic-profile/hooks.d/restic-profile-<name>.<phase>-<seq>.sh
-#                                                      and appended to hooks.<phase>
-#   hooks.<phase>_templates           list  []       role-only local Jinja script templates rendered to
-#                                                      /etc/restic-profile/hooks.d/restic-profile-<name>.<phase>-<seq>.sh
-#                                                      and appended after hooks.<phase>_scripts
-#
-#   # Role-only lifecycle controls (not rendered into TOML)
-#   enabled                           bool  true     skip deploying this profile when false
-#
-#   # Systemd schedule (rendered to TOML and used by the role's timer templates)
-#   timer_enabled                     bool  true     deploy units but stop/disable the timer when false
-#   system_user                       str   "root"   User= field in the systemd service unit
-#   on_calendar                       str   "hourly" OnCalendar value for the systemd timer
-#   randomized_delay_sec              str   "10min"  RandomizedDelaySec value for the timer
-#
-#   # Role-only systemd resource controls (not rendered into TOML)
-#   cpu_quota                         str   <global> CPUQuota= value for the generated service unit
-#   nice                              int   <global> Nice= value for the generated service unit
-#   io_scheduling_class               str   <global> IOSchedulingClass= value for the generated service unit
-#   io_scheduling_priority            int   <global> IOSchedulingPriority= value for the generated service unit
-#
-# See docs/restic-profile/examples.md for scenario-based host_vars examples.
-restic_profile_profiles: {}
+# str: install source for the restic-profile Python package — "local" | "pypi" | "testpypi"
+#      "local" builds the wheel on the control node and uploads it to the managed host.
+#      "pypi" installs the latest published release from the public PyPI index.
+restic_profile_pip_install_source: local
 
 # str: source for the restic binary — "apt" | "go_build" | "existing"
 #      "apt" installs the distro package on the managed host.
