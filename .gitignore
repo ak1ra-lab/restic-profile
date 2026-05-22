@@ -333,6 +333,10 @@ playbooks/group_vars/**/*.yaml
 playbooks/host_vars/**/*.patch
 playbooks/group_vars/**/*.patch
 
+# Ansible runtime scripts and templates
+playbooks/scripts/*
+playbooks/templates/*
+
 # 示例 Ansible inventory
 !inventory/hosts.example.yaml
 
