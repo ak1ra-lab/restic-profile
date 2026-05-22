@@ -54,8 +54,8 @@ restic_profile_retry_lock: ""
 #   tag                               str   <name>   snapshot tag; defaults to the profile name
 #   exclude_patterns                  list  []       each entry becomes one --exclude
 #   exclude_file_content              str   ""       role-only input rendered to
-#                                                          /etc/restic-profile/restic-profile-<name>.exclude;
-#                                                          also writes exclude_file into TOML
+#                                                      /etc/restic-profile/restic-profile-<name>.exclude;
+#                                                      also writes exclude_file into TOML
 #   one_file_system                   bool  false    add --one-file-system to restic backup
 #   forget                            bool  true     run post-backup restic forget after backup
 #   forget_current_host               bool  false    add --host <current host> to standalone forget
@@ -69,16 +69,6 @@ restic_profile_retry_lock: ""
 #   keep_monthly                      int   3        keep last N monthly snapshots
 #   keep_yearly                       int   0        keep last N yearly snapshots
 #
-#   # Systemd schedule (rendered to TOML and used by the role's timer templates)
-#   on_calendar                       str   "hourly" OnCalendar value for the systemd timer
-#   randomized_delay_sec              str   "10min"  RandomizedDelaySec value for the timer
-#
-#   # Runtime (rendered to TOML)
-#   system_user                       str   "root"   User= field in the systemd service unit
-#   restic_binary                     str   <global> per-profile override for restic_profile_restic_binary
-#   no_cache                          bool  <global> per-profile override for restic_profile_no_cache
-#   retry_lock                        str   ""       per-profile override for restic_profile_retry_lock
-#
 #   # Hooks (rendered under [profiles.<name>.hooks])
 #   hooks.shell                       str   "/bin/sh"
 #   hooks.prevalidate                 list  []       before repository checks / auto-init
@@ -89,7 +79,12 @@ restic_profile_retry_lock: ""
 #
 #   # Role-only lifecycle controls (not rendered into TOML)
 #   enabled                           bool  true     skip deploying this profile when false
+#
+#   # Systemd schedule (rendered to TOML and used by the role's timer templates)
 #   timer_enabled                     bool  true     deploy units but stop/disable the timer when false
+#   system_user                       str   "root"   User= field in the systemd service unit
+#   on_calendar                       str   "hourly" OnCalendar value for the systemd timer
+#   randomized_delay_sec              str   "10min"  RandomizedDelaySec value for the timer
 #
 # See docs/restic-profile/examples.md for scenario-based host_vars examples.
 restic_profile_profiles: {}
