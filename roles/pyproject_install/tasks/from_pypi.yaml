@@ -1,5 +1,5 @@
 ---
-- name: install package from PyPI or TestPyPI  # noqa: package-latest
+- name: install package from PyPI or TestPyPI # noqa: package-latest
   ansible.builtin.pip:
     name: >-
       {{ pyproject_install_package_name

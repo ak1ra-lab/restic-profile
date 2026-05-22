@@ -52,7 +52,7 @@
 # Check the current unit state so that the ensure-state task below can
 # also stop/disable a timer that was previously enabled (but is now set to
 # timer_enabled: false) without unconditionally calling systemctl on every run.
-- name: check current timer unit state for each enabled profile  # noqa: command-instead-of-module
+- name: check current timer unit state for each enabled profile # noqa: command-instead-of-module
   ansible.builtin.command:
     cmd: >-
       systemctl show --property=ActiveState --property=UnitFileState {{

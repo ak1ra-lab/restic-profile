@@ -1,3 +1,4 @@
+---
 - name: install htpasswd Python dependencies
   become: true
   ansible.builtin.apt:
