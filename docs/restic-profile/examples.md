@@ -96,6 +96,8 @@ restic_profile_profiles:
         - "systemctl start myapp.service"
       failure:
         - "logger -t restic-profile 'home-alice backup failed'"
+      success_templates:
+        - "{{ playbook_dir }}/templates/restic-profile/hooks.d/home-alice-success-summary.sh.j2"
       success:
         - "logger -t restic-profile 'home-alice backup succeeded'"
 
@@ -106,6 +108,84 @@ restic_profile_profiles:
 This is the most feature-complete single-host example in the role docs: REST
 credentials, an explicit `tag`, inline and file-based excludes, retention,
 hooks, timer/runtime overrides, and a go-build-managed `restic` binary.
+
+## Organizing hook files on the control node
+
+Keep hook file paths out of `host_vars` except for the `src` reference itself.
+The recommended split is:
+
+- `host_vars/...`: profile data and the `hooks.<phase>_scripts` / `hooks.<phase>_templates` lists
+- `playbooks/templates/...`: Jinja-rendered hook scripts such as `.sh.j2`
+- `playbooks/files/...`: static hook scripts copied without templating
+
+Example host vars:
+
+```yaml
+# host_vars/backup-client-01/restic-profile.yaml
+---
+restic_profile_profiles:
+  home-alice:
+    repository: "rest:https://backup.example.com:8000/alice/home-alice"
+    password: "{{ vault_restic_home_alice_password }}"
+    sources:
+      - /home/alice
+
+    hooks:
+      shell: "/usr/bin/bash"
+      success_templates:
+        - "{{ playbook_dir }}/templates/restic-profile/hooks.d/home-alice-success-summary.sh.j2"
+      success_scripts:
+        - "{{ playbook_dir }}/files/restic-profile/hooks.d/home-alice-success-audit.sh"
+```
+
+Example template file:
+
+```bash
+#!/usr/bin/env bash
+
+set -o errexit -o nounset
+
+log_dir=/var/log/restic-profile
+mkdir -p "${log_dir}"
+
+profile_name={{ restic_profile_hook_profile_name | tojson }}
+phase_name={{ restic_profile_hook_phase | tojson }}
+
+declare -a profile_sources=(
+{% for source in restic_profile_hook_profile.sources %}
+    {{ source | tojson }}
+{% endfor %}
+)
+
+{
+  printf '[%s] profile=%s phase=%s\n' \
+    "$(date --iso-8601=seconds)" \
+    "${profile_name}" \
+    "${phase_name}"
+
+  for source_dir in "${profile_sources[@]}"; do
+    if [[ -e "${source_dir}" ]]; then
+      printf '  source: %s\n' "${source_dir}"
+    else
+      printf '  missing: %s\n' "${source_dir}"
+    fi
+  done
+} >>"${log_dir}/hook-summary.log"
+```
+
+`ansible.builtin.template` accepts absolute or relative `src` paths. For role
+tasks like this one, relative paths use Ansible task-path search: current role
+first, then the task file location, then the current play. That means
+`playbooks/templates/...` and `playbooks/files/...` work well, but using
+`{{ playbook_dir }}/...` is the least ambiguous option when you want to be sure
+which controller-side file will be used.
+
+The generated remote files land under `/etc/restic-profile/hooks.d/` as:
+
+- `/etc/restic-profile/hooks.d/restic-profile-<profile>.<phase>-<seq>.sh`
+
+Those paths are then appended to the matching `hooks.<phase>` array in the
+rendered TOML, so the Python runner still just executes hook entries in order.
 
 ## Scenario 2: append-only client plus repository-host retention
 

@@ -36,6 +36,11 @@ optional `restic-profile-scope` helper.
 `exclude_file_content` is also Ansible-only input: the role writes a separate
 exclude file and then renders its path into `exclude_file`.
 
+`hooks.<phase>_scripts` and `hooks.<phase>_templates` are likewise Ansible-only
+inputs. The role copies or renders them to
+`/etc/restic-profile/hooks.d/restic-profile-<name>.<phase>-<seq>.sh` and then
+appends those paths to the matching `hooks.<phase>` array in TOML.
+
 Additional runtime fields worth knowing:
 
 - `restic_binary`: optional global or per-profile string; when empty, `restic-profile` resolves `restic` from PATH to an absolute path and then falls back to common locations such as `/usr/local/bin/restic` and `/usr/bin/restic`
@@ -111,8 +116,13 @@ failure = [
 ]
 success = [
 	"logger -t restic-profile 'home-alice backup succeeded'",
+	"/etc/restic-profile/hooks.d/restic-profile-home-alice.success-01.sh",
 ]
 ```
+
+If a phase mixes inline commands with file-backed hooks, TOML order stays stable:
+inline `hooks.<phase>` entries first, then `hooks.<phase>_scripts`, then
+`hooks.<phase>_templates`.
 
 ## Rendered TOML: retention-only repository host
 

@@ -43,6 +43,7 @@ restic_profile_profiles:
 | Retention           | `keep_last`, `keep_hourly`, `keep_daily`, `keep_weekly`, `keep_monthly`, `keep_yearly`              | Retention-only profiles need at least one non-zero `keep_*`                                                         |
 | Timer/runtime       | `on_calendar`, `randomized_delay_sec`, `system_user`, `restic_binary`, `no_cache`, `retry_lock` | Present in TOML and reused by the role when generating units; `restic_binary` and `no_cache` can inherit from the global setting |
 | Hooks               | `hooks.shell`, `hooks.prevalidate`, `hooks.before`, `hooks.after`, `hooks.failure`, `hooks.success` | Rendered under `[profiles.<name>.hooks]`                                                                            |
+| Hook file helpers   | `hooks.<phase>_scripts`, `hooks.<phase>_templates`                                                   | Role-only inputs; copy or render controller-side files to `/etc/restic-profile/hooks.d/restic-profile-<name>.<phase>-<seq>.sh` and append those paths to `hooks.<phase>` |
 | Role-only lifecycle | `enabled`, `timer_enabled`, `cpu_quota`, `nice`, `io_scheduling_class`, `io_scheduling_priority`   | Never rendered into TOML; used only when generating systemd units                                                   |
 
 ## Defaults that matter operationally
@@ -64,6 +65,14 @@ restic_profile_profiles:
 
 All hook commands run as `hooks.shell -c <command>`.
 
+When you use `hooks.<phase>_scripts` or `hooks.<phase>_templates`, the role
+manages executable files under `/etc/restic-profile/hooks.d/` and appends those
+paths to the matching `hooks.<phase>` array in TOML. Within a phase, the order is:
+
+1. Inline `hooks.<phase>` commands
+2. Copied `hooks.<phase>_scripts`
+3. Rendered `hooks.<phase>_templates`
+
 1. `prevalidate`
 2. Repository/location checks and optional auto-init
 3. `before`
@@ -73,3 +82,11 @@ All hook commands run as `hooks.shell -c <command>`.
 
 If `prevalidate` or `before` fails, backup and `after` are skipped and only
 `failure` hooks run.
+
+Hook templates render with these extra variables in scope:
+
+- `restic_profile_hook_profile_name`: the current profile name
+- `restic_profile_hook_profile`: the current profile data structure
+- `restic_profile_hook_phase`: the lifecycle phase being rendered
+- `restic_profile_hook_index`: the 1-based sequence number for the rendered template file within that phase
+- `restic_profile_hook_dest_path`: the final remote path under `/etc/restic-profile/hooks.d/`

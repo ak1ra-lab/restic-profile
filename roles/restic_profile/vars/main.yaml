@@ -7,6 +7,9 @@ restic_profile_config_dir: /etc/restic-profile
 # str: restic-profile TOML config file path
 restic_profile_config_file: "{{ restic_profile_config_dir }}/restic-profile.toml"
 
+# str: directory for role-managed hook scripts copied or rendered from the control node
+restic_profile_hooks_dir: "{{ restic_profile_config_dir }}/hooks.d"
+
 # str: restic-profile state directory (FHS state dir)
 restic_profile_state_dir: /var/lib/restic-profile
 
@@ -32,3 +35,11 @@ restic_profile_select_script_path: "{{ restic_profile_config_dir }}/restic-profi
 # of truth instead of duplicating the string literals in multiple places.
 restic_profile_backup_unit_prefix: "restic-profile-backup-"
 restic_profile_forget_unit_prefix: "restic-profile-forget-"
+
+# list[str]: hook lifecycle phases shared by the role tasks and TOML template
+restic_profile_hook_phases:
+  - prevalidate
+  - before
+  - after
+  - failure
+  - success

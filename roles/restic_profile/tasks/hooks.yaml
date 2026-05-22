@@ -1,0 +1,7 @@
+---
+- name: deploy managed hook files for each lifecycle phase
+  ansible.builtin.include_tasks: hooks_phase.yaml
+  loop: "{{ restic_profile_hook_phases }}"
+  loop_control:
+    loop_var: restic_profile_hook_phase
+    label: "{{ restic_profile_hook_profile_name }}.{{ restic_profile_hook_phase }}"

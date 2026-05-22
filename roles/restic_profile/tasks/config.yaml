@@ -8,6 +8,27 @@
     group: root
     mode: "0755"
 
+- name: ensure restic-profile hooks directory exists
+  become: true
+  ansible.builtin.file:
+    path: "{{ restic_profile_hooks_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: deploy managed hook files for enabled profiles
+  when:
+    - _profile_item.value.enabled | default(true) | ansible.builtin.bool
+  ansible.builtin.include_tasks: hooks.yaml
+  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
+  loop_control:
+    loop_var: _profile_item
+    label: "{{ _profile_item.key }}"
+  vars:
+    restic_profile_hook_profile_name: "{{ _profile_item.key }}"
+    restic_profile_hook_profile: "{{ _profile_item.value }}"
+
 - name: deploy per-profile exclude file from exclude_file_content
   become: true
   ansible.builtin.copy:

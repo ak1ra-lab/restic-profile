@@ -89,11 +89,17 @@ restic_profile_retry_lock: ""
 #
 #   # Hooks (rendered under [profiles.<name>.hooks])
 #   hooks.shell                       str   "/bin/sh"
-#   hooks.prevalidate                 list  []       before repository checks / auto-init
-#   hooks.before                      list  []       before backup
-#   hooks.after                       list  []       after the backup attempt
-#   hooks.failure                     list  []       when prevalidate/before/backup fails
-#   hooks.success                     list  []       when the full backup flow succeeds
+#   hooks.prevalidate                 list  []       inline commands before repository checks / auto-init
+#   hooks.before                      list  []       inline commands before backup
+#   hooks.after                       list  []       inline commands after the backup attempt
+#   hooks.failure                     list  []       inline commands when prevalidate/before/backup fails
+#   hooks.success                     list  []       inline commands when the full backup flow succeeds
+#   hooks.<phase>_scripts             list  []       role-only local script files copied to
+#                                                      /etc/restic-profile/hooks.d/restic-profile-<name>.<phase>-<seq>.sh
+#                                                      and appended to hooks.<phase>
+#   hooks.<phase>_templates           list  []       role-only local Jinja script templates rendered to
+#                                                      /etc/restic-profile/hooks.d/restic-profile-<name>.<phase>-<seq>.sh
+#                                                      and appended after hooks.<phase>_scripts
 #
 #   # Role-only lifecycle controls (not rendered into TOML)
 #   enabled                           bool  true     skip deploying this profile when false

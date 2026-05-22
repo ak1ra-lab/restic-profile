@@ -1,0 +1,66 @@
+---
+- name: "deploy copied hook scripts for {{ '%s.%s' | format(restic_profile_hook_profile_name, restic_profile_hook_phase) }}"
+  when:
+    - _hook_scripts | length > 0
+  become: true
+  vars:
+    _hook_scripts: >-
+      {{
+        (restic_profile_hook_profile.hooks | default({})).get(
+          restic_profile_hook_phase ~ '_scripts',
+          []
+        )
+      }}
+  ansible.builtin.copy:
+    src: "{{ _hook_script_src }}"
+    dest: >-
+      {{ restic_profile_hooks_dir }}/restic-profile-{{
+      restic_profile_hook_profile_name }}.{{ restic_profile_hook_phase }}-{{
+      '%02d' | format(_hook_script_index + 1) }}.sh
+    owner: root
+    group: root
+    mode: "0750"
+  loop: "{{ _hook_scripts }}"
+  loop_control:
+    loop_var: _hook_script_src
+    index_var: _hook_script_index
+    label: "{{ restic_profile_hook_profile_name }}.{{ restic_profile_hook_phase }}.script.{{ _hook_script_index + 1 }}"
+  no_log: true
+
+- name: "deploy templated hook scripts for {{ '%s.%s' | format(restic_profile_hook_profile_name, restic_profile_hook_phase) }}"
+  when:
+    - _hook_templates | length > 0
+  become: true
+  vars:
+    _hook_scripts: >-
+      {{
+        (restic_profile_hook_profile.hooks | default({})).get(
+          restic_profile_hook_phase ~ '_scripts',
+          []
+        )
+      }}
+    _hook_templates: >-
+      {{
+        (restic_profile_hook_profile.hooks | default({})).get(
+          restic_profile_hook_phase ~ '_templates',
+          []
+        )
+      }}
+    restic_profile_hook_index: >-
+      {{ (_hook_scripts | length) + _hook_template_index + 1 }}
+    restic_profile_hook_dest_path: >-
+      {{ restic_profile_hooks_dir }}/restic-profile-{{
+      restic_profile_hook_profile_name }}.{{ restic_profile_hook_phase }}-{{
+      '%02d' | format(restic_profile_hook_index | int) }}.sh
+  ansible.builtin.template:
+    src: "{{ _hook_template_src }}"
+    dest: "{{ restic_profile_hook_dest_path }}"
+    owner: root
+    group: root
+    mode: "0750"
+  loop: "{{ _hook_templates }}"
+  loop_control:
+    loop_var: _hook_template_src
+    index_var: _hook_template_index
+    label: "{{ restic_profile_hook_profile_name }}.{{ restic_profile_hook_phase }}.template.{{ _hook_template_index + 1 }}"
+  no_log: true

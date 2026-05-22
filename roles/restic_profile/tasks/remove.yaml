@@ -90,6 +90,12 @@
     path: "{{ restic_profile_select_script_path }}"
     state: absent
 
+- name: remove managed hook directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ restic_profile_hooks_dir }}"
+    state: absent
+
 - name: remove restic-profile virtual environment
   become: true
   ansible.builtin.file:
