@@ -10,7 +10,7 @@
 - name: build restic on control node
   when: restic_profile_restic_install_source == 'go_build'
   ansible.builtin.include_role:
-    name: go_build
+    name: ak1ra_lab.general.go_build
     apply:
       become: false
   vars:
@@ -35,7 +35,7 @@
 
 - name: install restic-profile into a dedicated venv
   ansible.builtin.include_role:
-    name: pyproject_install
+    name: ak1ra_lab.general.pyproject_install
   vars:
     pyproject_install_source: "{{ restic_profile_pip_install_source }}"
     pyproject_install_package_name: restic-profile

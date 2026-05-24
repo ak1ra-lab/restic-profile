@@ -20,7 +20,7 @@ Use this page together with:
   tasks:
     - name: apply restic_rest_server role
       ansible.builtin.import_role:
-        name: restic_rest_server
+        name: ak1ra_lab.restic_profile.restic_rest_server
 ```
 
 ## Scenario 1: append-only server with private repositories

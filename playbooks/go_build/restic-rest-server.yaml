@@ -9,7 +9,7 @@
     - name: build restic/rest-server binary on localhost
       become: false
       ansible.builtin.import_role:
-        name: go_build
+        name: ak1ra_lab.general.go_build
       vars:
         go_build_repo_url: "https://github.com/restic/rest-server.git"
         go_build_repo_version: "master"

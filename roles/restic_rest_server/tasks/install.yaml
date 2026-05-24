@@ -28,7 +28,7 @@
 - name: build restic-rest-server on control node
   when: restic_rest_server_binary_install_source == 'go_build'
   ansible.builtin.include_role:
-    name: go_build
+    name: ak1ra_lab.general.go_build
     apply:
       become: false
   vars:

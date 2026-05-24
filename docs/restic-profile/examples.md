@@ -22,7 +22,7 @@ Use this page together with:
   tasks:
     - name: apply restic_profile role
       ansible.builtin.import_role:
-        name: restic_profile
+        name: ak1ra_lab.restic_profile.restic_profile
 ```
 
 ## Scenario 1: REST backend on a backup client
