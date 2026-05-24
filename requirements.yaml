@@ -1,0 +1,4 @@
+---
+collections:
+  - name: git+https://github.com/ak1ra-lab/ansible-collection-general.git
+    version: master
