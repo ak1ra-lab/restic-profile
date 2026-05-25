@@ -25,9 +25,6 @@ restic_profile_cli_link: /usr/local/bin/restic-profile
 # str: operator-facing helper that runs restic-profile in a transient systemd scope
 restic_profile_scope_helper_path: /usr/local/bin/restic-profile-scope
 
-# str: sourced shell helper that defines restic-profile-select for interactive profile selection
-restic_profile_select_script_path: "{{ restic_profile_config_dir }}/restic-profile-select.bash"
-
 # --- Systemd unit naming prefixes ---
 # Backup profiles  (sources non-empty): <backup_prefix><name>.{service,timer}
 # Retention-only profiles (sources: []): <forget_prefix><name>.{service,timer}

@@ -66,14 +66,11 @@
     - _profile_item.value.enabled | default(true) | ansible.builtin.bool
   no_log: true
 
-- name: "install interactive profile selector in {{ restic_profile_config_dir }}"
+- name: remove legacy interactive profile selector
   become: true
-  ansible.builtin.copy:
-    src: restic-profile-select.bash
-    dest: "{{ restic_profile_select_script_path }}"
-    owner: root
-    group: root
-    mode: "0644"
+  ansible.builtin.file:
+    path: "{{ restic_profile_config_dir }}/restic-profile-select.bash"
+    state: absent
 
 - name: deploy restic-profile.toml
   become: true

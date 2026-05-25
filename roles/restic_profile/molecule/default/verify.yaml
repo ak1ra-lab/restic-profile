@@ -10,7 +10,7 @@
     _bin: /var/lib/restic-profile/venv/bin/restic-profile
     _cli_link: /usr/local/bin/restic-profile
     _scope_helper: /usr/local/bin/restic-profile-scope
-    _selector_script: /etc/restic-profile/restic-profile-select.bash
+    _legacy_selector_script: /etc/restic-profile/restic-profile-select.bash
     _config_file: /etc/restic-profile/restic-profile.toml
     _backup_env_file: /etc/restic-profile/restic-profile-test_backup.env
     _backup_service: /etc/systemd/system/restic-profile-backup-test_backup.service
@@ -67,18 +67,17 @@
         fail_msg: >-
           Expected {{ _cli_link }} to be a symlink to {{ _bin }}, but got {{ _restic_profile_cli_link.stat.lnk_source | default('missing') }}.
 
-    - name: stat interactive profile selector
+    - name: stat legacy interactive profile selector
       ansible.builtin.stat:
-        path: "{{ _selector_script }}"
-      register: _selector_script_stat
+        path: "{{ _legacy_selector_script }}"
+      register: _legacy_selector_script_stat
 
-    - name: assert interactive profile selector exists and is readable
+    - name: assert legacy interactive profile selector is absent
       ansible.builtin.assert:
         that:
-          - _selector_script_stat.stat.exists
-          - _selector_script_stat.stat.readable
+          - not _legacy_selector_script_stat.stat.exists
         fail_msg: >-
-          Expected the interactive profile selector at {{ _selector_script }} but it was not found.
+          Expected the legacy interactive profile selector at {{ _legacy_selector_script }} to be absent.
 
     - name: stat scoped helper
       ansible.builtin.stat:
@@ -377,27 +376,6 @@
           - >-
             'CPUQuota=100%' in (_backup_svc_content.content | ansible.builtin.b64decode)
         fail_msg: "Expected CPUQuota=100% in {{ _backup_service }}"
-
-    - name: source selector and choose the first profile
-      ansible.builtin.command:
-        argv:
-          - /bin/bash
-          - -lc
-          - >-
-            printf '1\n' | {
-              source "{{ _selector_script }}";
-              restic-profile-select >/dev/null;
-              printf '%s\n' "${RESTIC_PROFILE_NAME}";
-            }
-      register: _selector_choice
-      changed_when: false
-
-    - name: assert selector injects the chosen profile env
-      ansible.builtin.assert:
-        that:
-          - _selector_choice.stdout == 'test_backup'
-        fail_msg: >-
-          Expected {{ _selector_script }} to load the first test profile. Output: {{ _selector_choice.stdout | to_json }}
 
     - name: run raw restic with the backup profile env
       ansible.builtin.command:

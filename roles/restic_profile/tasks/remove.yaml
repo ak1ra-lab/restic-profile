@@ -84,10 +84,10 @@
     path: /usr/local/bin/restic.sh
     state: absent
 
-- name: remove interactive profile selector
+- name: remove legacy interactive profile selector
   become: true
   ansible.builtin.file:
-    path: "{{ restic_profile_select_script_path }}"
+    path: "{{ restic_profile_config_dir }}/restic-profile-select.bash"
     state: absent
 
 - name: remove managed hook directory

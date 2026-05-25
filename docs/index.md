@@ -15,6 +15,7 @@ host_vars / group_vars
   -> restic_profile_profiles
   -> roles/restic_profile
       |- /etc/restic-profile/restic-profile.toml
+      |- /etc/restic-profile/restic-profile-<name>.env
       |- /etc/restic-profile/restic-profile-<name>.exclude
       |- restic-profile-{backup|forget}-<name>.service
       `- restic-profile-{backup|forget}-<name>.timer
@@ -59,8 +60,8 @@ just sync
 
 The role installs into `/var/lib/restic-profile/venv` and installs
 `restic` from APT. It also exposes `/usr/local/bin/restic-profile` as a stable
-CLI entry point on the managed host and
-`/etc/restic-profile/restic-profile-select.bash` as an interactive shell helper
-for selecting one rendered profile before running raw `restic` commands.
-The role does not modify user shell startup files; see
-`docs/restic-profile/ansible.md` for the recommended `~/.bashrc` snippet.
+CLI entry point on the managed host and renders one
+`/etc/restic-profile/restic-profile-<name>.env` file per profile for direct
+shell sourcing before raw `restic` commands. The role does not modify user
+shell startup files; see `docs/restic-profile/ansible.md` for the recommended
+workflow.
