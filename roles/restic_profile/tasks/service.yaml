@@ -6,8 +6,8 @@
 #   Retention/Forget units: restic-profile-retention-<name>.{service,timer}
 
 - name: Construct flat list of service units to deploy
-  ansible.builtin.set_fact:
-    restic_profile_service_units: >-
+  vars:
+    restic_profile_service_units_json: >-
       {% set units = [] %}
       {% for pname, p in restic_profile_profiles.items() %}
       {%   if p.enabled | default(true) | ansible.builtin.bool %}
@@ -33,7 +33,9 @@
       {%     endif %}
       {%   endif %}
       {% endfor %}
-      {{ units }}
+      {{ units | to_json }}
+  ansible.builtin.set_fact:
+    restic_profile_service_units: "{{ restic_profile_service_units_json | from_json }}"
 
 - name: deploy systemd service unit for each enabled profile section
   become: true

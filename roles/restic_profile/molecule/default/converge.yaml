@@ -10,31 +10,40 @@
     restic_profile_no_cache: true
     restic_profile_retry_lock: "5m"
 
-    restic_profile_profiles:
-      # Backup profile — sources non-empty → restic-profile-backup-test_backup.{service,timer}
-      test_backup:
+    restic_profile_repositories:
+      test_backup_repo:
         repository: "/tmp/restic-repos/test_backup"
         password: "molecule-$ecret'pw"
-        sources:
-          - /tmp/test-data
+      test_prune_repo:
+        repository: "/tmp/restic-repos/test_prune"
+        password: "molecule-prune-password"
+
+    restic_profile_profiles:
+      # Backup profile — backup block present → restic-profile-backup-test_backup.{service,timer}
+      test_backup:
+        repository_ref: test_backup_repo
         tag: "molecule"
-        exclude_patterns:
-          - "*.bak"
-        exclude_file_content: |
-          # Large exclude list rendered by Ansible to a separate file
-          *.log
-          *.tmp
-          .cache/
-          .local/share/Trash/
-          node_modules/
-        one_file_system: true
-        forget: true
-        keep_hourly: 6
-        keep_daily: 7
-        keep_weekly: 4
-        keep_monthly: 3
-        on_calendar: "daily"
-        randomized_delay_sec: "5min"
+        backup:
+          sources:
+            - /tmp/test-data
+          exclude_patterns:
+            - "*.bak"
+          exclude_file_content: |
+            # Large exclude list rendered by Ansible to a separate file
+            *.log
+            *.tmp
+            .cache/
+            .local/share/Trash/
+            node_modules/
+          one_file_system: true
+          post_backup_retention: true
+          on_calendar: "daily"
+          randomized_delay_sec: "5min"
+        retention:
+          keep_hourly: 6
+          keep_daily: 7
+          keep_weekly: 4
+          keep_monthly: 3
         system_user: root
         no_cache: false
         enabled: true
@@ -42,17 +51,16 @@
         # is present but we only verify file artefacts, not live execution.
         timer_enabled: false
 
-      # Retention-only profile — sources: [] → restic-profile-forget-test_prune.{service,timer}
+      # Retention-only profile — retention block only → restic-profile-retention-test_prune.{service,timer}
       test_prune:
-        repository: "/tmp/restic-repos/test_prune"
-        password: "molecule-prune-password"
-        sources: []
-        prune: true
-        keep_daily: 7
-        keep_weekly: 4
-        keep_monthly: 3
-        on_calendar: "daily"
-        randomized_delay_sec: "5min"
+        repository_ref: test_prune_repo
+        retention:
+          prune: true
+          keep_daily: 7
+          keep_weekly: 4
+          keep_monthly: 3
+          on_calendar: "daily"
+          randomized_delay_sec: "5min"
         system_user: root
         enabled: true
         timer_enabled: false

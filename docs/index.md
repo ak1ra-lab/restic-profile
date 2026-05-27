@@ -17,8 +17,8 @@ host_vars / group_vars
       |- /etc/restic-profile/restic-profile.toml
       |- /etc/restic-profile/restic-profile-<name>.env
       |- /etc/restic-profile/restic-profile-<name>.exclude
-      |- restic-profile-{backup|forget}-<name>.service
-      `- restic-profile-{backup|forget}-<name>.timer
+      |- restic-profile-{backup|retention}-<name>.service
+      `- restic-profile-{backup|retention}-<name>.timer
   -> restic-profile CLI
   -> restic
 ```
@@ -32,7 +32,7 @@ The key split in the documentation is:
 The CLI itself is stateless and delegates to `restic`:
 
 - `restic-profile backup PROFILE`
-- `restic-profile forget PROFILE`
+- `restic-profile retention PROFILE` (alias: `restic-profile forget PROFILE`)
 - `restic-profile validate`
 - `restic-profile list`
 

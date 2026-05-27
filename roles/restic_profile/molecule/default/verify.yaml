@@ -15,8 +15,8 @@
     _backup_env_file: /etc/restic-profile/restic-profile-test_backup.env
     _backup_service: /etc/systemd/system/restic-profile-backup-test_backup.service
     _backup_timer: /etc/systemd/system/restic-profile-backup-test_backup.timer
-    _forget_service: /etc/systemd/system/restic-profile-forget-test_prune.service
-    _forget_timer: /etc/systemd/system/restic-profile-forget-test_prune.timer
+    _retention_service: /etc/systemd/system/restic-profile-retention-test_prune.service
+    _retention_timer: /etc/systemd/system/restic-profile-retention-test_prune.timer
     _exclude_file: /etc/restic-profile/restic-profile-test_backup.exclude
 
   tasks:
@@ -27,15 +27,16 @@
     - name: stat venv Python interpreter
       ansible.builtin.stat:
         path: "{{ _python }}"
-      register: _venv_python
+      register: restic_profile_verify_venv_python
 
     - name: assert venv Python exists and is executable
       ansible.builtin.assert:
         that:
-          - _venv_python.stat.exists
-          - _venv_python.stat.executable
+          - restic_profile_verify_venv_python.stat.exists
+          - restic_profile_verify_venv_python.stat.executable
         fail_msg: >-
-          Expected a Python interpreter at {{ _python }} but it was not found. Check that pyproject_install created the venv at the correct path.
+          Expected a Python interpreter at {{ _python }} but it was not found.
+          Check that pyproject_install created the venv at the correct path.
     # ------------------------------------------------------------------ #
     # 2. restic-profile CLI binary                                         #
     # ------------------------------------------------------------------ #
@@ -51,7 +52,9 @@
           - _restic_profile_bin.stat.exists
           - _restic_profile_bin.stat.executable
         fail_msg: >-
-          Expected the restic-profile entry-point at {{ _bin }} but it was not found. Confirm that restic-profile was installed and that the entry points are wired correctly in pyproject.toml.
+          Expected the restic-profile entry-point at {{ _bin }} but it was not
+          found. Confirm that restic-profile was installed and that the entry
+          points are wired correctly in pyproject.toml.
 
     - name: stat restic-profile CLI symlink
       ansible.builtin.stat:
@@ -70,25 +73,25 @@
     - name: stat legacy interactive profile selector
       ansible.builtin.stat:
         path: "{{ _legacy_selector_script }}"
-      register: _legacy_selector_script_stat
+      register: restic_profile_verify_legacy_selector_script_stat
 
     - name: assert legacy interactive profile selector is absent
       ansible.builtin.assert:
         that:
-          - not _legacy_selector_script_stat.stat.exists
+          - not restic_profile_verify_legacy_selector_script_stat.stat.exists
         fail_msg: >-
           Expected the legacy interactive profile selector at {{ _legacy_selector_script }} to be absent.
 
     - name: stat scoped helper
       ansible.builtin.stat:
         path: "{{ _scope_helper }}"
-      register: _scope_helper_stat
+      register: restic_profile_verify_scope_helper_stat
 
     - name: assert scoped helper exists and is executable
       ansible.builtin.assert:
         that:
-          - _scope_helper_stat.stat.exists
-          - _scope_helper_stat.stat.executable
+          - restic_profile_verify_scope_helper_stat.stat.exists
+          - restic_profile_verify_scope_helper_stat.stat.executable
         fail_msg: >-
           Expected the scoped helper at {{ _scope_helper }} but it was not found.
     # ------------------------------------------------------------------ #
@@ -100,33 +103,39 @@
         argv:
           - "{{ _bin }}"
           - --help
-      register: _help
+      register: restic_profile_verify_help
       changed_when: false
-      failed_when: _help.rc != 0
+      failed_when: restic_profile_verify_help.rc != 0
 
     - name: assert --help output mentions the backup subcommand
       ansible.builtin.assert:
         that:
           - >-
-            'backup' in (_help.stdout | lower) or 'backup' in (_help.stderr | lower)
+            'backup' in (restic_profile_verify_help.stdout | lower) or
+            'backup' in (restic_profile_verify_help.stderr | lower)
         fail_msg: >-
-          restic-profile --help did not mention the 'backup' subcommand. Output: {{ _help.stdout }} {{ _help.stderr }}
+          restic-profile --help did not mention the 'backup' subcommand.
+          Output: {{ restic_profile_verify_help.stdout }} {{ restic_profile_verify_help.stderr }}
 
-    - name: assert --help output mentions the forget subcommand
+    - name: assert --help output mentions the retention subcommand
       ansible.builtin.assert:
         that:
           - >-
-            'forget' in (_help.stdout | lower) or 'forget' in (_help.stderr | lower)
+            'retention' in (restic_profile_verify_help.stdout | lower) or
+            'retention' in (restic_profile_verify_help.stderr | lower)
         fail_msg: >-
-          restic-profile --help did not mention the 'forget' subcommand. Output: {{ _help.stdout }} {{ _help.stderr }}
+          restic-profile --help did not mention the 'retention' subcommand.
+          Output: {{ restic_profile_verify_help.stdout }} {{ restic_profile_verify_help.stderr }}
 
     - name: assert --help output mentions the validate subcommand
       ansible.builtin.assert:
         that:
           - >-
-            'validate' in (_help.stdout | lower) or 'validate' in (_help.stderr | lower)
+            'validate' in (restic_profile_verify_help.stdout | lower) or
+            'validate' in (restic_profile_verify_help.stderr | lower)
         fail_msg: >-
-          restic-profile --help did not mention the 'validate' subcommand. Output: {{ _help.stdout }} {{ _help.stderr }}
+          restic-profile --help did not mention the 'validate' subcommand.
+          Output: {{ restic_profile_verify_help.stdout }} {{ restic_profile_verify_help.stderr }}
 
     # ------------------------------------------------------------------ #
     # 4. TOML config file                                                  #
@@ -135,22 +144,24 @@
     - name: stat restic-profile.toml
       ansible.builtin.stat:
         path: "{{ _config_file }}"
-      register: _config_stat
+      register: restic_profile_verify_config_stat
 
     - name: assert config file exists
       ansible.builtin.assert:
         that:
-          - _config_stat.stat.exists
-          - _config_stat.stat.isreg
+          - restic_profile_verify_config_stat.stat.exists
+          - restic_profile_verify_config_stat.stat.isreg
         fail_msg: >-
           Expected {{ _config_file }} to exist as a regular file but it was not found.
 
     - name: assert config file has mode 0640
       ansible.builtin.assert:
         that:
-          - _config_stat.stat.mode == '0640'
+          - restic_profile_verify_config_stat.stat.mode == '0640'
         fail_msg: >-
-          Expected {{ _config_file }} to have mode 0640 (got: {{ _config_stat.stat.mode }}). The file contains credentials and must not be world-readable.
+          Expected {{ _config_file }} to have mode 0640
+          (got: {{ restic_profile_verify_config_stat.stat.mode }}).
+          The file contains credentials and must not be world-readable.
 
     - name: source per-profile env file and print RESTIC_PASSWORD
       ansible.builtin.shell: |
@@ -160,105 +171,123 @@
         printf '%s' "$RESTIC_PASSWORD"
       args:
         executable: /usr/bin/bash
-      register: _sourced_backup_password
+      register: restic_profile_verify_sourced_backup_password
       changed_when: false
 
     - name: assert sourced RESTIC_PASSWORD preserves shell-special characters
       ansible.builtin.assert:
         that:
-          - _sourced_backup_password.stdout == "molecule-$ecret'pw"
+          - restic_profile_verify_sourced_backup_password.stdout == "molecule-$ecret'pw"
         fail_msg: >-
-          Expected sourcing {{ _backup_env_file }} to preserve the original password, got {{ _sourced_backup_password.stdout | to_json }}.
+          Expected sourcing {{ _backup_env_file }} to preserve the original
+          password, got
+          {{ restic_profile_verify_sourced_backup_password.stdout | to_json }}.
 
     - name: read config file content
       ansible.builtin.slurp:
         src: "{{ _config_file }}"
-      register: _config_content
+      register: restic_profile_verify_config_content
 
     - name: assert config contains [global] section
       ansible.builtin.assert:
         that:
           - >-
-            '[global]' in (_config_content.content | ansible.builtin.b64decode)
+            '[global]' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
         fail_msg: "Expected [global] section in {{ _config_file }}"
 
     - name: assert config contains global retry_lock setting
       ansible.builtin.assert:
         that:
           - >-
-            'retry_lock = "5m"' in (_config_content.content | ansible.builtin.b64decode)
+            'retry_lock = "5m"' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
         fail_msg: >-
-          Expected retry_lock = "5m" in [global] section of {{ _config_file }}. Content: {{ _config_content.content | ansible.builtin.b64decode }}
+          Expected retry_lock = "5m" in [global] section of {{ _config_file }}.
+          Content: {{ restic_profile_verify_config_content.content | ansible.builtin.b64decode }}
 
     - name: assert config contains global no_cache setting
       ansible.builtin.assert:
         that:
           - >-
-            'no_cache = true' in (_config_content.content | ansible.builtin.b64decode)
+            'no_cache = true' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
         fail_msg: >-
-          Expected no_cache = true in [global] section of {{ _config_file }}. Content: {{ _config_content.content | ansible.builtin.b64decode }}
+          Expected no_cache = true in [global] section of {{ _config_file }}.
+          Content: {{ restic_profile_verify_config_content.content | ansible.builtin.b64decode }}
 
     - name: assert config contains [profiles.test_backup] section
       ansible.builtin.assert:
         that:
           - >-
-            '[profiles.test_backup]' in (_config_content.content | ansible.builtin.b64decode)
+            '[profiles.test_backup]' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
         fail_msg: "Expected [profiles.test_backup] section in {{ _config_file }}"
+
+    - name: assert config contains [repositories.test_backup_repo] section
+      ansible.builtin.assert:
+        that:
+          - >-
+            '[repositories.test_backup_repo]' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
+        fail_msg: "Expected [repositories.test_backup_repo] section in {{ _config_file }}"
+
+    - name: assert backup profile repository_ref is rendered
+      ansible.builtin.assert:
+        that:
+          - >-
+            'repository_ref = "test_backup_repo"' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
+        fail_msg: "Expected repository_ref = \"test_backup_repo\" in {{ _config_file }}"
 
     - name: assert backup profile repository is rendered correctly
       ansible.builtin.assert:
         that:
           - >-
-            'repository = "/tmp/restic-repos/test_backup"' in (_config_content.content | ansible.builtin.b64decode)
+            'repository = "/tmp/restic-repos/test_backup"' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
         fail_msg: "Expected backup profile repository in {{ _config_file }}"
 
     - name: assert backup profile sources list is rendered
       ansible.builtin.assert:
         that:
           - >-
-            '"/tmp/test-data"' in (_config_content.content | ansible.builtin.b64decode)
+            '"/tmp/test-data"' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
         fail_msg: "Expected /tmp/test-data in backup profile sources in {{ _config_file }}"
 
     - name: assert backup profile tag is rendered
       ansible.builtin.assert:
         that:
           - >-
-            'tag = "molecule"' in (_config_content.content | ansible.builtin.b64decode)
+            'tag = "molecule"' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
         fail_msg: 'Expected tag = "molecule" in backup profile in {{ _config_file }}'
 
     - name: assert backup profile one_file_system is rendered
       ansible.builtin.assert:
         that:
           - >-
-            'one_file_system = true' in (_config_content.content | ansible.builtin.b64decode)
+            'one_file_system = true' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
         fail_msg: >-
           Expected one_file_system = true in [profiles.test_backup] of {{ _config_file }}.
-          Content: {{ _config_content.content | ansible.builtin.b64decode }}
+          Content: {{ restic_profile_verify_config_content.content | ansible.builtin.b64decode }}
 
     - name: assert backup profile exclude_patterns are rendered
       ansible.builtin.assert:
         that:
           - >-
-            '"*.bak"' in (_config_content.content | ansible.builtin.b64decode)
+            '"*.bak"' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
         fail_msg: "Expected *.bak exclude pattern in {{ _config_file }}"
 
     - name: assert config renders exclude_file path for backup profile
       ansible.builtin.assert:
         that:
           - >-
-            'exclude_file = "{{ _exclude_file }}"' in (_config_content.content | ansible.builtin.b64decode)
+            'exclude_file = "{{ _exclude_file }}"' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
         fail_msg: >-
           Expected exclude_file = "{{ _exclude_file }}" in [profiles.test_backup] of {{ _config_file }}.
-          Content: {{ _config_content.content | ansible.builtin.b64decode }}
+          Content: {{ restic_profile_verify_config_content.content | ansible.builtin.b64decode }}
 
     - name: assert backup profile no_cache override is rendered
       ansible.builtin.assert:
         that:
           - >-
-            'no_cache    = false' in (_config_content.content | ansible.builtin.b64decode)
+            'no_cache    = false' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
         fail_msg: >-
           Expected no_cache    = false in [profiles.test_backup] of {{ _config_file }}.
-          Content: {{ _config_content.content | ansible.builtin.b64decode }}
+          Content: {{ restic_profile_verify_config_content.content | ansible.builtin.b64decode }}
 
     # ------------------------------------------------------------------ #
     # 4b. Per-profile exclude file (from exclude_file_content)             #
@@ -267,14 +296,14 @@
     - name: stat per-profile exclude file
       ansible.builtin.stat:
         path: "{{ _exclude_file }}"
-      register: _exclude_file_stat
+      register: restic_profile_verify_exclude_file_stat
 
     - name: assert exclude file exists as a regular file with mode 0640
       ansible.builtin.assert:
         that:
-          - _exclude_file_stat.stat.exists
-          - _exclude_file_stat.stat.isreg
-          - _exclude_file_stat.stat.mode == '0640'
+          - restic_profile_verify_exclude_file_stat.stat.exists
+          - restic_profile_verify_exclude_file_stat.stat.isreg
+          - restic_profile_verify_exclude_file_stat.stat.mode == '0640'
         fail_msg: >-
           Expected {{ _exclude_file }} to exist with mode 0640.
           Ansible renders exclude_file_content to this path.
@@ -282,48 +311,62 @@
     - name: read exclude file content
       ansible.builtin.slurp:
         src: "{{ _exclude_file }}"
-      register: _exclude_file_content
+      register: restic_profile_verify_exclude_file_content
 
     - name: assert exclude file contains *.log pattern from exclude_file_content
       ansible.builtin.assert:
         that:
           - >-
-            '*.log' in (_exclude_file_content.content | ansible.builtin.b64decode)
+            '*.log' in (restic_profile_verify_exclude_file_content.content | ansible.builtin.b64decode)
         fail_msg: >-
           Expected '*.log' in {{ _exclude_file }}.
-          Content: {{ _exclude_file_content.content | ansible.builtin.b64decode }}
+          Content: {{ restic_profile_verify_exclude_file_content.content | ansible.builtin.b64decode }}
 
     - name: assert exclude file contains node_modules/ pattern from exclude_file_content
       ansible.builtin.assert:
         that:
           - >-
-            'node_modules/' in (_exclude_file_content.content | ansible.builtin.b64decode)
+            'node_modules/' in (restic_profile_verify_exclude_file_content.content | ansible.builtin.b64decode)
         fail_msg: >-
           Expected 'node_modules/' in {{ _exclude_file }}.
-          Content: {{ _exclude_file_content.content | ansible.builtin.b64decode }}
+          Content: {{ restic_profile_verify_exclude_file_content.content | ansible.builtin.b64decode }}
 
     - name: assert config contains [profiles.test_prune] section
       ansible.builtin.assert:
         that:
           - >-
-            '[profiles.test_prune]' in (_config_content.content | ansible.builtin.b64decode)
+            '[profiles.test_prune]' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
         fail_msg: "Expected [profiles.test_prune] section in {{ _config_file }}"
+
+    - name: assert config contains [repositories.test_prune_repo] section
+      ansible.builtin.assert:
+        that:
+          - >-
+            '[repositories.test_prune_repo]' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
+        fail_msg: "Expected [repositories.test_prune_repo] section in {{ _config_file }}"
+
+    - name: assert retention-only profile repository_ref is rendered
+      ansible.builtin.assert:
+        that:
+          - >-
+            'repository_ref = "test_prune_repo"' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
+        fail_msg: "Expected repository_ref = \"test_prune_repo\" in {{ _config_file }}"
 
     - name: assert prune profile repository is rendered correctly
       ansible.builtin.assert:
         that:
           - >-
-            'repository = "/tmp/restic-repos/test_prune"' in (_config_content.content | ansible.builtin.b64decode)
+            'repository = "/tmp/restic-repos/test_prune"' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
         fail_msg: "Expected prune profile repository in {{ _config_file }}"
 
     - name: assert retention-only profile enables prune in config
       ansible.builtin.assert:
         that:
           - >-
-            'prune = true' in (_config_content.content | ansible.builtin.b64decode)
+            'prune = true' in (restic_profile_verify_config_content.content | ansible.builtin.b64decode)
         fail_msg: >-
           Expected prune = true in [profiles.test_prune] of {{ _config_file }}.
-          Content: {{ _config_content.content | ansible.builtin.b64decode }}
+          Content: {{ restic_profile_verify_config_content.content | ansible.builtin.b64decode }}
 
     # ------------------------------------------------------------------ #
     # 5. Backup profile systemd unit files                                 #
@@ -332,34 +375,37 @@
     - name: stat backup profile service file
       ansible.builtin.stat:
         path: "{{ _backup_service }}"
-      register: _backup_svc_stat
+      register: restic_profile_verify_backup_svc_stat
 
     - name: assert backup service file exists
       ansible.builtin.assert:
         that:
-          - _backup_svc_stat.stat.exists
-          - _backup_svc_stat.stat.isreg
+          - restic_profile_verify_backup_svc_stat.stat.exists
+          - restic_profile_verify_backup_svc_stat.stat.isreg
         fail_msg: >-
-          Expected {{ _backup_service }} to exist. This file should be generated by the restic_profile role for a backup profile.
+          Expected {{ _backup_service }} to exist.
+          This file should be generated by the restic_profile role for a backup profile.
 
     - name: read backup service file content
       ansible.builtin.slurp:
         src: "{{ _backup_service }}"
-      register: _backup_svc_content
+      register: restic_profile_verify_backup_svc_content
 
     - name: assert backup service ExecStart calls restic-profile backup
       ansible.builtin.assert:
         that:
           - >-
-            'restic-profile backup test_backup' in (_backup_svc_content.content | ansible.builtin.b64decode)
+            'restic-profile backup test_backup' in (restic_profile_verify_backup_svc_content.content | ansible.builtin.b64decode)
         fail_msg: >-
-          Expected ExecStart to contain 'restic-profile backup test_backup' in {{ _backup_service }}. Content: {{ _backup_svc_content.content | ansible.builtin.b64decode }}
+          Expected ExecStart to contain 'restic-profile backup test_backup'
+          in {{ _backup_service }}.
+          Content: {{ restic_profile_verify_backup_svc_content.content | ansible.builtin.b64decode }}
 
     - name: assert backup service references the config file
       ansible.builtin.assert:
         that:
           - >-
-            '/etc/restic-profile/restic-profile.toml' in (_backup_svc_content.content | ansible.builtin.b64decode)
+            '/etc/restic-profile/restic-profile.toml' in (restic_profile_verify_backup_svc_content.content | ansible.builtin.b64decode)
         fail_msg: >-
           Expected --config /etc/restic-profile/restic-profile.toml in {{ _backup_service }}
 
@@ -367,14 +413,14 @@
       ansible.builtin.assert:
         that:
           - >-
-            'Type=oneshot' in (_backup_svc_content.content | ansible.builtin.b64decode)
+            'Type=oneshot' in (restic_profile_verify_backup_svc_content.content | ansible.builtin.b64decode)
         fail_msg: "Expected Type=oneshot in {{ _backup_service }}"
 
     - name: assert backup service CPUQuota is capped to one CPU
       ansible.builtin.assert:
         that:
           - >-
-            'CPUQuota=100%' in (_backup_svc_content.content | ansible.builtin.b64decode)
+            'CPUQuota=100%' in (restic_profile_verify_backup_svc_content.content | ansible.builtin.b64decode)
         fail_msg: "Expected CPUQuota=100% in {{ _backup_service }}"
 
     - name: run raw restic with the backup profile env
@@ -386,47 +432,48 @@
             source "{{ _backup_env_file }}" &&
             restic_cmd="${RESTIC_PROFILE_RESTIC_BINARY:-restic}" &&
             "${restic_cmd}" snapshots
-      register: _restic_direct_run
+      register: restic_profile_verify_restic_direct_run
       changed_when: false
-      failed_when: _restic_direct_run.rc != 0
+      failed_when: restic_profile_verify_restic_direct_run.rc != 0
 
     - name: stat backup profile timer file
       ansible.builtin.stat:
         path: "{{ _backup_timer }}"
-      register: _backup_timer_stat
+      register: restic_profile_verify_backup_timer_stat
 
     - name: assert backup timer file exists
       ansible.builtin.assert:
         that:
-          - _backup_timer_stat.stat.exists
-          - _backup_timer_stat.stat.isreg
+          - restic_profile_verify_backup_timer_stat.stat.exists
+          - restic_profile_verify_backup_timer_stat.stat.isreg
         fail_msg: "Expected {{ _backup_timer }} to exist."
 
     - name: read backup timer file content
       ansible.builtin.slurp:
         src: "{{ _backup_timer }}"
-      register: _backup_timer_content
+      register: restic_profile_verify_backup_timer_content
 
     - name: assert backup timer OnCalendar is set to daily
       ansible.builtin.assert:
         that:
           - >-
-            'OnCalendar=daily' in (_backup_timer_content.content | ansible.builtin.b64decode)
+            'OnCalendar=daily' in (restic_profile_verify_backup_timer_content.content | ansible.builtin.b64decode)
         fail_msg: >-
-          Expected OnCalendar=daily in {{ _backup_timer }}. Content: {{ _backup_timer_content.content | ansible.builtin.b64decode }}
+          Expected OnCalendar=daily in {{ _backup_timer }}.
+          Content: {{ restic_profile_verify_backup_timer_content.content | ansible.builtin.b64decode }}
 
     - name: assert backup timer RandomizedDelaySec is set
       ansible.builtin.assert:
         that:
           - >-
-            'RandomizedDelaySec=5min' in (_backup_timer_content.content | ansible.builtin.b64decode)
+            'RandomizedDelaySec=5min' in (restic_profile_verify_backup_timer_content.content | ansible.builtin.b64decode)
         fail_msg: "Expected RandomizedDelaySec=5min in {{ _backup_timer }}"
 
     - name: assert backup timer has Persistent=true
       ansible.builtin.assert:
         that:
           - >-
-            'Persistent=true' in (_backup_timer_content.content | ansible.builtin.b64decode)
+            'Persistent=true' in (restic_profile_verify_backup_timer_content.content | ansible.builtin.b64decode)
         fail_msg: "Expected Persistent=true in {{ _backup_timer }}"
 
     # ------------------------------------------------------------------ #
@@ -435,97 +482,106 @@
 
     - name: stat retention-only profile service file
       ansible.builtin.stat:
-        path: "{{ _forget_service }}"
-      register: _forget_svc_stat
+        path: "{{ _retention_service }}"
+      register: restic_profile_verify_retention_svc_stat
 
     - name: assert retention-only service file exists
       ansible.builtin.assert:
         that:
-          - _forget_svc_stat.stat.exists
-          - _forget_svc_stat.stat.isreg
+          - restic_profile_verify_retention_svc_stat.stat.exists
+          - restic_profile_verify_retention_svc_stat.stat.isreg
         fail_msg: >-
-          Expected {{ _forget_service }} to exist. A retention-only profile (sources: []) should generate a restic-profile-forget-*.service file.
+          Expected {{ _retention_service }} to exist.
+          A retention-only profile should generate a
+          restic-profile-retention-*.service file.
 
     - name: read retention-only service file content
       ansible.builtin.slurp:
-        src: "{{ _forget_service }}"
-      register: _forget_svc_content
+        src: "{{ _retention_service }}"
+      register: restic_profile_verify_retention_svc_content
 
-    - name: assert retention-only service ExecStart calls restic-profile forget
+    - name: assert retention-only service ExecStart calls restic-profile retention
       ansible.builtin.assert:
         that:
           - >-
-            'restic-profile forget test_prune' in (_forget_svc_content.content | ansible.builtin.b64decode)
+            'restic-profile retention test_prune' in (restic_profile_verify_retention_svc_content.content | ansible.builtin.b64decode)
           - >-
-            '--prune' not in (_forget_svc_content.content | ansible.builtin.b64decode)
+            '--prune' not in (restic_profile_verify_retention_svc_content.content | ansible.builtin.b64decode)
         fail_msg: >-
-          Expected ExecStart to contain 'restic-profile forget test_prune' without CLI prune flags in {{ _forget_service }}. Content: {{ _forget_svc_content.content | ansible.builtin.b64decode }}
+          Expected ExecStart to contain
+          'restic-profile retention test_prune' without CLI prune flags in
+          {{ _retention_service }}.
+          Content: {{ restic_profile_verify_retention_svc_content.content | ansible.builtin.b64decode }}
 
     - name: assert retention-only service Type is oneshot
       ansible.builtin.assert:
         that:
           - >-
-            'Type=oneshot' in (_forget_svc_content.content | ansible.builtin.b64decode)
-        fail_msg: "Expected Type=oneshot in {{ _forget_service }}"
+            'Type=oneshot' in (restic_profile_verify_retention_svc_content.content | ansible.builtin.b64decode)
+        fail_msg: "Expected Type=oneshot in {{ _retention_service }}"
 
     - name: assert retention-only service CPUQuota is capped to one CPU
       ansible.builtin.assert:
         that:
           - >-
-            'CPUQuota=100%' in (_forget_svc_content.content | ansible.builtin.b64decode)
-        fail_msg: "Expected CPUQuota=100% in {{ _forget_service }}"
+            'CPUQuota=100%' in (restic_profile_verify_retention_svc_content.content | ansible.builtin.b64decode)
+        fail_msg: "Expected CPUQuota=100% in {{ _retention_service }}"
 
     - name: stat retention-only profile timer file
       ansible.builtin.stat:
-        path: "{{ _forget_timer }}"
-      register: _forget_timer_stat
+        path: "{{ _retention_timer }}"
+      register: restic_profile_verify_retention_timer_stat
 
     - name: assert retention-only timer file exists
       ansible.builtin.assert:
         that:
-          - _forget_timer_stat.stat.exists
-          - _forget_timer_stat.stat.isreg
-        fail_msg: "Expected {{ _forget_timer }} to exist."
+          - restic_profile_verify_retention_timer_stat.stat.exists
+          - restic_profile_verify_retention_timer_stat.stat.isreg
+        fail_msg: "Expected {{ _retention_timer }} to exist."
 
     - name: read retention-only timer file content
       ansible.builtin.slurp:
-        src: "{{ _forget_timer }}"
-      register: _forget_timer_content
+        src: "{{ _retention_timer }}"
+      register: restic_profile_verify_retention_timer_content
 
     - name: assert retention-only timer OnCalendar is set to daily
       ansible.builtin.assert:
         that:
           - >-
-            'OnCalendar=daily' in (_forget_timer_content.content | ansible.builtin.b64decode)
-        fail_msg: "Expected OnCalendar=daily in {{ _forget_timer }}"
+            'OnCalendar=daily' in (restic_profile_verify_retention_timer_content.content | ansible.builtin.b64decode)
+        fail_msg: "Expected OnCalendar=daily in {{ _retention_timer }}"
 
     # ------------------------------------------------------------------ #
     # 7. Naming convention — no cross-contamination                        #
     # ------------------------------------------------------------------ #
 
-    - name: assert backup profile did NOT generate a restic-profile-forget-test_backup file
+    - name: assert backup profile did NOT generate a restic-profile-retention-test_backup file
       ansible.builtin.stat:
-        path: /etc/systemd/system/restic-profile-forget-test_backup.service
-      register: _wrong_forget_svc
+        path: /etc/systemd/system/restic-profile-retention-test_backup.service
+      register: restic_profile_verify_wrong_retention_svc
 
-    - name: assert restic-profile-forget-test_backup.service does not exist
+    - name: assert restic-profile-retention-test_backup.service does not exist
       ansible.builtin.assert:
         that:
-          - not _wrong_forget_svc.stat.exists
+          - not restic_profile_verify_wrong_retention_svc.stat.exists
         fail_msg: >-
-          restic-profile-forget-test_backup.service should NOT exist — test_backup is a backup profile (has sources) and must use the restic-profile-backup-* naming convention.
+          restic-profile-retention-test_backup.service should NOT exist.
+          test_backup is a backup profile and must use the
+          restic-profile-backup-* naming convention.
 
     - name: assert retention-only profile did NOT generate a restic-profile-backup-test_prune file
       ansible.builtin.stat:
         path: /etc/systemd/system/restic-profile-backup-test_prune.service
-      register: _wrong_backup_svc
+      register: restic_profile_verify_wrong_backup_svc
 
     - name: assert restic-profile-backup-test_prune.service does not exist
       ansible.builtin.assert:
         that:
-          - not _wrong_backup_svc.stat.exists
+          - not restic_profile_verify_wrong_backup_svc.stat.exists
         fail_msg: >-
-          restic-profile-backup-test_prune.service should NOT exist — test_prune is a retention-only profile (sources: []) and must use the restic-profile-forget-* naming convention.
+          restic-profile-backup-test_prune.service should NOT exist.
+          test_prune is a retention-only profile and must use the
+          restic-profile-retention-* naming convention.
 
     # ------------------------------------------------------------------ #
     # 8. restic-profile validate CLI sanity check                          #
@@ -538,14 +594,18 @@
           - validate
           - --config
           - "{{ _config_file }}"
-      register: _validate
+      register: restic_profile_verify_validate
       changed_when: false
-      failed_when: _validate.rc != 0
+      failed_when: restic_profile_verify_validate.rc != 0
 
     - name: assert validate reports config is valid
       ansible.builtin.assert:
         that:
           - >-
-            'valid' in (_validate.stdout | lower) or _validate.rc == 0
+            'valid' in (restic_profile_verify_validate.stdout | lower) or
+            restic_profile_verify_validate.rc == 0
         fail_msg: >-
-          restic-profile validate exited non-zero or did not report a valid config. stdout: {{ _validate.stdout }} stderr: {{ _validate.stderr }}
+          restic-profile validate exited non-zero or did not report a valid
+          config.
+          stdout: {{ restic_profile_verify_validate.stdout }}
+          stderr: {{ restic_profile_verify_validate.stderr }}

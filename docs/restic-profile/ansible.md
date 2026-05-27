@@ -17,7 +17,8 @@ The `restic_profile` role:
 
 The systemd units still execute `restic_profile_bin` directly. The
 `/usr/local/bin/restic-profile` symlink is only a stable operator-facing PATH
-entry so you can run `restic-profile list`, `validate`, `backup`, or `forget`
+entry so you can run `restic-profile list`, `validate`, `backup`, or
+`retention` (alias: `forget`)
 without activating the dedicated virtual environment.
 
 If you want an interactive `restic-profile` run to use the same global systemd
@@ -25,7 +26,7 @@ resource controls as the managed timer services, use the separate helper:
 
 ```shell
 restic-profile-scope backup myapp
-restic-profile-scope forget repo-prune
+restic-profile-scope retention repo-prune
 ```
 
 The scope helper uses the global role defaults such as `CPUQuota=`. Per-profile
@@ -128,7 +129,7 @@ to be overridden.
 | `restic_profile_cli_link`           | `/usr/local/bin/restic-profile`                           |
 | `restic_profile_scope_helper_path`  | `/usr/local/bin/restic-profile-scope`                     |
 | `restic_profile_backup_unit_prefix` | `restic-profile-backup-`                                  |
-| `restic_profile_forget_unit_prefix` | `restic-profile-forget-`                                  |
+| `restic_profile_retention_unit_prefix` | `restic-profile-retention-`                            |
 
 ## Removing all managed resources
 
@@ -154,9 +155,12 @@ binary.
 Before writing files, the role asserts that:
 
 1. `restic_profile_restic_install_source` is one of `apt`, `go_build`, or `existing`.
-1. `restic_profile_profiles` is a mapping.
-2. Every enabled profile has non-empty `repository` and `password` fields.
-3. Every enabled retention-only profile (`sources: []`) has at least one non-zero `keep_*` field.
+1. `restic_profile_repositories` and `restic_profile_profiles` are mappings.
+1. Every repository definition is a mapping with non-empty `repository` and `password` fields.
+1. Every enabled profile is a mapping with a non-empty `repository_ref` that points to `restic_profile_repositories`.
+1. Every enabled profile configures at least one of `backup` or `retention`.
+1. Every enabled `backup` block is a mapping with a non-empty `sources` list.
+1. Every enabled `retention` block is a mapping with at least one non-zero `keep_*` field.
 
 ## Security notes
 
