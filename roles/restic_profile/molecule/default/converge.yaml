@@ -17,6 +17,9 @@
       test_prune_repo:
         repository: "/tmp/restic-repos/test_prune"
         password: "molecule-prune-password"
+      unused_repo:
+        repository: "/tmp/restic-repos/unused"
+        password: "molecule-unused-password"
 
     restic_profile_profiles:
       # Backup profile — backup block present → restic-profile-backup-test_backup.{service,timer}

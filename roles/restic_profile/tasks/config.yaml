@@ -49,22 +49,67 @@
     - _profile_item.value.backup.exclude_file_content | default('') | length > 0
   no_log: true
 
-- name: deploy per-profile .env file
+- name: construct repository list for referenced .env files
+  vars:
+    restic_profile_env_repositories_json: >-
+      {% set env_repositories = [] %}
+      {% set seen_refs = [] %}
+      {% for profile_name, profile in restic_profile_profiles.items() %}
+      {%   if profile.enabled | default(true) | ansible.builtin.bool %}
+      {%     set repo_ref = profile.repository_ref | default('') | string %}
+      {%     if repo_ref | length > 0 and repo_ref not in seen_refs %}
+      {%       set _ = seen_refs.append(repo_ref) %}
+      {%       set _ = env_repositories.append({
+                 'key': repo_ref,
+                 'value': restic_profile_repositories[repo_ref]
+               }) %}
+      {%     endif %}
+      {%   endif %}
+      {% endfor %}
+      {{ env_repositories | to_json }}
+    restic_profile_env_repositories_data: >-
+      {{ restic_profile_env_repositories_json | from_json }}
+  ansible.builtin.set_fact:
+    restic_profile_env_repositories: "{{ restic_profile_env_repositories_data }}"
+    restic_profile_env_file_paths: >-
+      {{
+        restic_profile_env_repositories_data
+        | map(attribute='key')
+        | map('regex_replace', '^(.*)$', restic_profile_config_dir ~ '/restic-profile-\\1.env')
+        | list
+      }}
+
+- name: find managed repository .env files
+  become: true
+  ansible.builtin.find:
+    paths: "{{ restic_profile_config_dir }}"
+    patterns: "restic-profile-*.env"
+    file_type: file
+  register: restic_profile_found_env_files
+
+- name: remove stale repository .env files
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ restic_profile_found_env_files.files }}"
+  when:
+    - item.path not in (restic_profile_env_file_paths | default([]))
+
+- name: deploy per-repository .env file for referenced repositories
   become: true
   ansible.builtin.template:
     src: etc/restic-profile/restic-profile.env.j2
-    dest: "{{ restic_profile_config_dir }}/restic-profile-{{ _profile_item.key }}.env"
+    dest: "{{ restic_profile_config_dir }}/restic-profile-{{ _repository_item.key }}.env"
     owner: root
     group: root
     # 0640: same restriction as the main TOML config — contains path patterns
     # that reveal the host's filesystem layout, treat as mildly sensitive.
     mode: "0640"
-  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
+  loop: "{{ restic_profile_env_repositories | default([]) }}"
   loop_control:
-    loop_var: _profile_item
-    label: "{{ _profile_item.key }}"
-  when:
-    - _profile_item.value.enabled | default(true) | ansible.builtin.bool
+    loop_var: _repository_item
+    label: "{{ _repository_item.key }}"
   no_log: true
 
 - name: remove legacy interactive profile selector

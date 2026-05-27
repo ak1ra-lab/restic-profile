@@ -12,7 +12,9 @@
     _scope_helper: /usr/local/bin/restic-profile-scope
     _legacy_selector_script: /etc/restic-profile/restic-profile-select.bash
     _config_file: /etc/restic-profile/restic-profile.toml
-    _backup_env_file: /etc/restic-profile/restic-profile-test_backup.env
+    _backup_repository_env_file: /etc/restic-profile/restic-profile-test_backup_repo.env
+    _legacy_backup_env_file: /etc/restic-profile/restic-profile-test_backup.env
+    _unused_repository_env_file: /etc/restic-profile/restic-profile-unused_repo.env
     _backup_service: /etc/systemd/system/restic-profile-backup-test_backup.service
     _backup_timer: /etc/systemd/system/restic-profile-backup-test_backup.timer
     _retention_service: /etc/systemd/system/restic-profile-retention-test_prune.service
@@ -163,11 +165,11 @@
           (got: {{ restic_profile_verify_config_stat.stat.mode }}).
           The file contains credentials and must not be world-readable.
 
-    - name: source per-profile env file and print RESTIC_PASSWORD
+    - name: source repository env file and print RESTIC_PASSWORD
       ansible.builtin.shell: |
         set -eu
         # shellcheck disable=SC1090
-        source "{{ _backup_env_file }}"
+        source "{{ _backup_repository_env_file }}"
         printf '%s' "$RESTIC_PASSWORD"
       args:
         executable: /usr/bin/bash
@@ -179,9 +181,35 @@
         that:
           - restic_profile_verify_sourced_backup_password.stdout == "molecule-$ecret'pw"
         fail_msg: >-
-          Expected sourcing {{ _backup_env_file }} to preserve the original
+          Expected sourcing {{ _backup_repository_env_file }} to preserve the original
           password, got
           {{ restic_profile_verify_sourced_backup_password.stdout | to_json }}.
+
+    - name: stat legacy per-profile env file
+      ansible.builtin.stat:
+        path: "{{ _legacy_backup_env_file }}"
+      register: restic_profile_verify_legacy_backup_env_stat
+
+    - name: assert legacy per-profile env file is absent
+      ansible.builtin.assert:
+        that:
+          - not restic_profile_verify_legacy_backup_env_stat.stat.exists
+        fail_msg: >-
+          Expected {{ _legacy_backup_env_file }} to be absent because
+          repository env files are now rendered per referenced repository.
+
+    - name: stat unused repository env file
+      ansible.builtin.stat:
+        path: "{{ _unused_repository_env_file }}"
+      register: restic_profile_verify_unused_repository_env_stat
+
+    - name: assert unused repository env file is absent
+      ansible.builtin.assert:
+        that:
+          - not restic_profile_verify_unused_repository_env_stat.stat.exists
+        fail_msg: >-
+          Expected {{ _unused_repository_env_file }} to be absent because only
+          repositories referenced by enabled profiles should get env files.
 
     - name: read config file content
       ansible.builtin.slurp:
@@ -429,7 +457,7 @@
           - /bin/bash
           - -lc
           - >-
-            source "{{ _backup_env_file }}" &&
+            source "{{ _backup_repository_env_file }}" &&
             restic_cmd="${RESTIC_PROFILE_RESTIC_BINARY:-restic}" &&
             "${restic_cmd}" snapshots
       register: restic_profile_verify_restic_direct_run

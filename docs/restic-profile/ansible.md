@@ -12,7 +12,7 @@ The `restic_profile` role:
 3. Exposes `/usr/local/bin/restic-profile` as a symlink to the venv entry point for interactive use.
 4. Installs `/usr/local/bin/restic-profile-scope`, a transient `systemd-run --scope` helper for manually throttled CLI runs.
 5. Renders `/etc/restic-profile/restic-profile.toml` (mode `0640`).
-6. Renders one per-profile environment file and optional exclude file.
+6. Renders one repository-scoped environment file per repository actually referenced by enabled profiles, plus optional per-profile exclude files.
 7. Deploys one systemd service+timer pair per enabled profile.
 
 The systemd units still execute `restic_profile_bin` directly. The
@@ -34,12 +34,12 @@ systemd overrides still apply only to the generated service units.
 
 For raw `restic` commands, change into `/etc/restic-profile`, inspect the
 rendered `.env` files, source the one you want, and then run `restic` with the
-profile environment loaded into the current shell:
+repository environment loaded into the current shell:
 
 ```shell
 cd /etc/restic-profile
 ls restic-profile-*.env
-source ./restic-profile-myapp.env
+source ./restic-profile-r1.env
 restic_cmd="${RESTIC_PROFILE_RESTIC_BINARY:-restic}"
 "${restic_cmd}" snapshots
 "${restic_cmd}" restore latest --target /tmp/restore
@@ -51,9 +51,15 @@ deployment left that helper behind, the role removes it on subsequent runs.
 The role intentionally does not edit per-user shell startup files. Source the
 desired `.env` file in each shell where you need direct `restic` access.
 
-Sourcing `/etc/restic-profile/restic-profile-<name>.env` requires the caller to
-have read access to that file. With the role defaults, that usually means
-running it as `root`.
+Repository `.env` files are named after `repository_ref`, for example
+`/etc/restic-profile/restic-profile-r1.env`. They export repository
+credentials and the global `restic_profile_restic_binary` hint when it is set;
+profile-specific runtime overrides such as per-profile `restic_binary` stay in
+the TOML config and generated service units.
+
+Sourcing `/etc/restic-profile/restic-profile-<repository-ref>.env` requires the
+caller to have read access to that file. With the role defaults, that usually
+means running it as `root`.
 
 ## Role variables
 
@@ -165,7 +171,7 @@ Before writing files, the role asserts that:
 ## Security notes
 
 - `/etc/restic-profile/restic-profile.toml` is mode `0640` (`root:root`).
-- `/etc/restic-profile/restic-profile-<name>.env` and rendered exclude files are also mode `0640`.
+- `/etc/restic-profile/restic-profile-<repository-ref>.env` and rendered exclude files are also mode `0640`.
 - The `.env` files are rendered with shell-safe quoting so they can be sourced directly in a Bash shell without expanding characters such as `$` inside secrets.
 - If `system_user` is non-root, ensure that account can read the config file.
 - Store secrets in Ansible Vault (`password`, `rest_password`, `aws_secret_access_key`, etc.).
