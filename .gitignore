@@ -352,3 +352,4 @@ examples/*
 ## LLM
 docs/sessions/*
 .agents/state/sessions/*
+.antigravitycli/*

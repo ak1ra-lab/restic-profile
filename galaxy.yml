@@ -8,9 +8,11 @@ authors:
 description: Profile-based restic wrapper with Ansible deployment support
 license_file: LICENSE
 tags:
+  - storage
+  - tools
+  - linux
   - backup
   - restic
-  - python
 dependencies: {}
 repository: https://github.com/ak1ra-lab/restic-profile
 documentation: https://github.com/ak1ra-lab/restic-profile
