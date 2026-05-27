@@ -37,8 +37,8 @@ restic_profile_restic_binary: "/usr/local/bin/restic"
 # retry_lock is opt-in; keep it empty on older distro packages that do not support it.
 restic_profile_retry_lock: "10m"
 
-restic_profile_profiles:
-  home-alice:
+restic_profile_repositories:
+  r1:
     # Repository password should live in Ansible Vault.
     repository: "rest:https://backup.example.com:8000/alice/home-alice"
     password: "{{ vault_restic_home_alice_password }}"
@@ -48,43 +48,51 @@ restic_profile_profiles:
     rest_password: "{{ vault_restic_home_alice_rest_password }}"
     cacert: "/etc/ssl/certs/backup-ca.pem"
 
+restic_profile_profiles:
+  home-alice:
+    repository_ref: r1
+
     # The profile name becomes the default tag; set tag explicitly when you want
     # it to stay stable across future renames.
-    sources:
-      - /home/alice
     tag: "home-alice"
-    one_file_system: true
-
-    # Short excludes stay inline.
-    exclude_patterns:
-      - "*.bak"
-      - "*.tmp"
-
-    # Long excludes become /etc/restic-profile/restic-profile-home-alice.exclude.
-    # The role also wires that path into the generated TOML as exclude_file.
-    exclude_file_content: |
-      .cache/
-      .local/share/Trash/
-      node_modules/
-      .venv/
-      __pycache__/
-      .vscode-server/
-
-    # Client-side forget runs after backup because forget=true.
-    forget: true
-    keep_hourly: 24
-    keep_daily: 14
-    keep_weekly: 8
-    keep_monthly: 12
-
-    on_calendar: "hourly"
-    randomized_delay_sec: "15min"
 
     # Services default to root; restic_binary, no_cache, and retry_lock can override global settings.
     system_user: root
     restic_binary: "/usr/local/bin/restic"
     no_cache: true
     retry_lock: "20m"
+
+    backup:
+      sources:
+        - /home/alice
+      one_file_system: true
+
+      # Short excludes stay inline.
+      exclude_patterns:
+        - "*.bak"
+        - "*.tmp"
+
+      # Long excludes become /etc/restic-profile/restic-profile-home-alice.exclude.
+      # The role also wires that path into the generated TOML as exclude_file.
+      exclude_file_content: |
+        .cache/
+        .local/share/Trash/
+        node_modules/
+        .venv/
+        __pycache__/
+        .vscode-server/
+
+      # Client-side forget runs after backup because post_backup_retention=true.
+      post_backup_retention: true
+
+      on_calendar: "hourly"
+      randomized_delay_sec: "15min"
+
+    retention:
+      keep_hourly: 24
+      keep_daily: 14
+      keep_weekly: 8
+      keep_monthly: 12
 
     hooks:
       shell: "/bin/bash"
@@ -123,12 +131,17 @@ Example host vars:
 ```yaml
 # host_vars/backup-client-01/restic-profile.yaml
 ---
-restic_profile_profiles:
-  home-alice:
+restic_profile_repositories:
+  r1:
     repository: "rest:https://backup.example.com:8000/alice/home-alice"
     password: "{{ vault_restic_home_alice_password }}"
-    sources:
-      - /home/alice
+
+restic_profile_profiles:
+  home-alice:
+    repository_ref: r1
+    backup:
+      sources:
+        - /home/alice
 
     hooks:
       shell: "/usr/bin/bash"
@@ -152,7 +165,7 @@ profile_name={{ restic_profile_hook_profile_name | tojson }}
 phase_name={{ restic_profile_hook_phase | tojson }}
 
 declare -a profile_sources=(
-{% for source in restic_profile_hook_profile.sources %}
+{% for source in restic_profile_hook_profile.backup.sources %}
     {{ source | tojson }}
 {% endfor %}
 )
@@ -194,26 +207,26 @@ Backup client:
 ```yaml
 # host_vars/app-node-01/restic-profile.yaml
 ---
-restic_profile_profiles:
-  myapp:
+restic_profile_repositories:
+  r1:
     repository: "rest:https://backup.example.com:8000/apps/myapp"
     password: "{{ vault_myapp_restic_password }}"
-
     rest_username: "myapp"
     rest_password: "{{ vault_myapp_rest_password }}"
 
-    sources:
-      - /srv/myapp
-      - /etc/myapp
+restic_profile_profiles:
+  myapp:
+    repository_ref: r1
     tag: "myapp"
 
-    # Append-only repository: do not run client-side forget.
-    forget: false
-    keep_daily: 14
-    keep_weekly: 8
-
-    on_calendar: "hourly"
-    randomized_delay_sec: "10min"
+    backup:
+      sources:
+        - /srv/myapp
+        - /etc/myapp
+      # Append-only repository: do not run client-side forget.
+      post_backup_retention: false
+      on_calendar: "hourly"
+      randomized_delay_sec: "10min"
 ```
 
 Repository host:
@@ -221,27 +234,26 @@ Repository host:
 ```yaml
 # host_vars/backup-repo-01/restic-profile.yaml
 ---
-restic_profile_profiles:
-  myapp_retention:
-    # Run retention on the repository host, not on the append-only clients.
+restic_profile_repositories:
+  r1:
     repository: "/srv/restic/apps/myapp"
     password: "{{ vault_myapp_restic_password }}"
 
-    # Empty sources means a retention-only profile, so the role renders
-    # restic-profile-forget-myapp_retention.{service,timer}.
-    sources: []
+restic_profile_profiles:
+  myapp_retention:
+    repository_ref: r1
     tag: "myapp"
-
-    forget_current_host: false
-    prune: true
-    keep_hourly: 0
-    keep_daily: 14
-    keep_weekly: 8
-    keep_monthly: 12
-
-    on_calendar: "daily"
-    randomized_delay_sec: "30min"
     system_user: restic-rest-server
+
+    retention:
+      forget_current_host: false
+      prune: true
+      keep_hourly: 0
+      keep_daily: 14
+      keep_weekly: 8
+      keep_monthly: 12
+      on_calendar: "daily"
+      randomized_delay_sec: "30min"
 ```
 
 This split keeps snapshot creation on the application hosts while leaving
@@ -252,29 +264,34 @@ retention plus `--prune` to the repository server.
 ```yaml
 # host_vars/db-node-01/restic-profile.yaml
 ---
-restic_profile_profiles:
-  postgres-basebackup:
+restic_profile_repositories:
+  s3_db:
     repository: "s3:https://s3.example.com/backups/postgresql"
     password: "{{ vault_postgres_restic_password }}"
-
     aws_default_region: "us-east-1"
     aws_access_key_id: "{{ vault_s3_access_key_id }}"
     aws_secret_access_key: "{{ vault_s3_secret_access_key }}"
 
-    sources:
-      - /var/backups/postgresql
+restic_profile_profiles:
+  postgres-basebackup:
+    repository_ref: s3_db
     tag: "postgres-basebackup"
-    exclude_patterns:
-      - "*.partial"
 
-    forget: true
-    keep_last: 7
-    keep_daily: 7
-    keep_weekly: 4
+    backup:
+      sources:
+        - /var/backups/postgresql
+      exclude_patterns:
+        - "*.partial"
+      post_backup_retention: true
+      on_calendar: "03:15"
+      randomized_delay_sec: "5min"
 
-    # Deploy units first, then start the timer after a successful manual run.
-    on_calendar: "03:15"
-    randomized_delay_sec: "5min"
+    retention:
+      keep_last: 7
+      keep_daily: 7
+      keep_weekly: 4
+
+    # Deploy units first, but disable starting the timer
     timer_enabled: false
 ```
 
@@ -283,23 +300,29 @@ restic_profile_profiles:
 ```yaml
 # host_vars/gce-node-01/restic-profile.yaml
 ---
-restic_profile_profiles:
-  analytics:
+restic_profile_repositories:
+  gcs_analytics:
     repository: "gs:my-bucket:/analytics"
     password: "{{ vault_analytics_restic_password }}"
-
     # ADC on GCE/GKE: google_project_id is enough. If you need an explicit key
     # file or an OAuth2 token, set one of the two optional fields below.
     google_project_id: "company-prod"
     # google_application_credentials: "/etc/gcs/analytics-key.json"
     # google_access_token: "{{ vault_analytics_google_access_token }}"
 
-    sources:
-      - /srv/analytics
+restic_profile_profiles:
+  analytics:
+    repository_ref: gcs_analytics
     tag: "analytics"
 
-    keep_daily: 7
-    keep_weekly: 4
-    keep_monthly: 6
-    on_calendar: "daily"
+    backup:
+      sources:
+        - /srv/analytics
+      post_backup_retention: true
+      on_calendar: "daily"
+
+    retention:
+      keep_daily: 7
+      keep_weekly: 4
+      keep_monthly: 6
 ```
