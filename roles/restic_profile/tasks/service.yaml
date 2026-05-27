@@ -4,6 +4,7 @@
 # Naming convention (defined in vars/main.yaml):
 #   Backup units: restic-profile-backup-<name>.{service,timer}
 #   Retention/Forget units: restic-profile-retention-<name>.{service,timer}
+#     for standalone retention runs
 
 - name: Construct flat list of service units to deploy
   vars:
@@ -21,7 +22,10 @@
                  'timer_enabled': p.timer_enabled | default(true) | ansible.builtin.bool
                }) %}
       {%     endif %}
-      {%     if p.retention is defined %}
+      {%     if p.retention is defined and (
+               p.backup is not defined or
+               not (p.backup.post_backup_retention | default(false) | ansible.builtin.bool)
+             ) %}
       {%       set _ = units.append({
                  'profile_name': pname,
                  'profile': p,

@@ -126,9 +126,12 @@ inline `hooks.<phase>` entries first, then `hooks.<phase>_scripts`, then
 | Profile action | Generated units | Invocation |
 | --- | --- | --- |
 | `backup` | `restic-profile-backup-<name>.{service,timer}` | `restic-profile backup <name>` |
-| `retention` | `restic-profile-retention-<name>.{service,timer}` | `restic-profile retention <name>` |
+| `retention` | `restic-profile-retention-<name>.{service,timer}` for standalone retention runs | `restic-profile retention <name>` |
 
 Timer units are dynamically deployed only if `on_calendar` schedule is configured for that respective action.
+When `backup.post_backup_retention = true`, the backup command runs forget/prune
+inline after backup and the role does not render a separate standalone
+retention service or timer for that profile.
 
 ## Rendered TOML: retention-only repository host
 

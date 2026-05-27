@@ -20,7 +20,7 @@ Each profile key becomes:
 - TOML section: `[profiles.<name>]`
 - systemd units:
   - `restic-profile-backup-<name>.service|timer` when `backup` sub-table is configured
-  - `restic-profile-retention-<name>.service|timer` when `retention` sub-table is configured
+  - `restic-profile-retention-<name>.service|timer` when `retention` is configured for a standalone retention run, meaning the profile is retention-only or `backup.post_backup_retention` is not enabled
 
 ```yaml
 restic_profile_repositories:
@@ -44,7 +44,7 @@ restic_profile_profiles:
 | Repository config | `repository`, `password`, `rest_username`, `rest_password`, `cacert`, `aws_default_region`, `aws_access_key_id`, `aws_secret_access_key`, `google_project_id`, `google_application_credentials`, `google_access_token` | Defined under `restic_profile_repositories` keys |
 | Backup sub-table | `sources`, `exclude_patterns`, `one_file_system`, `post_backup_retention`, `on_calendar`, `randomized_delay_sec` | Inside profile `backup` block. Timer units generated only if `on_calendar` is non-empty |
 | Exclude file helper | `exclude_file_content` | Role-only input inside `backup` block; writes `/etc/restic-profile/restic-profile-<name>.exclude` and then renders `exclude_file = ...` into TOML |
-| Retention sub-table | `keep_last`, `keep_hourly`, `keep_daily`, `keep_weekly`, `keep_monthly`, `keep_yearly`, `prune`, `forget_current_host`, `on_calendar`, `randomized_delay_sec` | Inside profile `retention` block. Timer units generated only if `on_calendar` is non-empty |
+| Retention sub-table | `keep_last`, `keep_hourly`, `keep_daily`, `keep_weekly`, `keep_monthly`, `keep_yearly`, `prune`, `forget_current_host`, `on_calendar`, `randomized_delay_sec` | Inside profile `retention` block. Standalone retention units are rendered only when `backup.post_backup_retention` is disabled or no backup block exists; timer units are generated only if `on_calendar` is non-empty |
 | Profile level runtime | `tag`, `system_user`, `restic_binary`, `no_cache`, `retry_lock` | Profile-level overrides; `restic_binary` and `no_cache` can inherit from global settings |
 | Hooks | `hooks.shell`, `hooks.prevalidate`, `hooks.before`, `hooks.after`, `hooks.failure`, `hooks.success` | Rendered under `[profiles.<name>.hooks]` |
 | Hook file helpers | `hooks.<phase>_scripts`, `hooks.<phase>_templates` | Role-only inputs; copy or render controller-side files to `/etc/restic-profile/hooks.d/restic-profile-<name>.<phase>-<seq>.sh` and append those paths to `hooks.<phase>` |
@@ -53,6 +53,7 @@ restic_profile_profiles:
 ## Defaults that matter operationally
 
 - `post_backup_retention: false`: backup runs do not run post-backup retention by default unless you explicitly opt in
+- `post_backup_retention: true`: backup runs invoke retention inline after a successful backup, so the role does not render a separate standalone retention unit for that same profile
 - `one_file_system: false`: backups cross filesystem boundaries unless you opt in
 - `forget_current_host: false`: standalone retention runs are tag-scoped, not host-scoped
 - `prune: false`: standalone retention does not add `--prune` unless you opt in
