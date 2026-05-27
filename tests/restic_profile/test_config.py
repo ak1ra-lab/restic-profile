@@ -8,10 +8,12 @@ import pytest
 from pydantic import ValidationError
 
 from restic_profile.config import (
+    BackupConfig,
     HooksConfig,
     Profile,
+    Repository,
     ResticProfileConfig,
-    RetentionPolicy,
+    RetentionConfig,
     load_config,
 )
 
@@ -52,18 +54,20 @@ def test_load_config_profile_fields_match_toml(config_toml_file: Path) -> None:
     result = load_config(config_toml_file)
     myapp = result.profiles["myapp"]
 
-    assert myapp.repository == "rest:https://backup.example.com/"
-    assert myapp.password == "secret"
-    assert "/home/alice/myapp" in myapp.sources
+    assert myapp.resolved_repository is not None
+    assert myapp.resolved_repository.repository == "rest:https://backup.example.com/"
+    assert myapp.resolved_repository.password == "secret"
+    assert myapp.backup is not None
+    assert "/home/alice/myapp" in myapp.backup.sources
 
 
 def test_load_config_runtime_model_contains_profiles_only(
     config_toml_file: Path,
 ) -> None:
-    """load_config() keeps global defaults as input-only and exposes profiles at runtime."""
+    """load_config() keeps global defaults as input-only and exposes profiles/repositories at runtime."""
     result = load_config(config_toml_file)
 
-    assert set(result.model_dump()) == {"profiles"}
+    assert set(result.model_dump().keys()) == {"profiles", "repositories"}
 
 
 def test_load_config_empty_profiles_section(tmp_path: Path) -> None:
@@ -80,7 +84,13 @@ def test_load_config_missing_global_section(tmp_path: Path) -> None:
     """load_config() handles a TOML file with no [global] section."""
     toml_file = tmp_path / "no-global.toml"
     toml_file.write_text(
-        '[profiles.demo]\nrepository = "rest:https://example.com/"\npassword = "pw"\n',
+        "[repositories.r1]\n"
+        'repository = "rest:https://example.com/"\n'
+        'password = "pw"\n'
+        "[profiles.demo]\n"
+        'repository_ref = "r1"\n'
+        "[profiles.demo.backup]\n"
+        'sources = ["/data"]\n',
         encoding="utf-8",
     )
 
@@ -96,10 +106,14 @@ def test_profile_tag_defaults_to_name_when_empty(tmp_path: Path) -> None:
     """When 'tag' is an empty string in the TOML, the profile's tag is set to its name."""
     toml_file = tmp_path / "config.toml"
     toml_file.write_text(
-        "[profiles.server]\n"
+        "[repositories.r1]\n"
         'repository = "rest:https://example.com/"\n'
         'password = "secret"\n'
-        'tag = ""\n',
+        "[profiles.server]\n"
+        'repository_ref = "r1"\n'
+        'tag = ""\n'
+        "[profiles.server.backup]\n"
+        'sources = ["/data"]\n',
         encoding="utf-8",
     )
 
@@ -112,10 +126,14 @@ def test_profile_tag_preserved_when_explicitly_set(tmp_path: Path) -> None:
     """When 'tag' is set in TOML, its value is kept as-is."""
     toml_file = tmp_path / "config.toml"
     toml_file.write_text(
-        "[profiles.myapp]\n"
+        "[repositories.r1]\n"
         'repository = "rest:https://example.com/"\n'
         'password = "secret"\n'
-        'tag = "custom-tag"\n',
+        "[profiles.myapp]\n"
+        'repository_ref = "r1"\n'
+        'tag = "custom-tag"\n'
+        "[profiles.myapp.backup]\n"
+        'sources = ["/data"]\n',
         encoding="utf-8",
     )
 
@@ -128,31 +146,39 @@ def test_profile_forget_current_host_defaults_to_false(tmp_path: Path) -> None:
     """forget_current_host defaults to False when omitted from TOML."""
     toml_file = tmp_path / "config.toml"
     toml_file.write_text(
-        "[profiles.myapp]\n"
+        "[repositories.r1]\n"
         'repository = "rest:https://example.com/"\n'
-        'password = "secret"\n',
+        'password = "secret"\n'
+        "[profiles.myapp]\n"
+        'repository_ref = "r1"\n'
+        "[profiles.myapp.retention]\n"
+        "keep_daily = 7\n",
         encoding="utf-8",
     )
 
     result = load_config(toml_file)
 
-    assert result.profiles["myapp"].forget_current_host is False
+    assert result.profiles["myapp"].retention.forget_current_host is False
 
 
 def test_profile_forget_current_host_parsed_from_toml(tmp_path: Path) -> None:
     """forget_current_host is parsed from TOML when explicitly set."""
     toml_file = tmp_path / "config.toml"
     toml_file.write_text(
-        "[profiles.myapp]\n"
+        "[repositories.r1]\n"
         'repository = "rest:https://example.com/"\n'
         'password = "secret"\n'
+        "[profiles.myapp]\n"
+        'repository_ref = "r1"\n'
+        "[profiles.myapp.retention]\n"
+        "keep_daily = 7\n"
         "forget_current_host = true\n",
         encoding="utf-8",
     )
 
     result = load_config(toml_file)
 
-    assert result.profiles["myapp"].forget_current_host is True
+    assert result.profiles["myapp"].retention.forget_current_host is True
 
 
 # Profile defaults — retry_lock inheritance
@@ -163,9 +189,13 @@ def test_profile_retry_lock_inherits_from_global(tmp_path: Path) -> None:
     toml_file = tmp_path / "config.toml"
     toml_file.write_text(
         '[global]\nretry_lock = "5m"\n\n'
-        "[profiles.myapp]\n"
+        "[repositories.r1]\n"
         'repository = "rest:https://example.com/"\n'
-        'password = "secret"\n',
+        'password = "secret"\n'
+        "[profiles.myapp]\n"
+        'repository_ref = "r1"\n'
+        "[profiles.myapp.retention]\n"
+        "keep_daily = 7\n",
         encoding="utf-8",
     )
 
@@ -179,10 +209,14 @@ def test_profile_retry_lock_overrides_global_when_set(tmp_path: Path) -> None:
     toml_file = tmp_path / "config.toml"
     toml_file.write_text(
         '[global]\nretry_lock = "5m"\n\n'
-        "[profiles.myapp]\n"
+        "[repositories.r1]\n"
         'repository = "rest:https://example.com/"\n'
         'password = "secret"\n'
-        'retry_lock = "2m"\n',
+        "[profiles.myapp]\n"
+        'repository_ref = "r1"\n'
+        'retry_lock = "2m"\n'
+        "[profiles.myapp.retention]\n"
+        "keep_daily = 7\n",
         encoding="utf-8",
     )
 
@@ -196,9 +230,13 @@ def test_profile_no_cache_inherits_from_global(tmp_path: Path) -> None:
     toml_file = tmp_path / "config.toml"
     toml_file.write_text(
         "[global]\nno_cache = true\n\n"
-        "[profiles.myapp]\n"
+        "[repositories.r1]\n"
         'repository = "rest:https://example.com/"\n'
-        'password = "secret"\n',
+        'password = "secret"\n'
+        "[profiles.myapp]\n"
+        'repository_ref = "r1"\n'
+        "[profiles.myapp.retention]\n"
+        "keep_daily = 7\n",
         encoding="utf-8",
     )
 
@@ -212,10 +250,14 @@ def test_profile_no_cache_overrides_global_when_set(tmp_path: Path) -> None:
     toml_file = tmp_path / "config.toml"
     toml_file.write_text(
         "[global]\nno_cache = true\n\n"
-        "[profiles.myapp]\n"
+        "[repositories.r1]\n"
         'repository = "rest:https://example.com/"\n'
         'password = "secret"\n'
-        "no_cache = false\n",
+        "[profiles.myapp]\n"
+        'repository_ref = "r1"\n'
+        "no_cache = false\n"
+        "[profiles.myapp.retention]\n"
+        "keep_daily = 7\n",
         encoding="utf-8",
     )
 
@@ -230,9 +272,13 @@ def test_profile_restic_binary_inherits_from_global(tmp_path: Path) -> None:
     toml_file.write_text(
         "[global]\n"
         'restic_binary = "/usr/local/bin/restic"\n\n'
-        "[profiles.myapp]\n"
+        "[repositories.r1]\n"
         'repository = "rest:https://example.com/"\n'
-        'password = "secret"\n',
+        'password = "secret"\n'
+        "[profiles.myapp]\n"
+        'repository_ref = "r1"\n'
+        "[profiles.myapp.retention]\n"
+        "keep_daily = 7\n",
         encoding="utf-8",
     )
 
@@ -249,10 +295,14 @@ def test_profile_restic_binary_preserves_explicit_empty_override(
     toml_file.write_text(
         "[global]\n"
         'restic_binary = "/usr/local/bin/restic"\n\n'
-        "[profiles.myapp]\n"
+        "[repositories.r1]\n"
         'repository = "rest:https://example.com/"\n'
         'password = "secret"\n'
-        'restic_binary = ""\n',
+        "[profiles.myapp]\n"
+        'repository_ref = "r1"\n'
+        'restic_binary = ""\n'
+        "[profiles.myapp.retention]\n"
+        "keep_daily = 7\n",
         encoding="utf-8",
     )
 
@@ -265,52 +315,64 @@ def test_profile_one_file_system_defaults_to_false(tmp_path: Path) -> None:
     """one_file_system defaults to False when omitted from TOML."""
     toml_file = tmp_path / "config.toml"
     toml_file.write_text(
-        "[profiles.myapp]\n"
+        "[repositories.r1]\n"
         'repository = "rest:https://example.com/"\n'
-        'password = "secret"\n',
+        'password = "secret"\n'
+        "[profiles.myapp]\n"
+        'repository_ref = "r1"\n'
+        "[profiles.myapp.backup]\n"
+        'sources = ["/data"]\n',
         encoding="utf-8",
     )
 
     result = load_config(toml_file)
 
-    assert result.profiles["myapp"].one_file_system is False
+    assert result.profiles["myapp"].backup.one_file_system is False
 
 
 def test_profile_one_file_system_parsed_from_toml(tmp_path: Path) -> None:
     """one_file_system is parsed from TOML when explicitly set."""
     toml_file = tmp_path / "config.toml"
     toml_file.write_text(
-        "[profiles.myapp]\n"
+        "[repositories.r1]\n"
         'repository = "rest:https://example.com/"\n'
         'password = "secret"\n'
+        "[profiles.myapp]\n"
+        'repository_ref = "r1"\n'
+        "[profiles.myapp.backup]\n"
+        'sources = ["/data"]\n'
         "one_file_system = true\n",
         encoding="utf-8",
     )
 
     result = load_config(toml_file)
 
-    assert result.profiles["myapp"].one_file_system is True
+    assert result.profiles["myapp"].backup.one_file_system is True
 
 
 def test_profile_keep_values_default_when_absent(tmp_path: Path) -> None:
-    """keep_* fields use the Profile dataclass defaults when not in TOML."""
+    """keep_* fields use the RetentionConfig dataclass defaults when not in TOML."""
     toml_file = tmp_path / "config.toml"
     toml_file.write_text(
-        "[profiles.myapp]\n"
+        "[repositories.r1]\n"
         'repository = "rest:https://example.com/"\n'
-        'password = "secret"\n',
+        'password = "secret"\n'
+        "[profiles.myapp]\n"
+        'repository_ref = "r1"\n'
+        "[profiles.myapp.retention]\n"
+        "keep_daily = 7\n",
         encoding="utf-8",
     )
 
     result = load_config(toml_file)
-    p = result.profiles["myapp"]
+    ret = result.profiles["myapp"].retention
 
-    assert p.keep_hourly == 6
-    assert p.keep_daily == 7
-    assert p.keep_weekly == 4
-    assert p.keep_monthly == 3
-    assert p.keep_last == 0
-    assert p.keep_yearly == 0
+    assert ret.keep_hourly == 0
+    assert ret.keep_daily == 7
+    assert ret.keep_weekly == 0
+    assert ret.keep_monthly == 0
+    assert ret.keep_last == 0
+    assert ret.keep_yearly == 0
 
 
 # Profile.is_backup / is_retention_only properties
@@ -328,86 +390,74 @@ def test_profile_is_retention_only_when_sources_empty(prune_profile: Profile) ->
     assert prune_profile.is_backup is False
 
 
-def test_profile_retention_property(backup_profile: Profile) -> None:
-    """Profile.retention returns a RetentionPolicy reflecting the keep_* fields."""
-    rp = backup_profile.retention
-
-    assert isinstance(rp, RetentionPolicy)
-    assert rp.keep_daily == backup_profile.keep_daily
-    assert rp.keep_weekly == backup_profile.keep_weekly
-
-
 # Profile validation — invalid profiles raise ValidationError
 
 
 def test_profile_empty_repository_raises_validation_error() -> None:
-    """Profile raises ValidationError (with profile name) when repository is empty."""
-    with pytest.raises(ValidationError, match="repository is required") as exc_info:
-        Profile(name="badrepo", repository="", password="secret")
-
-    assert "badrepo" in str(exc_info.value)
+    """Repository model raises ValidationError when repository is empty."""
+    with pytest.raises(ValidationError, match="repository"):
+        Repository(name="badrepo", repository="", password="secret")
 
 
 def test_profile_empty_password_raises_validation_error() -> None:
-    """Profile raises ValidationError when password is empty."""
-    with pytest.raises(ValidationError, match="password is required"):
-        Profile(name="nopw", repository="rest:https://example.com/", password="")
+    """Repository model raises ValidationError when password is empty."""
+    with pytest.raises(ValidationError, match="password"):
+        Repository(name="nopw", repository="rest:https://example.com/", password="")
 
 
 def test_retention_only_profile_with_no_retention_raises_validation_error() -> None:
     """Profile raises ValidationError for retention-only profile with all keep_* == 0."""
+    repo = Repository(name="r1", repository="rest:https://example.com/", password="pw")
     with pytest.raises(ValidationError, match="retention"):
         Profile(
             name="badprune",
-            repository="rest:https://example.com/",
-            password="secret",
-            sources=[],
-            keep_last=0,
-            keep_hourly=0,
-            keep_daily=0,
-            keep_weekly=0,
-            keep_monthly=0,
-            keep_yearly=0,
+            repository_ref="r1",
+            resolved_repository=repo,
+            retention=RetentionConfig(
+                keep_last=0,
+                keep_hourly=0,
+                keep_daily=0,
+                keep_weekly=0,
+                keep_monthly=0,
+                keep_yearly=0,
+            ),
         )
 
 
 def test_retention_only_profile_with_single_keep_is_valid() -> None:
     """A retention-only profile with at least one keep_* > 0 passes validation."""
+    repo = Repository(name="r1", repository="rest:https://example.com/", password="pw")
     profile = Profile(
         name="okprune",
-        repository="rest:https://example.com/",
-        password="secret",
-        sources=[],
-        keep_last=0,
-        keep_hourly=0,
-        keep_daily=7,
-        keep_weekly=0,
-        keep_monthly=0,
-        keep_yearly=0,
+        repository_ref="r1",
+        resolved_repository=repo,
+        retention=RetentionConfig(
+            keep_last=0,
+            keep_hourly=0,
+            keep_daily=7,
+            keep_weekly=0,
+            keep_monthly=0,
+            keep_yearly=0,
+        ),
     )
     assert profile.is_retention_only is True
 
 
 def test_backup_profile_with_all_keep_zero_is_valid() -> None:
     """A backup profile with all keep_* == 0 does not trigger the retention error."""
+    repo = Repository(name="r1", repository="rest:https://example.com/", password="pw")
     profile = Profile(
         name="backuponly",
-        repository="rest:https://example.com/",
-        password="secret",
-        sources=["/data"],
-        keep_last=0,
-        keep_hourly=0,
-        keep_daily=0,
-        keep_weekly=0,
-        keep_monthly=0,
-        keep_yearly=0,
+        repository_ref="r1",
+        resolved_repository=repo,
+        backup=BackupConfig(sources=["/data"]),
     )
     assert profile.is_backup is True
 
 
 def test_empty_profiles_config_is_valid() -> None:
     """ResticProfileConfig with no profiles is valid."""
-    cfg = ResticProfileConfig(retry_lock="", profiles={})
+    cfg = ResticProfileConfig(profiles={})
 
     assert cfg.profiles == {}
 
@@ -417,172 +467,35 @@ def test_empty_profiles_config_is_valid() -> None:
 
 def test_profile_aws_fields_default_to_empty() -> None:
     """S3 credential fields default to empty strings."""
-    profile = Profile(
-        name="s3_default",
-        repository="s3:s3.amazonaws.com/my-bucket",
-        password="secret",
-        sources=["/data"],
-    )
-
-    assert profile.aws_default_region == ""
-    assert profile.aws_access_key_id == ""
-    assert profile.aws_secret_access_key == ""
+    repo = Repository(name="r1")
+    assert repo.aws_default_region == ""
+    assert repo.aws_access_key_id == ""
+    assert repo.aws_secret_access_key == ""
 
 
 def test_profile_aws_fields_are_stored_when_set(tmp_path: Path) -> None:
     """load_config() correctly parses S3 credential fields from TOML."""
     toml_file = tmp_path / "config.toml"
     toml_file.write_text(
-        "[profiles.s3_backup]\n"
+        "[repositories.r1]\n"
         'repository = "s3:s3.amazonaws.com/my-bucket"\n'
         'password = "secret"\n'
-        'sources = ["/data"]\n'
         'aws_default_region = "us-east-1"\n'
         'aws_access_key_id = "AKIAIOSFODNN7EXAMPLE"\n'
-        'aws_secret_access_key = "wJalrXUtnFEMI"\n',
-        encoding="utf-8",
-    )
-
-    result = load_config(toml_file)
-    p = result.profiles["s3_backup"]
-
-    assert p.aws_default_region == "us-east-1"
-    assert p.aws_access_key_id == "AKIAIOSFODNN7EXAMPLE"
-    assert p.aws_secret_access_key == "wJalrXUtnFEMI"
-
-
-def test_profile_s3_repository_is_valid(tmp_path: Path) -> None:
-    """A profile with an s3: repository URL is accepted."""
-    toml_file = tmp_path / "config.toml"
-    toml_file.write_text(
+        'aws_secret_access_key = "wJalrXUtnFEMI"\n'
         "[profiles.s3_backup]\n"
-        'repository = "s3:s3.amazonaws.com/my-bucket"\n'
-        'password = "secret"\n'
+        'repository_ref = "r1"\n'
+        "[profiles.s3_backup.backup]\n"
         'sources = ["/data"]\n',
         encoding="utf-8",
     )
 
     result = load_config(toml_file)
-    p = result.profiles["s3_backup"]
+    repo = result.repositories["r1"]
 
-    assert p.repository == "s3:s3.amazonaws.com/my-bucket"
-    assert p.is_backup is True
-
-
-# Profile — GCS / SFTP / rclone backend fields
-
-
-def test_profile_gcs_fields_default_to_empty() -> None:
-    """GCS credential fields default to empty strings."""
-    profile = Profile(
-        name="gcs_default",
-        repository="gs:my-bucket:/",
-        password="secret",
-        sources=["/data"],
-    )
-
-    assert profile.google_project_id == ""
-    assert profile.google_application_credentials == ""
-    assert profile.google_access_token == ""
-
-
-def test_profile_gcs_fields_are_stored_when_set(tmp_path: Path) -> None:
-    """load_config() correctly parses GCS credential fields from TOML."""
-    toml_file = tmp_path / "config.toml"
-    toml_file.write_text(
-        "[profiles.gcs_backup]\n"
-        'repository = "gs:my-bucket:/"\n'
-        'password = "secret"\n'
-        'sources = ["/data"]\n'
-        'google_project_id = "my-project-123"\n'
-        'google_application_credentials = "/etc/gcs/key.json"\n'
-        'google_access_token = ""\n',
-        encoding="utf-8",
-    )
-
-    result = load_config(toml_file)
-    p = result.profiles["gcs_backup"]
-
-    assert p.google_project_id == "my-project-123"
-    assert p.google_application_credentials == "/etc/gcs/key.json"
-    assert p.google_access_token == ""
-
-
-def test_profile_gcs_access_token_stored_when_set(tmp_path: Path) -> None:
-    """load_config() stores google_access_token when provided."""
-    toml_file = tmp_path / "config.toml"
-    toml_file.write_text(
-        "[profiles.gcs_token]\n"
-        'repository = "gs:my-bucket:/"\n'
-        'password = "secret"\n'
-        'sources = ["/data"]\n'
-        'google_project_id = "my-project-123"\n'
-        'google_access_token = "ya29.some-token"\n',
-        encoding="utf-8",
-    )
-
-    result = load_config(toml_file)
-    p = result.profiles["gcs_token"]
-
-    assert p.google_project_id == "my-project-123"
-    assert p.google_access_token == "ya29.some-token"
-    assert p.google_application_credentials == ""
-
-
-def test_profile_gcs_adc_environment_no_credentials_required(tmp_path: Path) -> None:
-    """A gs: profile with only google_project_id set is valid (ADC environment)."""
-    toml_file = tmp_path / "config.toml"
-    toml_file.write_text(
-        "[profiles.gcs_adc]\n"
-        'repository = "gs:my-bucket:/"\n'
-        'password = "secret"\n'
-        'sources = ["/data"]\n'
-        'google_project_id = "my-project-123"\n',
-        encoding="utf-8",
-    )
-
-    result = load_config(toml_file)
-    p = result.profiles["gcs_adc"]
-
-    assert p.google_project_id == "my-project-123"
-    assert p.google_application_credentials == ""
-    assert p.google_access_token == ""
-
-
-def test_profile_sftp_repository_is_valid(tmp_path: Path) -> None:
-    """A profile with an sftp: repository URL is accepted without extra credential fields."""
-    toml_file = tmp_path / "config.toml"
-    toml_file.write_text(
-        "[profiles.sftp_backup]\n"
-        'repository = "sftp:user@backup.example.com:/srv/restic-repo"\n'
-        'password = "secret"\n'
-        'sources = ["/home/user"]\n',
-        encoding="utf-8",
-    )
-
-    result = load_config(toml_file)
-    p = result.profiles["sftp_backup"]
-
-    assert p.repository == "sftp:user@backup.example.com:/srv/restic-repo"
-    assert p.is_backup is True
-
-
-def test_profile_rclone_repository_is_valid(tmp_path: Path) -> None:
-    """A profile with a rclone: repository URL is accepted without extra credential fields."""
-    toml_file = tmp_path / "config.toml"
-    toml_file.write_text(
-        "[profiles.rclone_backup]\n"
-        'repository = "rclone:b2prod:yggdrasil/backups"\n'
-        'password = "secret"\n'
-        'sources = ["/data"]\n',
-        encoding="utf-8",
-    )
-
-    result = load_config(toml_file)
-    p = result.profiles["rclone_backup"]
-
-    assert p.repository == "rclone:b2prod:yggdrasil/backups"
-    assert p.is_backup is True
+    assert repo.aws_default_region == "us-east-1"
+    assert repo.aws_access_key_id == "AKIAIOSFODNN7EXAMPLE"
+    assert repo.aws_secret_access_key == "wJalrXUtnFEMI"
 
 
 # HooksConfig — defaults
@@ -619,9 +532,12 @@ def test_load_config_parses_hooks_from_toml(tmp_path: Path) -> None:
     """load_config() parses [profiles.*.hooks] into a HooksConfig instance."""
     toml_file = tmp_path / "config.toml"
     toml_file.write_text(
-        "[profiles.app]\n"
+        "[repositories.r1]\n"
         'repository = "rest:https://example.com/"\n'
         'password = "secret"\n'
+        "[profiles.app]\n"
+        'repository_ref = "r1"\n'
+        "[profiles.app.backup]\n"
         'sources = ["/data"]\n'
         "\n"
         "[profiles.app.hooks]\n"
@@ -650,9 +566,12 @@ def test_load_config_hooks_shell_defaults_to_sh_when_absent(tmp_path: Path) -> N
     """HooksConfig.shell defaults to '/bin/sh' when not set in TOML."""
     toml_file = tmp_path / "config.toml"
     toml_file.write_text(
-        "[profiles.app]\n"
+        "[repositories.r1]\n"
         'repository = "rest:https://example.com/"\n'
         'password = "secret"\n'
+        "[profiles.app]\n"
+        'repository_ref = "r1"\n'
+        "[profiles.app.backup]\n"
         'sources = ["/data"]\n'
         "\n"
         "[profiles.app.hooks]\n"
@@ -669,9 +588,12 @@ def test_load_config_hooks_absent_gives_empty_hooks_config(tmp_path: Path) -> No
     """A profile with no [hooks] section gets a default empty HooksConfig."""
     toml_file = tmp_path / "config.toml"
     toml_file.write_text(
-        "[profiles.app]\n"
+        "[repositories.r1]\n"
         'repository = "rest:https://example.com/"\n'
         'password = "secret"\n'
+        "[profiles.app]\n"
+        'repository_ref = "r1"\n'
+        "[profiles.app.backup]\n"
         'sources = ["/data"]\n',
         encoding="utf-8",
     )

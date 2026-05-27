@@ -19,46 +19,61 @@ _VALID_TOML = """\
 [global]
 retry_lock = "10m"
 
-[profiles.myapp]
+[repositories.r1]
 repository = "rest:https://backup.example.com/"
 password = "secret"
-sources = ["/home/alice/myapp"]
+
+[repositories.r2]
+repository = "rest:https://backup.example.com/server"
+password = "secret2"
+
+[profiles.myapp]
+repository_ref = "r1"
 tag = "myapp"
+system_user = "root"
+retry_lock = ""
+[profiles.myapp.backup]
+sources = ["/home/alice/myapp"]
 exclude_patterns = ["*.log"]
-forget = true
+post_backup_retention = true
+on_calendar = "hourly"
+randomized_delay_sec = "10min"
+[profiles.myapp.retention]
 keep_last = 0
 keep_hourly = 6
 keep_daily = 7
 keep_weekly = 4
 keep_monthly = 3
 keep_yearly = 0
-on_calendar = "hourly"
-randomized_delay_sec = "10min"
-system_user = "root"
-retry_lock = ""
 
 [profiles.server_prune]
-repository = "rest:https://backup.example.com/server"
-password = "secret2"
-sources = []
-keep_daily = 7
-on_calendar = "daily"
+repository_ref = "r2"
 system_user = "root"
 retry_lock = ""
+[profiles.server_prune.retention]
+keep_daily = 7
+on_calendar = "daily"
 """
 
 _INVALID_PASSWORD_TOML = """\
-[profiles.bad]
+[repositories.r1]
 repository = "rest:https://example.com/"
 password = ""
-sources = []
+
+[profiles.bad]
+repository_ref = "r1"
+[profiles.bad.retention]
 keep_daily = 7
 """
 
 _MISSING_PASSWORD_AND_REPO_TOML = """\
-[profiles.broken]
+[repositories.r1]
 repository = ""
 password = ""
+
+[profiles.broken]
+repository_ref = "r1"
+[profiles.broken.backup]
 sources = ["/data"]
 """
 
@@ -143,8 +158,7 @@ def test_list_with_valid_config(
     assert "myapp" in combined
     assert "server_prune" in combined
     assert "backup" in combined
-    assert "retention-only" in combined
-    assert "hourly" in combined or "daily" in combined
+    assert "retention" in combined
 
 
 # list — missing config
@@ -249,7 +263,7 @@ def test_backup_value_error_from_run_backup_exits_1(
     config_file = _write_config(tmp_path, _VALID_TOML)
 
     def failing_run_backup(profile: object, **kwargs: object) -> None:
-        raise ValueError("Profile 'server_prune' has no sources, cannot run backup")
+        raise ValueError("Profile 'server_prune' has no backup block")
 
     monkeypatch.setattr("restic_profile.cli.run_backup", failing_run_backup)
 
@@ -259,30 +273,30 @@ def test_backup_value_error_from_run_backup_exits_1(
     assert exc_info.value.code == 1
 
 
-# forget — mocked run_forget (success)
+# forget — mocked run_retention (success)
 
 
-def test_forget_with_mocked_run_forget_exits_0(
+def test_forget_with_mocked_run_retention_exits_0(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """restic-profile forget exits 0 when run_forget succeeds."""
+    """restic-profile forget exits 0 when run_retention succeeds."""
     config_file = _write_config(tmp_path, _VALID_TOML)
-    monkeypatch.setattr("restic_profile.cli.run_forget", lambda *a, **kw: None)
+    monkeypatch.setattr("restic_profile.cli.run_retention", lambda *a, **kw: None)
 
     main(["forget", "server_prune", "--config", str(config_file)])
 
 
-def test_forget_calls_run_forget_with_profile(
+def test_forget_calls_run_retention_with_profile(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """restic-profile forget passes the correct Profile to run_forget."""
+    """restic-profile forget passes the correct Profile to run_retention."""
     config_file = _write_config(tmp_path, _VALID_TOML)
     received: list[object] = []
 
-    def fake_run_forget(profile: object, **kwargs: object) -> None:
+    def fake_run_retention(profile: object, **kwargs: object) -> None:
         received.append(profile)
 
-    monkeypatch.setattr("restic_profile.cli.run_forget", fake_run_forget)
+    monkeypatch.setattr("restic_profile.cli.run_retention", fake_run_retention)
     main(["forget", "server_prune", "--config", str(config_file)])
 
     assert len(received) == 1
@@ -292,14 +306,14 @@ def test_forget_calls_run_forget_with_profile(
 def test_forget_dry_run_flag_is_forwarded(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """restic-profile forget --dry-run forwards dry_run=True to run_forget."""
+    """restic-profile forget --dry-run forwards dry_run=True to run_retention."""
     config_file = _write_config(tmp_path, _VALID_TOML)
     received_kwargs: list[dict] = []
 
-    def fake_run_forget(profile: object, **kwargs: object) -> None:
+    def fake_run_retention(profile: object, **kwargs: object) -> None:
         received_kwargs.append(dict(kwargs))
 
-    monkeypatch.setattr("restic_profile.cli.run_forget", fake_run_forget)
+    monkeypatch.setattr("restic_profile.cli.run_retention", fake_run_retention)
     main(["forget", "server_prune", "--dry-run", "--config", str(config_file)])
 
     assert len(received_kwargs) == 1
@@ -335,19 +349,19 @@ def test_forget_with_missing_config_exits_1(tmp_path: Path) -> None:
     assert exc_info.value.code == 1
 
 
-# forget — run_forget raises ValueError (no retention policy)
+# forget — run_retention raises ValueError (no retention policy)
 
 
-def test_forget_value_error_from_run_forget_exits_1(
+def test_forget_value_error_from_run_retention_exits_1(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """restic-profile forget exits 1 when run_forget raises ValueError."""
+    """restic-profile forget exits 1 when run_retention raises ValueError."""
     config_file = _write_config(tmp_path, _VALID_TOML)
 
-    def failing_run_forget(profile: object, **kwargs: object) -> None:
+    def failing_run_retention(profile: object, **kwargs: object) -> None:
         raise ValueError("Profile 'server_prune' has no retention policy")
 
-    monkeypatch.setattr("restic_profile.cli.run_forget", failing_run_forget)
+    monkeypatch.setattr("restic_profile.cli.run_retention", failing_run_retention)
 
     with pytest.raises(SystemExit) as exc_info:
         main(["forget", "server_prune", "--config", str(config_file)])

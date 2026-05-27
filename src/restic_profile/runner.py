@@ -54,31 +54,33 @@ def build_env(profile: Profile) -> dict[str, str]:
     if not env.get("XDG_CACHE_HOME") and env.get("HOME"):
         env["XDG_CACHE_HOME"] = str(Path(env["HOME"]) / ".cache")
 
-    env["RESTIC_REPOSITORY"] = profile.repository
-    env["RESTIC_PASSWORD"] = profile.password
+    repo = profile.resolved_repository
+    if not repo:
+        raise ValueError(f"Profile {profile.name!r} has no resolved repository")
 
-    if profile.rest_username:
-        env["RESTIC_REST_USERNAME"] = profile.rest_username
-        env["RESTIC_REST_PASSWORD"] = profile.rest_password
+    env["RESTIC_REPOSITORY"] = repo.repository
+    env["RESTIC_PASSWORD"] = repo.password
 
-    if profile.cacert:
-        env["RESTIC_CACERT"] = profile.cacert
+    if repo.rest_username:
+        env["RESTIC_REST_USERNAME"] = repo.rest_username
+        env["RESTIC_REST_PASSWORD"] = repo.rest_password
 
-    if profile.aws_access_key_id:
-        env["AWS_DEFAULT_REGION"] = profile.aws_default_region
-        env["AWS_ACCESS_KEY_ID"] = profile.aws_access_key_id
-        env["AWS_SECRET_ACCESS_KEY"] = profile.aws_secret_access_key
+    if repo.cacert:
+        env["RESTIC_CACERT"] = repo.cacert
 
-    if profile.google_project_id:
-        env["GOOGLE_PROJECT_ID"] = profile.google_project_id
+    if repo.aws_access_key_id:
+        env["AWS_DEFAULT_REGION"] = repo.aws_default_region
+        env["AWS_ACCESS_KEY_ID"] = repo.aws_access_key_id
+        env["AWS_SECRET_ACCESS_KEY"] = repo.aws_secret_access_key
+
+    if repo.google_project_id:
+        env["GOOGLE_PROJECT_ID"] = repo.google_project_id
         # google_access_token takes precedence — when set it disables all other
         # GCS auth mechanisms (service account key, ADC, etc.).
-        if profile.google_access_token:
-            env["GOOGLE_ACCESS_TOKEN"] = profile.google_access_token
-        elif profile.google_application_credentials:
-            env["GOOGLE_APPLICATION_CREDENTIALS"] = (
-                profile.google_application_credentials
-            )
+        if repo.google_access_token:
+            env["GOOGLE_ACCESS_TOKEN"] = repo.google_access_token
+        elif repo.google_application_credentials:
+            env["GOOGLE_APPLICATION_CREDENTIALS"] = repo.google_application_credentials
 
     return env
 
@@ -146,13 +148,17 @@ def build_forget_args(
     Returns an empty list when no retention policy is configured (all
     ``keep_*`` values are 0), which signals callers to skip the forget step.
     """
+    ret = profile.retention
+    if not ret:
+        return []
+
     keep_fields: list[tuple[str, int]] = [
-        ("--keep-last", profile.keep_last),
-        ("--keep-hourly", profile.keep_hourly),
-        ("--keep-daily", profile.keep_daily),
-        ("--keep-weekly", profile.keep_weekly),
-        ("--keep-monthly", profile.keep_monthly),
-        ("--keep-yearly", profile.keep_yearly),
+        ("--keep-last", ret.keep_last),
+        ("--keep-hourly", ret.keep_hourly),
+        ("--keep-daily", ret.keep_daily),
+        ("--keep-weekly", ret.keep_weekly),
+        ("--keep-monthly", ret.keep_monthly),
+        ("--keep-yearly", ret.keep_yearly),
     ]
 
     if not any(value > 0 for _, value in keep_fields):
@@ -209,7 +215,9 @@ def _is_local_repo(repository: str) -> bool:
 def _existing_backup_sources(profile: Profile) -> list[str]:
     """Return the subset of configured backup sources that currently exists."""
     existing_sources: list[str] = []
-    for source in profile.sources:
+    if not profile.backup:
+        return []
+    for source in profile.backup.sources:
         if Path(source).exists():
             existing_sources.append(source)
             continue
@@ -333,23 +341,7 @@ def run_hooks(
 
 
 def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
-    """Run ``restic backup`` (and optional ``forget``) for *profile*.
-
-    Steps
-    -----
-    1. Run ``prevalidate`` hooks (before location checks).
-    2. Warn about missing sources and keep only the paths that still exist.
-    3. For local repositories, create the directory with ``mkdir -p``.
-    4. Auto-init: initialise the repository if it does not yet exist.
-    5. Run ``before`` hooks.
-    6. Run ``restic backup``, passing each exclude pattern via ``--exclude``.
-    7. Run ``restic forget`` with the retention policy when
-        ``forget`` is True and a policy is configured.
-    8. Run ``after`` hooks (always, after the backup attempt).
-    9. Run ``success`` hooks on success, or ``failure`` hooks on error.
-
-    If ``prevalidate`` or ``before`` hooks fail, the backup, ``after``, and
-    ``success`` hooks are skipped; only ``failure`` hooks run.
+    """Run ``restic backup`` (and optional ``retention``) for *profile*.
 
     Parameters
     ----------
@@ -359,8 +351,10 @@ def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
         When *True* log the actions that would be taken without executing
         any subprocess calls.
     """
-    if profile.is_retention_only:
-        raise ValueError(f"Profile {profile.name!r} has no sources, cannot run backup")
+    if not profile.is_backup or not profile.backup:
+        raise ValueError(
+            f"Profile {profile.name!r} has no backup block, cannot run backup"
+        )
 
     hooks = profile.hooks
     env = build_env(profile)
@@ -377,8 +371,12 @@ def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
             f"Profile {profile.name!r} has no existing sources, cannot run backup"
         )
 
-    if _is_local_repo(profile.repository):
-        repo_path = Path(profile.repository)
+    repo = profile.resolved_repository
+    if not repo:
+        raise ValueError(f"Profile {profile.name!r} has no resolved repository")
+    repo_url = repo.repository
+    if _is_local_repo(repo_url):
+        repo_path = Path(repo_url)
         if dry_run:
             logger.info("DRY RUN: Would create directory %s", repo_path)
         else:
@@ -386,9 +384,7 @@ def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
             repo_path.mkdir(parents=True, exist_ok=True)
 
     if dry_run:
-        logger.info(
-            "DRY RUN: Would check / initialise repository %s", profile.repository
-        )
+        logger.info("DRY RUN: Would check / initialise repository %s", repo_url)
     else:
         try:
             if not _repo_initialized(profile, env):
@@ -405,7 +401,7 @@ def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
             if _is_existing_repository_error(exc):
                 logger.warning(
                     "restic init reported that %s already exists; continuing",
-                    profile.repository,
+                    repo_url,
                 )
             else:
                 run_hooks(hooks.failure, env, hooks.shell, dry_run=dry_run)
@@ -427,14 +423,14 @@ def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
         profile.tag,
     ]
 
-    if profile.one_file_system:
+    if profile.backup.one_file_system:
         backup_cmd.append("--one-file-system")
 
-    for pattern in profile.exclude_patterns:
+    for pattern in profile.backup.exclude_patterns:
         backup_cmd += ["--exclude", pattern]
 
-    if profile.exclude_file:
-        backup_cmd += ["--exclude-file", profile.exclude_file]
+    if profile.backup.exclude_file:
+        backup_cmd += ["--exclude-file", profile.backup.exclude_file]
 
     backup_cmd += sources
 
@@ -445,19 +441,26 @@ def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
         else:
             _run(backup_cmd, env)
 
-        if profile.forget:
-            forget_cmd = _build_forget_command(
-                profile,
-                current_host_only=True,
-                snapshot_host=snapshot_host,
-                restic_executable=restic_executable,
-                global_args=global_args,
-            )
-            if forget_cmd:
-                if dry_run:
-                    logger.info("DRY RUN: Would run: %s", " ".join(forget_cmd))
-                else:
-                    _run(forget_cmd, env)
+        if profile.backup.post_backup_retention:
+            if profile.retention:
+                forget_cmd = _build_forget_command(
+                    profile,
+                    current_host_only=True,
+                    snapshot_host=snapshot_host,
+                    prune=profile.retention.prune,
+                    restic_executable=restic_executable,
+                    global_args=global_args,
+                )
+                if forget_cmd:
+                    if dry_run:
+                        logger.info("DRY RUN: Would run: %s", " ".join(forget_cmd))
+                    else:
+                        _run(forget_cmd, env)
+            else:
+                logger.warning(
+                    "Profile %s: post_backup_retention is enabled but no retention configuration exists",
+                    profile.name,
+                )
     except _CommandError:
         backup_failed = True
 
@@ -471,12 +474,12 @@ def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
     run_hooks(hooks.success, env, hooks.shell, dry_run=dry_run)
 
 
-def run_forget(
+def run_retention(
     profile: Profile,
     *,
     dry_run: bool = False,
 ) -> None:
-    """Run ``restic forget`` for *profile*.
+    """Run ``restic forget`` (and optional ``prune``) for *profile*.
 
     Parameters
     ----------
@@ -488,12 +491,17 @@ def run_forget(
     Raises
     ------
     ValueError
-        When the profile has no retention policy (all ``keep_*`` are 0).
+        When the profile has no retention policy.
     """
+    if not profile.retention:
+        raise ValueError(
+            f"Profile {profile.name!r} has no retention policy, cannot run retention"
+        )
+
     forget_cmd = _build_forget_command(
         profile,
-        current_host_only=profile.forget_current_host,
-        prune=profile.prune,
+        current_host_only=profile.retention.forget_current_host,
+        prune=profile.retention.prune,
     )
     if not forget_cmd:
         raise ValueError(

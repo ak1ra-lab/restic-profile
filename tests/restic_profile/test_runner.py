@@ -17,8 +17,8 @@ from restic_profile.runner import (
     build_forget_args,
     build_global_args,
     run_backup,
-    run_forget,
     run_hooks,
+    run_retention,
 )
 
 # Helpers
@@ -36,8 +36,8 @@ def test_build_env_sets_required_credentials(backup_profile: Profile) -> None:
     """build_env() sets RESTIC_REPOSITORY and RESTIC_PASSWORD from the profile."""
     env = build_env(backup_profile)
 
-    assert env["RESTIC_REPOSITORY"] == backup_profile.repository
-    assert env["RESTIC_PASSWORD"] == backup_profile.password
+    assert env["RESTIC_REPOSITORY"] == backup_profile.resolved_repository.repository
+    assert env["RESTIC_PASSWORD"] == backup_profile.resolved_repository.password
 
 
 def test_build_env_sets_home_and_xdg_cache_home_fallbacks(
@@ -75,14 +75,14 @@ def test_build_env_uses_existing_home_for_xdg_cache_home_fallback(
 
 def test_build_env_rest_credentials(backup_profile: Profile) -> None:
     """build_env() sets REST vars when rest_username is set; omits them when empty."""
-    backup_profile.rest_username = "alice"
-    backup_profile.rest_password = "restpassword"
+    backup_profile.resolved_repository.rest_username = "alice"
+    backup_profile.resolved_repository.rest_password = "restpassword"
     env = build_env(backup_profile)
     assert env["RESTIC_REST_USERNAME"] == "alice"
     assert env["RESTIC_REST_PASSWORD"] == "restpassword"
 
-    backup_profile.rest_username = ""
-    backup_profile.rest_password = ""
+    backup_profile.resolved_repository.rest_username = ""
+    backup_profile.resolved_repository.rest_password = ""
     env = build_env(backup_profile)
     assert "RESTIC_REST_USERNAME" not in env
     assert "RESTIC_REST_PASSWORD" not in env
@@ -90,10 +90,10 @@ def test_build_env_rest_credentials(backup_profile: Profile) -> None:
 
 def test_build_env_cacert(backup_profile: Profile) -> None:
     """build_env() sets RESTIC_CACERT when cacert is non-empty; omits it when empty."""
-    backup_profile.cacert = "/etc/ssl/certs/my-ca.crt"
+    backup_profile.resolved_repository.cacert = "/etc/ssl/certs/my-ca.crt"
     assert build_env(backup_profile)["RESTIC_CACERT"] == "/etc/ssl/certs/my-ca.crt"
 
-    backup_profile.cacert = ""
+    backup_profile.resolved_repository.cacert = ""
     assert "RESTIC_CACERT" not in build_env(backup_profile)
 
 
@@ -102,15 +102,17 @@ def test_build_env_cacert(backup_profile: Profile) -> None:
 
 def test_build_env_aws_credentials(backup_profile: Profile) -> None:
     """build_env() sets all AWS_* vars when aws_access_key_id is set; omits them when empty."""
-    backup_profile.aws_access_key_id = "AKIAIOSFODNN7EXAMPLE"
-    backup_profile.aws_secret_access_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-    backup_profile.aws_default_region = "us-east-1"
+    backup_profile.resolved_repository.aws_access_key_id = "AKIAIOSFODNN7EXAMPLE"
+    backup_profile.resolved_repository.aws_secret_access_key = (
+        "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    )
+    backup_profile.resolved_repository.aws_default_region = "us-east-1"
     env = build_env(backup_profile)
     assert env["AWS_ACCESS_KEY_ID"] == "AKIAIOSFODNN7EXAMPLE"
     assert env["AWS_SECRET_ACCESS_KEY"] == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
     assert env["AWS_DEFAULT_REGION"] == "us-east-1"
 
-    backup_profile.aws_access_key_id = ""
+    backup_profile.resolved_repository.aws_access_key_id = ""
     env = build_env(backup_profile)
     assert "AWS_ACCESS_KEY_ID" not in env
     assert "AWS_SECRET_ACCESS_KEY" not in env
@@ -122,7 +124,7 @@ def test_build_env_aws_credentials(backup_profile: Profile) -> None:
 
 def test_build_env_gcs_project_id_only(backup_profile: Profile) -> None:
     """build_env() sets GOOGLE_PROJECT_ID when google_project_id is set (ADC environment)."""
-    backup_profile.google_project_id = "my-project-123"
+    backup_profile.resolved_repository.google_project_id = "my-project-123"
     env = build_env(backup_profile)
     assert env["GOOGLE_PROJECT_ID"] == "my-project-123"
     assert "GOOGLE_APPLICATION_CREDENTIALS" not in env
@@ -131,8 +133,10 @@ def test_build_env_gcs_project_id_only(backup_profile: Profile) -> None:
 
 def test_build_env_gcs_application_credentials(backup_profile: Profile) -> None:
     """build_env() sets GOOGLE_APPLICATION_CREDENTIALS when credentials file is specified."""
-    backup_profile.google_project_id = "my-project-123"
-    backup_profile.google_application_credentials = "/etc/gcs/key.json"
+    backup_profile.resolved_repository.google_project_id = "my-project-123"
+    backup_profile.resolved_repository.google_application_credentials = (
+        "/etc/gcs/key.json"
+    )
     env = build_env(backup_profile)
     assert env["GOOGLE_PROJECT_ID"] == "my-project-123"
     assert env["GOOGLE_APPLICATION_CREDENTIALS"] == "/etc/gcs/key.json"
@@ -141,9 +145,11 @@ def test_build_env_gcs_application_credentials(backup_profile: Profile) -> None:
 
 def test_build_env_gcs_access_token_takes_precedence(backup_profile: Profile) -> None:
     """build_env() sets GOOGLE_ACCESS_TOKEN and omits credentials file when token is set."""
-    backup_profile.google_project_id = "my-project-123"
-    backup_profile.google_application_credentials = "/etc/gcs/key.json"
-    backup_profile.google_access_token = "ya29.some-token"
+    backup_profile.resolved_repository.google_project_id = "my-project-123"
+    backup_profile.resolved_repository.google_application_credentials = (
+        "/etc/gcs/key.json"
+    )
+    backup_profile.resolved_repository.google_access_token = "ya29.some-token"
     env = build_env(backup_profile)
     assert env["GOOGLE_PROJECT_ID"] == "my-project-123"
     assert env["GOOGLE_ACCESS_TOKEN"] == "ya29.some-token"
@@ -152,9 +158,9 @@ def test_build_env_gcs_access_token_takes_precedence(backup_profile: Profile) ->
 
 def test_build_env_gcs_omitted_when_project_id_empty(backup_profile: Profile) -> None:
     """build_env() omits all GOOGLE_* vars when google_project_id is empty."""
-    backup_profile.google_project_id = ""
-    backup_profile.google_application_credentials = ""
-    backup_profile.google_access_token = ""
+    backup_profile.resolved_repository.google_project_id = ""
+    backup_profile.resolved_repository.google_application_credentials = ""
+    backup_profile.resolved_repository.google_access_token = ""
     env = build_env(backup_profile)
     assert "GOOGLE_PROJECT_ID" not in env
     assert "GOOGLE_APPLICATION_CREDENTIALS" not in env
@@ -284,17 +290,16 @@ def test_repo_initialized_uses_profile_no_cache_without_plain_retry(
 
 def test_build_forget_args_returns_empty_when_all_keep_zero() -> None:
     """build_forget_args() returns [] when all keep_* fields are 0."""
+    from restic_profile.config import BackupConfig, Repository
+
+    repo = Repository(
+        name="r1", repository="rest:https://example.com/", password="secret"
+    )
     profile = Profile(
         name="nopolicy",
-        repository="rest:https://example.com/",
-        password="secret",
-        sources=["/data"],
-        keep_last=0,
-        keep_hourly=0,
-        keep_daily=0,
-        keep_weekly=0,
-        keep_monthly=0,
-        keep_yearly=0,
+        repository_ref="r1",
+        resolved_repository=repo,
+        backup=BackupConfig(sources=["/data"]),
     )
 
     assert build_forget_args(profile) == []
@@ -307,12 +312,12 @@ def test_build_forget_args_includes_all_nonzero_keep_flags(
     backup_profile: Profile,
 ) -> None:
     """build_forget_args() scopes forget by tag and includes the configured keep_* flags."""
-    backup_profile.keep_hourly = 6
-    backup_profile.keep_daily = 7
-    backup_profile.keep_weekly = 4
-    backup_profile.keep_monthly = 3
-    backup_profile.keep_last = 0
-    backup_profile.keep_yearly = 0
+    backup_profile.retention.keep_hourly = 6
+    backup_profile.retention.keep_daily = 7
+    backup_profile.retention.keep_weekly = 4
+    backup_profile.retention.keep_monthly = 3
+    backup_profile.retention.keep_last = 0
+    backup_profile.retention.keep_yearly = 0
 
     args = build_forget_args(backup_profile)
 
@@ -348,7 +353,7 @@ def test_run_backup_raises_value_error_for_prune_only_profile(
     prune_profile: Profile,
 ) -> None:
     """run_backup() raises ValueError (mentioning the profile name) for a prune-only profile."""
-    with pytest.raises(ValueError, match="has no sources") as exc_info:
+    with pytest.raises(ValueError, match="has no backup block") as exc_info:
         run_backup(prune_profile)
 
     assert prune_profile.name in str(exc_info.value)
@@ -379,7 +384,7 @@ def test_run_backup_invokes_restic_backup_with_correct_args(
     assert backup_cmd[backup_cmd.index("--host") + 1] == "test-host"
     assert "--tag" in backup_cmd
     assert backup_profile.tag in backup_cmd
-    for source in backup_profile.sources:
+    for source in backup_profile.backup.sources:
         assert source in backup_cmd
 
 
@@ -395,7 +400,7 @@ def test_run_backup_runs_forget_by_default(
 
     monkeypatch.setattr("restic_profile.runner._snapshot_host", lambda: "test-host")
     monkeypatch.setattr(subprocess, "run", fake_run)
-    backup_profile.forget = True
+    backup_profile.backup.post_backup_retention = True
     run_backup(backup_profile)
 
     forget_calls = [c for c in calls if "forget" in c]
@@ -418,7 +423,7 @@ def test_run_backup_skips_forget_when_forget_false(
         return MagicMock(returncode=0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    backup_profile.forget = False
+    backup_profile.backup.post_backup_retention = False
     run_backup(backup_profile)
 
     forget_calls = [c for c in calls if "forget" in c]
@@ -436,13 +441,8 @@ def test_run_backup_skips_forget_when_no_retention_policy(
         return MagicMock(returncode=0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    backup_profile.forget = True
-    backup_profile.keep_last = 0
-    backup_profile.keep_hourly = 0
-    backup_profile.keep_daily = 0
-    backup_profile.keep_weekly = 0
-    backup_profile.keep_monthly = 0
-    backup_profile.keep_yearly = 0
+    backup_profile.backup.post_backup_retention = True
+    backup_profile.retention = None
     run_backup(backup_profile)
 
     forget_calls = [c for c in calls if "forget" in c]
@@ -477,8 +477,8 @@ def test_run_backup_skips_missing_sources(
     """run_backup() warns and omits any configured source path that does not exist."""
     calls: list[list[str]] = []
     missing_source = tmp_path / "missing"
-    existing_source = backup_profile.sources[0]
-    backup_profile.sources = [existing_source, str(missing_source)]
+    existing_source = backup_profile.backup.sources[0]
+    backup_profile.backup.sources = [existing_source, str(missing_source)]
 
     def fake_run(args: list[str], **kwargs: object) -> MagicMock:
         calls.append(list(args))
@@ -499,7 +499,7 @@ def test_run_backup_raises_value_error_when_all_sources_missing(
     tmp_path: Path,
 ) -> None:
     """run_backup() raises ValueError when every configured source path is missing."""
-    backup_profile.sources = [str(tmp_path / "missing")]
+    backup_profile.backup.sources = [str(tmp_path / "missing")]
 
     with pytest.raises(ValueError, match="no existing sources"):
         run_backup(backup_profile, dry_run=True)
@@ -517,7 +517,7 @@ def test_run_backup_passes_one_file_system_when_enabled(
         return MagicMock(returncode=0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    backup_profile.one_file_system = True
+    backup_profile.backup.one_file_system = True
     run_backup(backup_profile)
 
     backup_calls = [call for call in calls if "backup" in call]
@@ -547,7 +547,7 @@ def test_run_backup_continues_when_init_reports_existing_repository(
         lambda profile, env: False,
     )
     monkeypatch.setattr("restic_profile.runner._run", fake_run)
-    backup_profile.forget = False
+    backup_profile.backup.post_backup_retention = False
 
     run_backup(backup_profile)
 
@@ -558,19 +558,14 @@ def test_run_backup_continues_when_init_reports_existing_repository(
 # run_forget — ValueError when no retention policy
 
 
-def test_run_forget_raises_value_error_when_no_retention_policy(
+def test_run_retention_raises_value_error_when_no_retention_policy(
     prune_profile: Profile,
 ) -> None:
-    """run_forget() raises ValueError when all keep_* values are 0."""
-    prune_profile.keep_last = 0
-    prune_profile.keep_hourly = 0
-    prune_profile.keep_daily = 0
-    prune_profile.keep_weekly = 0
-    prune_profile.keep_monthly = 0
-    prune_profile.keep_yearly = 0
+    """run_retention() raises ValueError when retention policy is missing."""
+    prune_profile.retention = None
 
-    with pytest.raises(ValueError, match="retention policy") as exc_info:
-        run_forget(prune_profile)
+    with pytest.raises(ValueError, match="no retention policy") as exc_info:
+        run_retention(prune_profile)
 
     assert prune_profile.name in str(exc_info.value)
 
@@ -578,10 +573,10 @@ def test_run_forget_raises_value_error_when_no_retention_policy(
 # run_forget — subprocess calls
 
 
-def test_run_forget_invokes_restic_forget_without_prune_by_default(
+def test_run_retention_invokes_restic_forget_without_prune_by_default(
     prune_profile: Profile, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """run_forget() calls restic forget scoped by tag and without --prune by default."""
+    """run_retention() calls restic forget scoped by tag and without --prune by default."""
     calls: list[list[str]] = []
 
     def fake_run(args: list[str], **kwargs: object) -> MagicMock:
@@ -589,7 +584,7 @@ def test_run_forget_invokes_restic_forget_without_prune_by_default(
         return MagicMock(returncode=0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    run_forget(prune_profile)
+    run_retention(prune_profile)
 
     assert len(calls) == 1
     cmd = calls[0]
@@ -602,10 +597,10 @@ def test_run_forget_invokes_restic_forget_without_prune_by_default(
     assert "--keep-daily" in cmd
 
 
-def test_run_forget_includes_host_when_profile_requests_current_host_only(
+def test_run_retention_includes_host_when_profile_requests_current_host_only(
     prune_profile: Profile, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """run_forget() appends --host when forget_current_host is enabled."""
+    """run_retention() appends --host when forget_current_host is enabled."""
     calls: list[list[str]] = []
 
     def fake_run(args: list[str], **kwargs: object) -> MagicMock:
@@ -614,18 +609,18 @@ def test_run_forget_includes_host_when_profile_requests_current_host_only(
 
     monkeypatch.setattr("restic_profile.runner._snapshot_host", lambda: "test-host")
     monkeypatch.setattr(subprocess, "run", fake_run)
-    prune_profile.forget_current_host = True
-    run_forget(prune_profile)
+    prune_profile.retention.forget_current_host = True
+    run_retention(prune_profile)
 
     assert "--host" in calls[0]
     assert calls[0][calls[0].index("--host") + 1] == "test-host"
 
 
-def test_run_forget_uses_resolved_restic_binary(
+def test_run_retention_uses_resolved_restic_binary(
     prune_profile: Profile,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """run_forget() uses the resolved absolute restic executable in commands."""
+    """run_retention() uses the resolved absolute restic executable in commands."""
     calls: list[list[str]] = []
 
     def fake_run(args: list[str], **kwargs: object) -> MagicMock:
@@ -634,16 +629,16 @@ def test_run_forget_uses_resolved_restic_binary(
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     prune_profile.restic_binary = "/usr/local/bin/restic"
-    run_forget(prune_profile)
+    run_retention(prune_profile)
 
     assert len(calls) == 1
     assert calls[0][0] == "/usr/local/bin/restic"
 
 
-def test_run_forget_uses_profile_prune_default(
+def test_run_retention_uses_profile_prune_default(
     prune_profile: Profile, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """run_forget() appends --prune when the profile enables it."""
+    """run_retention() appends --prune when the profile enables it."""
     calls: list[list[str]] = []
 
     def fake_run(args: list[str], **kwargs: object) -> MagicMock:
@@ -651,8 +646,8 @@ def test_run_forget_uses_profile_prune_default(
         return MagicMock(returncode=0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    prune_profile.prune = True
-    run_forget(prune_profile)
+    prune_profile.retention.prune = True
+    run_retention(prune_profile)
 
     assert "--prune" in calls[0]
 
@@ -660,10 +655,10 @@ def test_run_forget_uses_profile_prune_default(
 # run_forget — dry_run
 
 
-def test_run_forget_dry_run_skips_subprocess_calls(
+def test_run_retention_dry_run_skips_subprocess_calls(
     prune_profile: Profile, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """run_forget(dry_run=True) does not invoke subprocess.run and does not raise."""
+    """run_retention(dry_run=True) does not invoke subprocess.run and does not raise."""
     calls: list[list[str]] = []
 
     monkeypatch.setattr(
@@ -671,7 +666,7 @@ def test_run_forget_dry_run_skips_subprocess_calls(
         "run",
         lambda args, **kw: calls.append(args) or MagicMock(returncode=0),
     )
-    run_forget(prune_profile, dry_run=True)
+    run_retention(prune_profile, dry_run=True)
 
     assert calls == []
 
@@ -679,10 +674,10 @@ def test_run_forget_dry_run_skips_subprocess_calls(
 # run_forget — global args propagated
 
 
-def test_run_forget_includes_retry_lock_in_command(
+def test_run_retention_includes_retry_lock_in_command(
     prune_profile: Profile, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """run_forget() includes --retry-lock in the command when profile.retry_lock is set."""
+    """run_retention() includes --retry-lock in the command when profile.retry_lock is set."""
     calls: list[list[str]] = []
 
     def fake_run(args: list[str], **kwargs: object) -> MagicMock:
@@ -691,7 +686,7 @@ def test_run_forget_includes_retry_lock_in_command(
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     prune_profile.retry_lock = "5m"
-    run_forget(prune_profile)
+    run_retention(prune_profile)
 
     forget_calls = [call for call in calls if "forget" in call]
     assert len(forget_calls) == 1
@@ -714,7 +709,9 @@ def test_run_backup_passes_exclude_file_flag_when_set(
         return MagicMock(returncode=0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    backup_profile.exclude_file = "/etc/restic-profile/restic-profile-myapp.exclude"
+    backup_profile.backup.exclude_file = (
+        "/etc/restic-profile/restic-profile-myapp.exclude"
+    )
     run_backup(backup_profile)
 
     backup_calls = [c for c in calls if "backup" in c]
@@ -736,7 +733,7 @@ def test_run_backup_exclude_file_path_follows_exclude_file_flag(
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     exclude_path = "/etc/restic-profile/restic-profile-myapp.exclude"
-    backup_profile.exclude_file = exclude_path
+    backup_profile.backup.exclude_file = exclude_path
     run_backup(backup_profile)
 
     backup_calls = [c for c in calls if "backup" in c]
@@ -756,7 +753,7 @@ def test_run_backup_does_not_pass_exclude_file_when_not_set(
         return MagicMock(returncode=0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    backup_profile.exclude_file = ""
+    backup_profile.backup.exclude_file = ""
     run_backup(backup_profile)
 
     backup_calls = [c for c in calls if "backup" in c]
@@ -782,8 +779,10 @@ def test_run_backup_passes_both_exclude_patterns_and_exclude_file(
         return MagicMock(returncode=0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    backup_profile.exclude_patterns = ["*.log", "*.tmp"]
-    backup_profile.exclude_file = "/etc/restic-profile/restic-profile-myapp.exclude"
+    backup_profile.backup.exclude_patterns = ["*.log", "*.tmp"]
+    backup_profile.backup.exclude_file = (
+        "/etc/restic-profile/restic-profile-myapp.exclude"
+    )
     run_backup(backup_profile)
 
     backup_calls = [c for c in calls if "backup" in c]
@@ -802,14 +801,14 @@ def test_run_backup_passes_both_exclude_patterns_and_exclude_file(
 # run_forget — failure triggers sys.exit(1)
 
 
-def test_run_forget_exits_on_restic_failure(
+def test_run_retention_exits_on_restic_failure(
     prune_profile: Profile, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """run_forget() calls sys.exit(1) when restic exits non-zero."""
+    """run_retention() calls sys.exit(1) when restic exits non-zero."""
     monkeypatch.setattr(subprocess, "run", lambda *a, **kw: MagicMock(returncode=1))
 
     with pytest.raises(SystemExit) as exc_info:
-        run_forget(prune_profile)
+        run_retention(prune_profile)
 
     assert exc_info.value.code == 1
 
@@ -1106,7 +1105,9 @@ def test_run_backup_exclude_file_is_ignored_in_dry_run(
         return MagicMock(returncode=0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    backup_profile.exclude_file = "/etc/restic-profile/restic-profile-myapp.exclude"
+    backup_profile.backup.exclude_file = (
+        "/etc/restic-profile/restic-profile-myapp.exclude"
+    )
     run_backup(backup_profile, dry_run=True)
 
     # dry_run must never call subprocess regardless of exclude settings

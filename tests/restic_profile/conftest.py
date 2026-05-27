@@ -7,9 +7,13 @@ from pathlib import Path
 import pytest
 
 from restic_profile import runner as runner_module
-from restic_profile.config import HooksConfig, Profile
-
-# Config dict fixtures
+from restic_profile.config import (
+    BackupConfig,
+    HooksConfig,
+    Profile,
+    Repository,
+    RetentionConfig,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -22,44 +26,48 @@ def _reset_runner_state() -> None:
 
 @pytest.fixture
 def minimal_config_dict() -> dict:
-    """Return a minimal config dict with [global] + one backup profile + one prune-only profile."""
+    """Return a minimal config dict with [global] + [repositories] + [profiles]."""
     return {
         "global": {
             "retry_lock": "10m",
         },
-        "profiles": {
-            "myapp": {
+        "repositories": {
+            "r1": {
                 "repository": "rest:https://backup.example.com/",
                 "password": "secret",
-                "rest_username": "",
-                "rest_password": "",
-                "cacert": "",
-                "aws_default_region": "",
-                "aws_access_key_id": "",
-                "aws_secret_access_key": "",
-                "sources": ["/home/alice/myapp"],
-                "tag": "myapp",
-                "exclude_patterns": ["*.log", "node_modules/"],
-                "forget": True,
-                "keep_last": 0,
-                "keep_hourly": 6,
-                "keep_daily": 7,
-                "keep_weekly": 4,
-                "keep_monthly": 3,
-                "keep_yearly": 0,
-                "on_calendar": "hourly",
-                "randomized_delay_sec": "10min",
-                "system_user": "root",
-                "retry_lock": "",
             },
-            "server_prune": {
+            "r2": {
                 "repository": "rest:https://backup.example.com/server",
                 "password": "secret2",
-                "sources": [],
-                "keep_daily": 7,
-                "on_calendar": "daily",
+            },
+        },
+        "profiles": {
+            "myapp": {
+                "repository_ref": "r1",
+                "tag": "myapp",
                 "system_user": "root",
                 "retry_lock": "",
+                "backup": {
+                    "sources": ["/home/alice/myapp"],
+                    "exclude_patterns": ["*.log", "node_modules/"],
+                    "post_backup_retention": True,
+                },
+                "retention": {
+                    "keep_last": 0,
+                    "keep_hourly": 6,
+                    "keep_daily": 7,
+                    "keep_weekly": 4,
+                    "keep_monthly": 3,
+                    "keep_yearly": 0,
+                },
+            },
+            "server_prune": {
+                "repository_ref": "r2",
+                "system_user": "root",
+                "retry_lock": "",
+                "retention": {
+                    "keep_daily": 7,
+                },
             },
         },
     }
@@ -86,19 +94,29 @@ def backup_profile(tmp_path: Path) -> Profile:
     source_dir = tmp_path / "testdata"
     source_dir.mkdir()
 
-    return Profile(
-        name="myapp",
+    repo = Repository(
+        name="r1",
         repository="rest:https://backup.example.com/",
         password="secret",
-        sources=[str(source_dir)],
+    )
+
+    return Profile(
+        name="myapp",
+        repository_ref="r1",
         tag="myapp",
-        keep_last=0,
-        keep_hourly=6,
-        keep_daily=7,
-        keep_weekly=4,
-        keep_monthly=3,
-        keep_yearly=0,
         retry_lock="10m",
+        resolved_repository=repo,
+        backup=BackupConfig(
+            sources=[str(source_dir)],
+        ),
+        retention=RetentionConfig(
+            keep_last=0,
+            keep_hourly=6,
+            keep_daily=7,
+            keep_weekly=4,
+            keep_monthly=3,
+            keep_yearly=0,
+        ),
     )
 
 
@@ -119,18 +137,24 @@ def hooks_backup_profile(backup_profile: Profile) -> Profile:
 @pytest.fixture
 def prune_profile() -> Profile:
     """Return a Profile instance configured for prune-only (no sources)."""
-    return Profile(
-        name="server_prune",
+    repo = Repository(
+        name="r2",
         repository="rest:https://backup.example.com/server",
         password="secret2",
-        sources=[],
-        keep_last=0,
-        keep_hourly=0,
-        keep_daily=7,
-        keep_weekly=4,
-        keep_monthly=3,
-        keep_yearly=0,
-        retry_lock="",
+    )
+
+    return Profile(
+        name="server_prune",
+        repository_ref="r2",
+        resolved_repository=repo,
+        retention=RetentionConfig(
+            keep_last=0,
+            keep_hourly=0,
+            keep_daily=7,
+            keep_weekly=4,
+            keep_monthly=3,
+            keep_yearly=0,
+        ),
     )
 
 
@@ -140,17 +164,30 @@ def prune_profile() -> Profile:
 def _dict_to_toml(config: dict) -> str:
     """Produce a minimal TOML representation of *config*.
 
-    Handles the [global] + [profiles.*] structure used in restic-profile
+    Handles the [global] + [repositories.*] + [profiles.*] structure used in restic-profile
     configs; does not need to be a general-purpose serialiser.
     """
     lines: list[str] = []
 
     for section, value in config.items():
-        if section == "profiles":
-            for profile_name, profile_cfg in value.items():
-                lines.append(f"\n[profiles.{profile_name}]")
-                for k, v in profile_cfg.items():
+        if section == "repositories":
+            for r_name, r_cfg in value.items():
+                lines.append(f"\n[repositories.{r_name}]")
+                for k, v in r_cfg.items():
                     lines.append(_toml_kv(k, v))
+        elif section == "profiles":
+            for p_name, p_cfg in value.items():
+                lines.append(f"\n[profiles.{p_name}]")
+                for k, v in p_cfg.items():
+                    if not isinstance(v, dict):
+                        lines.append(_toml_kv(k, v))
+
+                # Render nested sub-tables
+                for k, v in p_cfg.items():
+                    if isinstance(v, dict):
+                        lines.append(f"\n[profiles.{p_name}.{k}]")
+                        for sub_k, sub_v in v.items():
+                            lines.append(_toml_kv(sub_k, sub_v))
         elif isinstance(value, dict):
             lines.append(f"\n[{section}]")
             for k, v in value.items():

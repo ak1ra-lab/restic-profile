@@ -10,7 +10,7 @@ from chaos_utils.logging import setup_logger
 from pydantic import ValidationError
 
 from .config import load_config
-from .runner import run_backup, run_forget
+from .runner import run_backup, run_retention
 
 logger = setup_logger(__name__)
 
@@ -18,7 +18,7 @@ DEFAULT_CONFIG = Path("/etc/restic-profile/restic-profile.toml")
 
 
 def _cmd_backup(args: argparse.Namespace) -> None:
-    """Run restic backup (and optional forget) for a named profile."""
+    """Run restic backup (and optional retention) for a named profile."""
     try:
         cfg = load_config(args.config)
     except FileNotFoundError as exc:
@@ -44,8 +44,8 @@ def _cmd_backup(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
-def _cmd_forget(args: argparse.Namespace) -> None:
-    """Run restic forget for a named profile."""
+def _cmd_retention(args: argparse.Namespace) -> None:
+    """Run restic forget & prune (retention) for a named profile."""
     try:
         cfg = load_config(args.config)
     except FileNotFoundError as exc:
@@ -62,10 +62,10 @@ def _cmd_forget(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     profile = cfg.profiles[args.profile_name]
-    logger.info("Running forget for profile: %s", args.profile_name)
+    logger.info("Running retention for profile: %s", args.profile_name)
 
     try:
-        run_forget(profile, dry_run=args.dry_run)
+        run_retention(profile, dry_run=args.dry_run)
     except ValueError as exc:
         logger.error("%s", exc)
         sys.exit(1)
@@ -101,11 +101,19 @@ def _cmd_list(args: argparse.Namespace) -> None:
         return
 
     for name, profile in cfg.profiles.items():
-        profile_type = "backup" if profile.is_backup else "retention-only"
-        print(
-            f"{name}  type={profile_type}  repository={profile.repository}"
-            f"  on_calendar={profile.on_calendar}"
+        sub_types = []
+        if profile.backup:
+            sub_types.append("backup")
+        if profile.retention:
+            sub_types.append("retention")
+        sub_type_str = "+".join(sub_types)
+
+        repo_url = (
+            profile.resolved_repository.repository
+            if profile.resolved_repository
+            else "N/A"
         )
+        print(f"{name}  type={sub_type_str}  repository={repo_url}")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -118,7 +126,7 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers.required = True
 
     backup_parser = subparsers.add_parser(
-        "backup", help="Run restic backup (and optional forget) for a named profile"
+        "backup", help="Run restic backup (and optional retention) for a named profile"
     )
     backup_parser.add_argument("profile_name", help="Profile name from config")
     backup_parser.add_argument(
@@ -136,25 +144,26 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     backup_parser.set_defaults(handler=_cmd_backup)
 
-    forget_parser = subparsers.add_parser(
-        "forget",
-        help="Run restic forget for a named profile",
+    retention_parser = subparsers.add_parser(
+        "retention",
+        aliases=["forget"],
+        help="Run restic forget & prune (retention) for a named profile",
     )
-    forget_parser.add_argument("profile_name", help="Profile name from config")
-    forget_parser.add_argument(
+    retention_parser.add_argument("profile_name", help="Profile name from config")
+    retention_parser.add_argument(
         "--config",
         type=Path,
         default=DEFAULT_CONFIG,
         metavar="PATH",
         help="Path to TOML config file (default: %(default)s)",
     )
-    forget_parser.add_argument(
+    retention_parser.add_argument(
         "--dry-run",
         action="store_true",
         default=False,
         help="Log actions without executing",
     )
-    forget_parser.set_defaults(handler=_cmd_forget)
+    retention_parser.set_defaults(handler=_cmd_retention)
 
     validate_parser = subparsers.add_parser(
         "validate", help="Validate the TOML config file and print any errors"
