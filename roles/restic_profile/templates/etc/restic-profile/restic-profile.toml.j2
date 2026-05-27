@@ -17,79 +17,94 @@ restic_binary = "{{ restic_profile_restic_binary | default('') }}"
 no_cache = {{ restic_profile_no_cache | default(false) | ansible.builtin.bool | lower }}
 retry_lock = "{{ restic_profile_retry_lock }}"
 
-{% for profile_name, profile in restic_profile_profiles.items() %}
+# --- Repositories ---
+{% for rname, r in restic_profile_repositories.items() %}
+[repositories.{{ rname }}]
+repository = "{{ r.repository }}"
+password   = "{{ r.password }}"
+{% if r.rest_username | default('') != '' %}
+# REST backend auth (restic >= 0.16.1)
+rest_username = "{{ r.rest_username }}"
+rest_password = "{{ r.rest_password }}"
+{% endif %}
+{% if r.cacert | default('') != '' %}
+cacert = "{{ r.cacert }}"
+{% endif %}
+{% if r.aws_access_key_id | default('') != '' %}
+# S3-compatible backend credentials
+aws_default_region    = "{{ r.aws_default_region | default('') }}"
+aws_access_key_id     = "{{ r.aws_access_key_id }}"
+aws_secret_access_key = "{{ r.aws_secret_access_key }}"
+{% endif %}
+{% if r.google_project_id | default('') != '' %}
+# Google Cloud Storage credentials
+google_project_id              = "{{ r.google_project_id }}"
+google_application_credentials = "{{ r.google_application_credentials | default('') }}"
+google_access_token            = "{{ r.google_access_token | default('') }}"
+{% endif %}
+
+{% endfor %}
+
+# --- Profiles ---
+{% for pname, profile in restic_profile_profiles.items() %}
 {% set _profile_enabled = profile.enabled | default(true) | ansible.builtin.bool %}
 {% if _profile_enabled %}
-[profiles.{{ profile_name }}]
-# --- Repository ---
-repository = "{{ profile.repository }}"
-password   = "{{ profile.password }}"
-{% if profile.rest_username | default('') != '' %}
-# REST backend auth (restic >= 0.16.1)
-rest_username = "{{ profile.rest_username }}"
-rest_password = "{{ profile.rest_password }}"
+[profiles.{{ pname }}]
+repository_ref = "{{ profile.repository_ref }}"
+{% if profile.tag is defined or (profile.tag | default('')) != '' %}
+tag = "{{ profile.tag }}"
 {% endif %}
-{% if profile.cacert | default('') != '' %}
-cacert = "{{ profile.cacert }}"
-{% endif %}
-{% if profile.aws_access_key_id | default('') != '' %}
-# S3-compatible backend credentials
-aws_default_region    = "{{ profile.aws_default_region | default('') }}"
-aws_access_key_id     = "{{ profile.aws_access_key_id }}"
-aws_secret_access_key = "{{ profile.aws_secret_access_key }}"
-{% endif %}
-{% if profile.google_project_id | default('') != '' %}
-# Google Cloud Storage credentials
-google_project_id              = "{{ profile.google_project_id }}"
-google_application_credentials = "{{ profile.google_application_credentials | default('') }}"
-google_access_token            = "{{ profile.google_access_token | default('') }}"
-{% endif %}
-
-# --- Backup settings ---
-sources = [
-{% for source in profile.sources | default([]) %}
-  "{{ source }}",
-{% endfor %}
-]
-tag = "{{ profile.tag | default(profile_name) }}"
-# Inline exclude patterns — each is passed as --exclude to restic backup.
-# For large exclude lists, use exclude_file_content instead (see below).
-exclude_patterns = [
-{% for pattern in profile.exclude_patterns | default([]) %}
-  "{{ pattern }}",
-{% endfor %}
-]
-{% if profile.exclude_file_content | default('') | length > 0 %}
-# Path to a per-profile exclude file rendered by Ansible from exclude_file_content.
-# Passed as --exclude-file to restic backup; supplements exclude_patterns.
-exclude_file = "{{ restic_profile_config_dir }}/restic-profile-{{ profile_name }}.exclude"
-{% endif %}
-one_file_system = {{ profile.one_file_system | default(false) | ansible.builtin.bool | lower }}
-forget = {{ profile.forget | default(true) | ansible.builtin.bool | lower }}
-forget_current_host = {{ profile.forget_current_host | default(false) | ansible.builtin.bool | lower }}
-prune = {{ profile.prune | default(false) | ansible.builtin.bool | lower }}
-
-# --- Retention policy ---
-keep_last    = {{ profile.keep_last    | default(0) | int }}
-keep_hourly  = {{ profile.keep_hourly  | default(6) | int }}
-keep_daily   = {{ profile.keep_daily   | default(7) | int }}
-keep_weekly  = {{ profile.keep_weekly  | default(4) | int }}
-keep_monthly = {{ profile.keep_monthly | default(3) | int }}
-keep_yearly  = {{ profile.keep_yearly  | default(0) | int }}
-
-# --- Schedule (consumed by Ansible to render systemd timer; not used by the CLI) ---
-on_calendar          = "{{ profile.on_calendar          | default('hourly') }}"
-randomized_delay_sec = "{{ profile.randomized_delay_sec | default('10min') }}"
-
-# --- Runtime ---
 system_user = "{{ profile.system_user | default('root') }}"
 {% if profile.restic_binary is defined %}
 restic_binary = "{{ profile.restic_binary }}"
 {% endif %}
 {% if profile.no_cache is defined %}
-no_cache    = {{ profile.no_cache | ansible.builtin.bool | lower }}
+no_cache = {{ profile.no_cache | ansible.builtin.bool | lower }}
 {% endif %}
-retry_lock  = "{{ profile.retry_lock  | default('') }}"
+{% if profile.retry_lock is defined %}
+retry_lock = "{{ profile.retry_lock }}"
+{% endif %}
+
+{% if profile.backup is defined %}
+[profiles.{{ pname }}.backup]
+sources = [
+{% for source in profile.backup.sources | default([]) %}
+  "{{ source }}",
+{% endfor %}
+]
+{% if profile.backup.exclude_patterns is defined %}
+exclude_patterns = [
+{% for pattern in profile.backup.exclude_patterns | default([]) %}
+  "{{ pattern }}",
+{% endfor %}
+]
+{% endif %}
+{% if profile.backup.exclude_file_content | default('') | length > 0 %}
+exclude_file = "{{ restic_profile_config_dir }}/restic-profile-{{ pname }}.exclude"
+{% endif %}
+{% if profile.backup.one_file_system is defined %}
+one_file_system = {{ profile.backup.one_file_system | ansible.builtin.bool | lower }}
+{% endif %}
+{% if profile.backup.post_backup_retention is defined %}
+post_backup_retention = {{ profile.backup.post_backup_retention | ansible.builtin.bool | lower }}
+{% endif %}
+{% endif %}
+
+{% if profile.retention is defined %}
+[profiles.{{ pname }}.retention]
+keep_last = {{ profile.retention.keep_last | default(0) | int }}
+keep_hourly = {{ profile.retention.keep_hourly | default(0) | int }}
+keep_daily = {{ profile.retention.keep_daily | default(0) | int }}
+keep_weekly = {{ profile.retention.keep_weekly | default(0) | int }}
+keep_monthly = {{ profile.retention.keep_monthly | default(0) | int }}
+keep_yearly = {{ profile.retention.keep_yearly | default(0) | int }}
+{% if profile.retention.prune is defined %}
+prune = {{ profile.retention.prune | ansible.builtin.bool | lower }}
+{% endif %}
+{% if profile.retention.forget_current_host is defined %}
+forget_current_host = {{ profile.retention.forget_current_host | ansible.builtin.bool | lower }}
+{% endif %}
+{% endif %}
 
 {% set _hooks = profile.hooks | default({}) %}
 {% set _hook_phases = restic_profile_hook_phases %}
@@ -106,7 +121,7 @@ retry_lock  = "{{ profile.retry_lock  | default('') }}"
 {% endfor %}
 
 {% if _has_hook_cmds.v or _hooks_shell != '/bin/sh' %}
-[profiles.{{ profile_name }}.hooks]
+[profiles.{{ pname }}.hooks]
 shell = "{{ _hooks_shell }}"
 
 {% for _phase in _hook_phases %}
@@ -118,7 +133,7 @@ shell = "{{ _hooks_shell }}"
 {% for _cmd in _phase_commands %}
   {{ _cmd | tojson }},
 {% endfor %}
-{{ render_managed_hook_paths(profile_name, _phase, _phase_scripts, _phase_templates) }}
+{{ render_managed_hook_paths(pname, _phase, _phase_scripts, _phase_templates) }}
 ]
 {% endif %}
 {% endfor %}

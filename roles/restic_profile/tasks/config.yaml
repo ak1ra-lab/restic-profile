@@ -32,7 +32,7 @@
 - name: deploy per-profile exclude file from exclude_file_content
   become: true
   ansible.builtin.copy:
-    content: "{{ _profile_item.value.exclude_file_content }}"
+    content: "{{ _profile_item.value.backup.exclude_file_content }}"
     dest: "{{ restic_profile_config_dir }}/restic-profile-{{ _profile_item.key }}.exclude"
     owner: root
     group: root
@@ -45,7 +45,8 @@
     label: "{{ _profile_item.key }}"
   when:
     - _profile_item.value.enabled | default(true) | ansible.builtin.bool
-    - _profile_item.value.exclude_file_content | default('') | length > 0
+    - _profile_item.value.backup is defined
+    - _profile_item.value.backup.exclude_file_content | default('') | length > 0
   no_log: true
 
 - name: deploy per-profile .env file
