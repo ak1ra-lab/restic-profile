@@ -69,9 +69,10 @@ def build_env(profile: Profile) -> dict[str, str]:
         env["RESTIC_CACERT"] = repo.cacert
 
     if repo.aws_access_key_id:
-        env["AWS_DEFAULT_REGION"] = repo.aws_default_region
         env["AWS_ACCESS_KEY_ID"] = repo.aws_access_key_id
         env["AWS_SECRET_ACCESS_KEY"] = repo.aws_secret_access_key
+        if repo.aws_default_region:
+            env["AWS_DEFAULT_REGION"] = repo.aws_default_region
 
     if repo.google_project_id:
         env["GOOGLE_PROJECT_ID"] = repo.google_project_id

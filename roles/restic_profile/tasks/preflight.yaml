@@ -89,6 +89,23 @@
     label: "{{ _profile_item.key | default('<empty>') }}"
   no_log: true
 
+- name: assert each enabled profile uses the root execution model
+  when:
+    - _profile_item.value.enabled | default(true) | ansible.builtin.bool
+    - _profile_item.value is mapping
+  ansible.builtin.assert:
+    that:
+      - (_profile_item.value.system_user | default('root')) == 'root'
+    fail_msg: >-
+      Profile {{ _profile_item.key }}: role-managed services always run as root because
+      /etc/restic-profile contains shared config, repository credentials, exclude files,
+      and hook scripts. Remove system_user or set it to root.
+  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
+  loop_control:
+    loop_var: _profile_item
+    label: "{{ _profile_item.key | default('<empty>') }}"
+  no_log: true
+
 - name: assert each enabled backup profile has non-empty sources
   when:
     - _profile_item.value.enabled | default(true) | ansible.builtin.bool

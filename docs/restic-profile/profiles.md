@@ -39,8 +39,8 @@ restic_profile_profiles:
 | Group | Fields | Notes |
 | --- | --- | --- |
 | Required | `repository_ref` | Required for every enabled profile; resolves credentials from `restic_profile_repositories` |
-| Repository config | `repository`, `password`, `rest_username`, `rest_password`, `cacert`, `aws_default_region`, `aws_access_key_id`, `aws_secret_access_key`, `google_project_id`, `google_application_credentials`, `google_access_token` | Defined under `restic_profile_repositories` keys |
-| Profile-level schedule/runtime | `tag`, `on_calendar`, `randomized_delay_sec`, `system_user`, `restic_binary`, `no_cache`, `retry_lock` | `on_calendar` and `randomized_delay_sec` drive the single per-profile timer; runtime fields can inherit from global settings |
+| Repository config | `repository`, `password`, `rest_username`, `rest_password`, `cacert`, `aws_default_region`, `aws_access_key_id`, `aws_secret_access_key`, `google_project_id`, `google_application_credentials`, `google_access_token` | Defined under `restic_profile_repositories` keys; S3-compatible endpoints are encoded directly in `repository`, and `aws_default_region` stays optional |
+| Profile-level schedule/runtime | `tag`, `on_calendar`, `randomized_delay_sec`, `restic_binary`, `no_cache`, `retry_lock` | `on_calendar` and `randomized_delay_sec` drive the single per-profile timer; runtime fields can inherit from global settings |
 | Backup sub-table | `sources`, `exclude_patterns`, `one_file_system` | Inside profile `backup` block |
 | Exclude file helper | `exclude_file_content` | Role-only input inside `backup` block; writes `/etc/restic-profile/restic-profile-<name>.exclude` and then renders `exclude_file = ...` into TOML |
 | Retention sub-table | `keep_last`, `keep_hourly`, `keep_daily`, `keep_weekly`, `keep_monthly`, `keep_yearly`, `prune`, `forget_current_host` | Inside profile `retention` block |
@@ -63,6 +63,7 @@ restic_profile_profiles:
 - `no_cache`: inherits `restic_profile_no_cache` unless the profile overrides it
 - `retry_lock`: inherits `restic_profile_retry_lock`; leave it empty unless the selected restic build supports `--retry-lock`
 - `enabled: true`, `timer_enabled: true`: profiles deploy and their timers start unless you disable them
+- Role-managed services always run as `root` so they can read the shared config, secrets, exclude files, and hook scripts under `/etc/restic-profile`
 
 ## Hook lifecycle
 

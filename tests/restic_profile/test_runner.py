@@ -113,6 +113,12 @@ def test_build_env_aws_credentials(backup_profile: Profile) -> None:
     assert env["AWS_SECRET_ACCESS_KEY"] == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
     assert env["AWS_DEFAULT_REGION"] == "us-east-1"
 
+    backup_profile.resolved_repository.aws_default_region = ""
+    env = build_env(backup_profile)
+    assert env["AWS_ACCESS_KEY_ID"] == "AKIAIOSFODNN7EXAMPLE"
+    assert env["AWS_SECRET_ACCESS_KEY"] == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    assert "AWS_DEFAULT_REGION" not in env
+
     backup_profile.resolved_repository.aws_access_key_id = ""
     env = build_env(backup_profile)
     assert "AWS_ACCESS_KEY_ID" not in env

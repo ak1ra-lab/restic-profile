@@ -60,7 +60,6 @@ on_calendar = "{{ profile.on_calendar }}"
 {% if profile.randomized_delay_sec is defined %}
 randomized_delay_sec = "{{ profile.randomized_delay_sec }}"
 {% endif %}
-system_user = "{{ profile.system_user | default('root') }}"
 {% if profile.restic_binary is defined %}
 restic_binary = "{{ profile.restic_binary }}"
 {% endif %}

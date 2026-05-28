@@ -125,9 +125,8 @@
     dest: "{{ restic_profile_config_file }}"
     owner: root
     group: root
-    # 0640: root owns; members of root group can read.
-    # The systemd services run as system_user (default: root) which can always
-    # read this file.  For non-root service users, add them to the root group
-    # or adjust the group/mode after deployment.
+    # 0640: keep the shared TOML root-owned because it contains repository
+    # credentials and hook paths. Role-managed services intentionally run as
+    # root so they can read it without per-profile ACLs.
     mode: "0640"
   no_log: true

@@ -45,6 +45,11 @@ inputs. The role copies or renders them to
 `/etc/restic-profile/hooks.d/restic-profile-<name>.<phase>-<seq>.sh` and then
 appends those paths to the matching `hooks.<phase>` array in TOML.
 
+When you deploy through the Ansible role, generated systemd services always run
+as `root` so they can read the shared config and secrets under
+`/etc/restic-profile`. The role therefore does not render a per-profile
+`system_user` field into the generated TOML.
+
 Additional runtime fields worth knowing:
 
 - `restic_binary`: optional global or per-profile string; when empty, `restic-profile` resolves `restic` from PATH to an absolute path and then falls back to common locations such as `/usr/local/bin/restic` and `/usr/bin/restic`
@@ -76,7 +81,6 @@ repository_ref = "r1"
 tag = "home-alice"
 on_calendar = "hourly"
 randomized_delay_sec = "15min"
-system_user = "root"
 restic_binary = "/usr/local/bin/restic"
 retry_lock = "20m"
 
@@ -151,7 +155,6 @@ repository_ref = "r1"
 tag = "myapp"
 on_calendar = "daily"
 randomized_delay_sec = "30min"
-system_user = "restic-rest-server"
 retry_lock = ""
 
 [profiles.myapp_retention.retention]
@@ -188,7 +191,6 @@ repository_ref = "s3_db"
 tag = "postgres-basebackup"
 on_calendar = "03:15"
 randomized_delay_sec = "5min"
-system_user = "root"
 retry_lock = ""
 
 [profiles.postgres-basebackup.backup]
@@ -227,7 +229,6 @@ google_access_token = ""
 repository_ref = "gcs_analytics"
 tag = "analytics"
 on_calendar = "daily"
-system_user = "root"
 retry_lock = ""
 
 [profiles.analytics.backup]
@@ -249,3 +250,8 @@ For GCS, set `google_project_id` and then choose one of these auth modes:
 - Application Default Credentials: leave both `google_application_credentials` and `google_access_token` empty
 - Service-account file: set `google_application_credentials`
 - Short-lived OAuth2 token: set `google_access_token` (takes precedence over the file)
+
+For S3-compatible storage, the custom endpoint lives in the `repository` URL
+itself, for example `s3:https://server:port/bucket-name`. Set
+`aws_default_region` only when that backend requires an explicit region that
+cannot be inferred from the repository URL.

@@ -2,15 +2,18 @@
 # dict: repository credentials and URLs.
 #   Each key is a unique repository reference name (resolved via profile's repository_ref).
 # Required fields per repository:
-#   repository                        str   restic repository URL or local path
-#   password                          str   repository encryption password (use Ansible Vault)
+#   repository                        str            restic repository URL or local path;
+#                                                      use s3:https://endpoint/bucket for S3-compatible storage
+#   password                          str            repository encryption password (use Ansible Vault)
 # Optional fields per repository:
 #   rest_username                     str   ""       HTTP Basic Auth username
 #   rest_password                     str   ""       HTTP Basic Auth password
 #   cacert                            str   ""       path to CA cert for self-signed TLS
-#   aws_default_region                str   ""
-#   aws_access_key_id                 str   ""
-#   aws_secret_access_key             str   ""
+#   aws_default_region                str   ""       optional AWS region hint;
+#                                                      leave empty when the backend infers it from the repository URL
+#                                                      or does not require one
+#   aws_access_key_id                 str   ""       S3-compatible access key ID
+#   aws_secret_access_key             str   ""       S3-compatible secret access key
 #   google_project_id                 str   ""       required for gs: repositories
 #   google_application_credentials    str   ""       service-account JSON path
 #   google_access_token               str   ""       short-lived OAuth2 token; takes precedence
@@ -33,7 +36,6 @@ restic_profile_repositories: {}
 #   no_cache                          bool  <global> override the global --no-cache toggle for this profile
 #   retry_lock                        str   <global> override the global --retry-lock duration for this profile
 #
-#   system_user                       str   "root"   User= field in the generated systemd service unit
 #   cpu_quota                         str   <global> CPUQuota= value for the generated service unit
 #   nice                              int   <global> Nice= value for the generated service unit
 #   io_scheduling_class               str   <global> IOSchedulingClass= value for the generated service unit

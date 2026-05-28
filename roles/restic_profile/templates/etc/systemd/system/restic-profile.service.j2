@@ -24,9 +24,6 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-{% if _profile.system_user | default('root') != 'root' %}
-User={{ _profile.system_user }}
-{% endif %}
 {% if _cpu_quota != '' %}
 CPUQuota={{ _cpu_quota }}
 {% endif %}

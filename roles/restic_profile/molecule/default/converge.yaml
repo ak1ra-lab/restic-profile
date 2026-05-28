@@ -46,7 +46,6 @@
           keep_daily: 7
           keep_weekly: 4
           keep_monthly: 3
-        system_user: root
         no_cache: false
         enabled: true
         # Do not start the timer during molecule runs; the stub restic binary
@@ -63,7 +62,6 @@
           keep_daily: 7
           keep_weekly: 4
           keep_monthly: 3
-        system_user: root
         enabled: true
         timer_enabled: false
 

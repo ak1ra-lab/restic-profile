@@ -56,8 +56,7 @@ restic_profile_profiles:
     # it to stay stable across future renames.
     tag: "home-alice"
 
-    # Services default to root; restic_binary, no_cache, and retry_lock can override global settings.
-    system_user: root
+    # Role-managed services run as root; restic_binary, no_cache, and retry_lock can override global settings.
     restic_binary: "/usr/local/bin/restic"
     no_cache: true
     retry_lock: "20m"
@@ -240,7 +239,6 @@ restic_profile_profiles:
   myapp_retention:
     repository_ref: r1
     tag: "myapp"
-    system_user: restic-rest-server
     on_calendar: "daily"
     randomized_delay_sec: "30min"
 
@@ -263,8 +261,10 @@ retention plus `--prune` to the repository server.
 ---
 restic_profile_repositories:
   s3_db:
+    # For S3-compatible backends, put the custom endpoint directly in repository.
     repository: "s3:https://s3.example.com/backups/postgresql"
     password: "{{ vault_postgres_restic_password }}"
+    # Keep aws_default_region only when the backend needs an explicit region.
     aws_default_region: "us-east-1"
     aws_access_key_id: "{{ vault_s3_access_key_id }}"
     aws_secret_access_key: "{{ vault_s3_secret_access_key }}"
