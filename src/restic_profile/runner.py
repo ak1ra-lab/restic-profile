@@ -47,7 +47,7 @@ def build_env(profile: Profile) -> dict[str, str]:
 
     if not env.get("HOME"):
         try:
-            env["HOME"] = pwd.getpwnam(profile.system_user).pw_dir
+            env["HOME"] = pwd.getpwuid(os.getuid()).pw_dir
         except KeyError:
             pass
 
@@ -206,6 +206,22 @@ def _build_forget_command(
     if prune:
         forget_cmd.append("--prune")
     return forget_cmd
+
+
+def _build_prune_command(
+    profile: Profile,
+    *,
+    restic_executable: str | None = None,
+    global_args: list[str] | None = None,
+) -> list[str]:
+    """Return the full restic prune command for *profile* when enabled."""
+    if not profile.retention or not profile.retention.prune:
+        return []
+
+    if restic_executable is None or global_args is None:
+        restic_executable, global_args = _restic_command_parts(profile)
+
+    return [restic_executable, *global_args, "prune"]
 
 
 def _is_local_repo(repository: str) -> bool:
@@ -456,6 +472,17 @@ def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
                     logger.info("DRY RUN: Would run: %s", " ".join(forget_cmd))
                 else:
                     _run(forget_cmd, env)
+            else:
+                prune_cmd = _build_prune_command(
+                    profile,
+                    restic_executable=restic_executable,
+                    global_args=global_args,
+                )
+                if prune_cmd:
+                    if dry_run:
+                        logger.info("DRY RUN: Would run: %s", " ".join(prune_cmd))
+                    else:
+                        _run(prune_cmd, env)
     except _CommandError:
         backup_failed = True
 
@@ -486,11 +513,11 @@ def run_retention(
     Raises
     ------
     ValueError
-        When the profile has no retention policy.
+        When the profile has no retention block or no retention action.
     """
     if not profile.retention:
         raise ValueError(
-            f"Profile {profile.name!r} has no retention policy, cannot run retention"
+            f"Profile {profile.name!r} has no retention block, cannot run retention"
         )
 
     forget_cmd = _build_forget_command(
@@ -498,18 +525,19 @@ def run_retention(
         current_host_only=profile.retention.forget_current_host,
         prune=profile.retention.prune,
     )
-    if not forget_cmd:
+    command = forget_cmd or _build_prune_command(profile)
+    if not command:
         raise ValueError(
-            f"Profile {profile.name!r} has no retention policy, cannot run forget"
+            f"Profile {profile.name!r} has no retention action, cannot run retention"
         )
 
     env = build_env(profile)
 
     if dry_run:
-        logger.info("DRY RUN: Would run: %s", " ".join(forget_cmd))
+        logger.info("DRY RUN: Would run: %s", " ".join(command))
     else:
         try:
-            _run(forget_cmd, env)
+            _run(command, env)
         except _CommandError:
             sys.exit(1)
 

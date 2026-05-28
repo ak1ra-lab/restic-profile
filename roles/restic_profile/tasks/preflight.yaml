@@ -174,7 +174,7 @@
     label: "{{ _profile_item.key | default('<empty>') }}"
   no_log: true
 
-- name: assert each enabled retention profile has at least one keep_* policy
+- name: assert each enabled retention profile has at least one retention action
   when:
     - _profile_item.value.enabled | default(true) | ansible.builtin.bool
     - _profile_item.value is mapping
@@ -187,10 +187,12 @@
         (_profile_item.value.retention.keep_daily   | default(0) | int > 0) or
         (_profile_item.value.retention.keep_weekly  | default(0) | int > 0) or
         (_profile_item.value.retention.keep_monthly | default(0) | int > 0) or
-        (_profile_item.value.retention.keep_yearly  | default(0) | int > 0)
+        (_profile_item.value.retention.keep_yearly  | default(0) | int > 0) or
+        (_profile_item.value.retention.prune | default(false) | ansible.builtin.bool)
     fail_msg: >-
-      Profile {{ _profile_item.key }}: retention section must be a dict with at least one
-      keep_* retention policy configured (all are 0).
+      Profile {{ _profile_item.key }}: retention section must define at least one
+      actionable retention setting. Configure one or more keep_* fields and/or
+      set prune=true.
   loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
   loop_control:
     loop_var: _profile_item

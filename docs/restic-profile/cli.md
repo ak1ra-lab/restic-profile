@@ -24,7 +24,7 @@ restic-profile myapp --config /path/to/custom.toml
 Execution depends on the profile shape:
 
 - Backup-only profile: run `restic backup`.
-- Retention-only profile: run `restic forget` and optional `--prune`.
+- Retention-only profile: run `restic forget` and optional `--prune`, or standalone `restic prune` for prune-only retention.
 - Backup+retention profile: run backup first, then inline retention after a successful backup.
 
 Backup-capable profiles use this lifecycle:
@@ -34,7 +34,7 @@ Backup-capable profiles use this lifecycle:
 3. Auto-init repository (`restic cat config` then optional `restic init`).
 4. Run `before` hooks.
 5. Run `restic backup --host <host> --tag <tag> ...`.
-6. If the profile also has retention config, run `restic forget --host <host> --tag <tag> ...` and optional `--prune`.
+6. If the profile also has retention config, run inline retention: `restic forget --host <host> --tag <tag> ...` with optional `--prune`, or standalone `restic prune` for prune-only retention.
 7. Run `after` hooks.
 8. Run `success` hooks on success, or `failure` hooks on error.
 
@@ -59,7 +59,7 @@ Checks:
 - Every referenced repository has non-empty `repository` and `password`.
 - Every profile has at least one of `backup` or `retention` configured.
 - Every profile with a `backup` section has a non-empty `sources` list.
-- Every profile with a `retention` section has at least one non-zero `keep_*` policy.
+- Every profile with a `retention` section has at least one actionable retention setting: one or more non-zero `keep_*` fields and/or `prune: true`.
 
 ## restic-profile --list
 

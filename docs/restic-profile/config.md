@@ -25,7 +25,7 @@ Backup and retention data stay grouped in nested sub-tables, but schedule now
 lives at the profile root:
 - `[profiles.<name>]`: common runtime fields plus the single profile schedule.
 - `[profiles.<name>.backup]`: sources, exclusions, and backup-only flags.
-- `[profiles.<name>.retention]`: retention policies (`keep_*`), host scoping, and `prune`.
+- `[profiles.<name>.retention]`: retention actions (`keep_*`, `prune`), plus host scoping for forget.
 
 Two role-only controls never appear in the TOML:
 
@@ -47,8 +47,8 @@ appends those paths to the matching `hooks.<phase>` array in TOML.
 
 When you deploy through the Ansible role, generated systemd services always run
 as `root` so they can read the shared config and secrets under
-`/etc/restic-profile`. The role therefore does not render a per-profile
-`system_user` field into the generated TOML.
+`/etc/restic-profile`. Per-profile `system_user` is no longer part of the
+runtime model, and the role does not render it into the generated TOML.
 
 Additional runtime fields worth knowing:
 
@@ -56,6 +56,8 @@ Additional runtime fields worth knowing:
 - `no_cache`: optional global or per-profile boolean that adds `--no-cache`; profiles inherit the global value unless they set their own override
 - `on_calendar` / `randomized_delay_sec`: optional per-profile schedule for the single generated timer
 - `one_file_system`: optional per-profile backup boolean that adds `--one-file-system` to `restic backup`
+- `forget_current_host`: defaults to `true` for retention blocks; set it to `false` only when one retention job should manage snapshots created by other hosts
+- `retention`: a retention block is actionable when at least one `keep_*` value is non-zero or `prune = true`; prune-only profiles run standalone `restic prune`
 - Unsupported configured flags are not masked by `restic-profile`; the selected restic binary fails directly so operators can either upgrade restic, clear the flag, or pin `restic_binary` to a newer build
 - Missing `sources` paths are warned about and skipped at runtime; if no configured source still exists, `restic-profile <profile>` aborts before invoking `restic`
 

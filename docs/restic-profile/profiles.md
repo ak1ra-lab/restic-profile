@@ -43,7 +43,7 @@ restic_profile_profiles:
 | Profile-level schedule/runtime | `tag`, `on_calendar`, `randomized_delay_sec`, `restic_binary`, `no_cache`, `retry_lock` | `on_calendar` and `randomized_delay_sec` drive the single per-profile timer; runtime fields can inherit from global settings |
 | Backup sub-table | `sources`, `exclude_patterns`, `one_file_system` | Inside profile `backup` block |
 | Exclude file helper | `exclude_file_content` | Role-only input inside `backup` block; writes `/etc/restic-profile/restic-profile-<name>.exclude` and then renders `exclude_file = ...` into TOML |
-| Retention sub-table | `keep_last`, `keep_hourly`, `keep_daily`, `keep_weekly`, `keep_monthly`, `keep_yearly`, `prune`, `forget_current_host` | Inside profile `retention` block |
+| Retention sub-table | `keep_last`, `keep_hourly`, `keep_daily`, `keep_weekly`, `keep_monthly`, `keep_yearly`, `prune`, `forget_current_host` | Inside profile `retention` block; at least one `keep_*` value or `prune: true` is required |
 | Hooks | `hooks.shell`, `hooks.prevalidate`, `hooks.before`, `hooks.after`, `hooks.failure`, `hooks.success` | Rendered under `[profiles.<name>.hooks]` |
 | Hook file helpers | `hooks.<phase>_scripts`, `hooks.<phase>_templates` | Role-only inputs; copy or render controller-side files to `/etc/restic-profile/hooks.d/restic-profile-<name>.<phase>-<seq>.sh` and append those paths to `hooks.<phase>` |
 | Role-only lifecycle | `enabled`, `timer_enabled`, `cpu_quota`, `nice`, `io_scheduling_class`, `io_scheduling_priority` | Never rendered into TOML; used only when generating systemd units |
@@ -54,8 +54,8 @@ restic_profile_profiles:
 - `on_calendar: ""`: profiles do not get a timer unless you opt in with a schedule.
 - `randomized_delay_sec: ""`: leave empty to accept the timer template default window.
 - `one_file_system: false`: backups cross filesystem boundaries unless you opt in
-- `forget_current_host: false`: retention-only runs are tag-scoped, not host-scoped
-- `prune: false`: retention does not add `--prune` unless you opt in
+- `forget_current_host: true`: retention-only runs are host-scoped by default; set it to `false` for cross-host retention jobs
+- `prune: false`: retention does not prune unless you opt in; with no keep_* policy, `prune: true` becomes a standalone `restic prune`
 - `restic_binary`: inherits `restic_profile_restic_binary`; leave it empty to use PATH-based resolution, or set an absolute path when you want an exact binary
 - `cpu_quota`: inherits `restic_profile_systemd_cpu_quota`; set it to `""` on a profile to remove the generated unit's `CPUQuota=` override
 - `nice`: inherits `restic_profile_systemd_nice`; leave it empty unless you want the generated unit to run below the default scheduler priority

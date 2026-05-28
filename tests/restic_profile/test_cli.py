@@ -31,7 +31,6 @@ repository_ref = "r1"
 tag = "myapp"
 on_calendar = "hourly"
 randomized_delay_sec = "10min"
-system_user = "root"
 retry_lock = ""
 [profiles.myapp.backup]
 sources = ["/home/alice/myapp"]
@@ -47,7 +46,6 @@ keep_yearly = 0
 [profiles.server_prune]
 repository_ref = "r2"
 on_calendar = "daily"
-system_user = "root"
 retry_lock = ""
 [profiles.server_prune.retention]
 keep_daily = 7

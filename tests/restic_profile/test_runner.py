@@ -47,7 +47,6 @@ def test_build_env_sets_home_and_xdg_cache_home_fallbacks(
 ) -> None:
     """build_env() derives HOME and XDG_CACHE_HOME when the parent env lacks them."""
     current_user = pwd.getpwuid(os.getuid())
-    backup_profile.system_user = current_user.pw_name
     monkeypatch.delenv("HOME", raising=False)
     monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
 
@@ -479,7 +478,7 @@ def test_run_backup_skips_retention_when_no_retention_block(
 def test_run_backup_skips_retention_when_no_retention_policy(
     backup_profile: Profile, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """run_backup() skips forget when all keep_* are 0 (no policy configured)."""
+    """run_backup() executes restic prune when retention is prune-only."""
     calls: list[list[str]] = []
 
     def fake_run(args: list[str], **kwargs: object) -> MagicMock:
@@ -487,11 +486,19 @@ def test_run_backup_skips_retention_when_no_retention_policy(
         return MagicMock(returncode=0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    backup_profile.retention = None
+    backup_profile.retention.keep_last = 0
+    backup_profile.retention.keep_hourly = 0
+    backup_profile.retention.keep_daily = 0
+    backup_profile.retention.keep_weekly = 0
+    backup_profile.retention.keep_monthly = 0
+    backup_profile.retention.keep_yearly = 0
+    backup_profile.retention.prune = True
     run_backup(backup_profile)
 
     forget_calls = [c for c in calls if "forget" in c]
     assert len(forget_calls) == 0
+    prune_calls = [c for c in calls if "prune" in c]
+    assert len(prune_calls) == 1
 
 
 # run_backup — dry_run
@@ -602,13 +609,31 @@ def test_run_backup_continues_when_init_reports_existing_repository(
 # run_forget — ValueError when no retention policy
 
 
-def test_run_retention_raises_value_error_when_no_retention_policy(
+def test_run_retention_raises_value_error_when_no_retention_block(
     prune_profile: Profile,
 ) -> None:
-    """run_retention() raises ValueError when retention policy is missing."""
+    """run_retention() raises ValueError when the profile has no retention block."""
     prune_profile.retention = None
 
-    with pytest.raises(ValueError, match="no retention policy") as exc_info:
+    with pytest.raises(ValueError, match="no retention block") as exc_info:
+        run_retention(prune_profile)
+
+    assert prune_profile.name in str(exc_info.value)
+
+
+def test_run_retention_raises_value_error_when_no_retention_action(
+    prune_profile: Profile,
+) -> None:
+    """run_retention() raises ValueError when keep_* are all 0 and prune is disabled."""
+    prune_profile.retention.keep_last = 0
+    prune_profile.retention.keep_hourly = 0
+    prune_profile.retention.keep_daily = 0
+    prune_profile.retention.keep_weekly = 0
+    prune_profile.retention.keep_monthly = 0
+    prune_profile.retention.keep_yearly = 0
+    prune_profile.retention.prune = False
+
+    with pytest.raises(ValueError, match="no retention action") as exc_info:
         run_retention(prune_profile)
 
     assert prune_profile.name in str(exc_info.value)
@@ -620,7 +645,7 @@ def test_run_retention_raises_value_error_when_no_retention_policy(
 def test_run_retention_invokes_restic_forget_without_prune_by_default(
     prune_profile: Profile, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """run_retention() calls restic forget scoped by tag and without --prune by default."""
+    """run_retention() calls restic forget scoped by host and tag without --prune by default."""
     calls: list[list[str]] = []
 
     def fake_run(args: list[str], **kwargs: object) -> MagicMock:
@@ -634,9 +659,9 @@ def test_run_retention_invokes_restic_forget_without_prune_by_default(
     cmd = calls[0]
     assert Path(cmd[0]).name == "restic"
     assert "forget" in cmd
+    assert "--host" in cmd
     assert "--tag" in cmd
     assert cmd[cmd.index("--tag") + 1] == prune_profile.tag
-    assert "--host" not in cmd
     assert "--prune" not in cmd
     assert "--keep-daily" in cmd
 
@@ -694,6 +719,31 @@ def test_run_retention_uses_profile_prune_default(
     run_retention(prune_profile)
 
     assert "--prune" in calls[0]
+
+
+def test_run_retention_invokes_standalone_prune_when_prune_only(
+    prune_profile: Profile, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """run_retention() calls restic prune when prune=true and no keep_* policy exists."""
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], **kwargs: object) -> MagicMock:
+        calls.append(list(args))
+        return MagicMock(returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    prune_profile.retention.keep_last = 0
+    prune_profile.retention.keep_hourly = 0
+    prune_profile.retention.keep_daily = 0
+    prune_profile.retention.keep_weekly = 0
+    prune_profile.retention.keep_monthly = 0
+    prune_profile.retention.keep_yearly = 0
+    prune_profile.retention.prune = True
+    run_retention(prune_profile)
+
+    assert len(calls) == 1
+    assert calls[0][-1] == "prune"
+    assert "forget" not in calls[0]
 
 
 # run_forget — dry_run

@@ -47,15 +47,17 @@ restic_profile_repositories: {}
 #     exclude_file_content            str   ""       rendered to /etc/restic-profile/restic-profile-<name>.exclude; passed as --exclude-file
 #     one_file_system                 bool  false    add --one-file-system to restic backup
 #
-#   retention                         dict  retention policy configurations (optional):
+#   retention                         dict  retention action configurations (optional):
 #     keep_last                       int   0        keep last N snapshots
 #     keep_hourly                     int   0        keep last N hourly snapshots
 #     keep_daily                      int   0        keep last N daily snapshots
 #     keep_weekly                     int   0        keep last N weekly snapshots
 #     keep_monthly                    int   0        keep last N monthly snapshots
 #     keep_yearly                     int   0        keep last N yearly snapshots
-#     prune                           bool  false    add --prune to restic forget
-#     forget_current_host             bool  false    add --host <current host> to restic forget
+#     prune                           bool  false    run standalone restic prune when keep_* are all 0;
+#                                                      otherwise add --prune to restic forget
+#     forget_current_host             bool  true     add --host <current host> to restic forget by default;
+#                                                      set false for cross-host retention jobs
 #
 #   hooks                             dict  hooks config (rendered under [profiles.<name>.hooks])
 #     shell                           str   "/bin/sh"

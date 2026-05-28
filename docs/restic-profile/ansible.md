@@ -167,7 +167,7 @@ Before writing files, the role asserts that:
 1. Every enabled profile configures at least one of `backup` or `retention`.
 1. Every enabled `backup` block is a mapping with a non-empty `sources` list.
 1. Every enabled profile uses profile-level `on_calendar` / `randomized_delay_sec`; removed nested schedule fields fail fast.
-1. Every enabled `retention` block is a mapping with at least one non-zero `keep_*` field.
+1. Every enabled `retention` block is a mapping with at least one actionable setting: one or more non-zero `keep_*` fields and/or `prune: true`.
 
 ## Security notes
 

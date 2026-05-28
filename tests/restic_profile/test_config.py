@@ -142,8 +142,8 @@ def test_profile_tag_preserved_when_explicitly_set(tmp_path: Path) -> None:
     assert result.profiles["myapp"].tag == "custom-tag"
 
 
-def test_profile_forget_current_host_defaults_to_false(tmp_path: Path) -> None:
-    """forget_current_host defaults to False when omitted from TOML."""
+def test_profile_forget_current_host_defaults_to_true(tmp_path: Path) -> None:
+    """forget_current_host defaults to True when omitted from TOML."""
     toml_file = tmp_path / "config.toml"
     toml_file.write_text(
         "[repositories.r1]\n"
@@ -158,11 +158,11 @@ def test_profile_forget_current_host_defaults_to_false(tmp_path: Path) -> None:
 
     result = load_config(toml_file)
 
-    assert result.profiles["myapp"].retention.forget_current_host is False
+    assert result.profiles["myapp"].retention.forget_current_host is True
 
 
 def test_profile_forget_current_host_parsed_from_toml(tmp_path: Path) -> None:
-    """forget_current_host is parsed from TOML when explicitly set."""
+    """forget_current_host is parsed from TOML when explicitly overridden."""
     toml_file = tmp_path / "config.toml"
     toml_file.write_text(
         "[repositories.r1]\n"
@@ -172,13 +172,13 @@ def test_profile_forget_current_host_parsed_from_toml(tmp_path: Path) -> None:
         'repository_ref = "r1"\n'
         "[profiles.myapp.retention]\n"
         "keep_daily = 7\n"
-        "forget_current_host = true\n",
+        "forget_current_host = false\n",
         encoding="utf-8",
     )
 
     result = load_config(toml_file)
 
-    assert result.profiles["myapp"].retention.forget_current_host is True
+    assert result.profiles["myapp"].retention.forget_current_host is False
 
 
 # Profile defaults — retry_lock inheritance
@@ -461,8 +461,10 @@ def test_profile_empty_password_raises_validation_error() -> None:
         Repository(name="nopw", repository="rest:https://example.com/", password="")
 
 
-def test_retention_only_profile_with_no_retention_raises_validation_error() -> None:
-    """Profile raises ValidationError for retention-only profile with all keep_* == 0."""
+def test_retention_only_profile_with_no_retention_action_raises_validation_error() -> (
+    None
+):
+    """Profile raises ValidationError for retention-only profile with no keep_* and prune=false."""
     repo = Repository(name="r1", repository="rest:https://example.com/", password="pw")
     with pytest.raises(ValidationError, match="retention"):
         Profile(
@@ -476,6 +478,7 @@ def test_retention_only_profile_with_no_retention_raises_validation_error() -> N
                 keep_weekly=0,
                 keep_monthly=0,
                 keep_yearly=0,
+                prune=False,
             ),
         )
 
@@ -494,6 +497,26 @@ def test_retention_only_profile_with_single_keep_is_valid() -> None:
             keep_weekly=0,
             keep_monthly=0,
             keep_yearly=0,
+        ),
+    )
+    assert profile.is_retention_only is True
+
+
+def test_retention_only_profile_with_prune_only_is_valid() -> None:
+    """A retention-only profile with prune=true and no keep_* policy passes validation."""
+    repo = Repository(name="r1", repository="rest:https://example.com/", password="pw")
+    profile = Profile(
+        name="pruneonly",
+        repository_ref="r1",
+        resolved_repository=repo,
+        retention=RetentionConfig(
+            keep_last=0,
+            keep_hourly=0,
+            keep_daily=0,
+            keep_weekly=0,
+            keep_monthly=0,
+            keep_yearly=0,
+            prune=True,
         ),
     )
     assert profile.is_retention_only is True

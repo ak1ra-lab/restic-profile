@@ -86,7 +86,7 @@ class RetentionConfig(BaseModel):
     keep_monthly: int = 0
     keep_yearly: int = 0
     prune: bool = False
-    forget_current_host: bool = False
+    forget_current_host: bool = True
 
     @property
     def has_policy(self) -> bool:
@@ -103,6 +103,11 @@ class RetentionConfig(BaseModel):
             ]
         )
 
+    @property
+    def has_action(self) -> bool:
+        """True when the retention block has any actionable setting."""
+        return self.has_policy or self.prune
+
 
 class Profile(BaseModel):
     """A single restic-profile configuration entry."""
@@ -114,7 +119,6 @@ class Profile(BaseModel):
     randomized_delay_sec: str = ""
 
     # Runtime
-    system_user: str = "root"
     restic_binary: str = ""
     no_cache: bool = False
     retry_lock: str = ""
@@ -141,9 +145,10 @@ class Profile(BaseModel):
             raise ValueError(
                 f"Profile {self.name!r}: backup section configured but 'sources' list is empty"
             )
-        if self.retention and not self.retention.has_policy:
+        if self.retention and not self.retention.has_action:
             raise ValueError(
-                f"Profile {self.name!r}: retention section configured but has no policy (all keep_* are 0)"
+                f"Profile {self.name!r}: retention section configured but has no action "
+                "(configure keep_* and/or set prune=true)"
             )
         return self
 
