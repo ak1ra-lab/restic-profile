@@ -19,7 +19,7 @@
     {{
       _restic_profile_found_units.files
       | map(attribute='path')
-      | select('search', '\\.timer$')
+      | select('ansible.builtin.search', '\\.timer$')
       | list
     }}
   failed_when: false

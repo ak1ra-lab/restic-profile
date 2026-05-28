@@ -75,7 +75,7 @@
       {{
         restic_profile_env_repositories_data
         | map(attribute='key')
-        | map('regex_replace', '^(.*)$', restic_profile_config_dir ~ '/restic-profile-\\1.env')
+        | map('ansible.builtin.regex_replace', '^(.*)$', restic_profile_config_dir ~ '/restic-profile-\\1.env')
         | list
       }}
 
