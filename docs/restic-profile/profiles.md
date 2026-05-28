@@ -18,9 +18,7 @@ Use this with:
 Each profile key becomes:
 
 - TOML section: `[profiles.<name>]`
-- systemd units:
-  - `restic-profile-backup-<name>.service|timer` when `backup` sub-table is configured
-  - `restic-profile-retention-<name>.service|timer` when `retention` is configured for a standalone retention run, meaning the profile is retention-only or `backup.post_backup_retention` is not enabled
+- systemd units: `restic-profile-<name>.service|timer`
 
 ```yaml
 restic_profile_repositories:
@@ -42,21 +40,22 @@ restic_profile_profiles:
 | --- | --- | --- |
 | Required | `repository_ref` | Required for every enabled profile; resolves credentials from `restic_profile_repositories` |
 | Repository config | `repository`, `password`, `rest_username`, `rest_password`, `cacert`, `aws_default_region`, `aws_access_key_id`, `aws_secret_access_key`, `google_project_id`, `google_application_credentials`, `google_access_token` | Defined under `restic_profile_repositories` keys |
-| Backup sub-table | `sources`, `exclude_patterns`, `one_file_system`, `post_backup_retention`, `on_calendar`, `randomized_delay_sec` | Inside profile `backup` block. Timer units generated only if `on_calendar` is non-empty |
+| Profile-level schedule/runtime | `tag`, `on_calendar`, `randomized_delay_sec`, `system_user`, `restic_binary`, `no_cache`, `retry_lock` | `on_calendar` and `randomized_delay_sec` drive the single per-profile timer; runtime fields can inherit from global settings |
+| Backup sub-table | `sources`, `exclude_patterns`, `one_file_system` | Inside profile `backup` block |
 | Exclude file helper | `exclude_file_content` | Role-only input inside `backup` block; writes `/etc/restic-profile/restic-profile-<name>.exclude` and then renders `exclude_file = ...` into TOML |
-| Retention sub-table | `keep_last`, `keep_hourly`, `keep_daily`, `keep_weekly`, `keep_monthly`, `keep_yearly`, `prune`, `forget_current_host`, `on_calendar`, `randomized_delay_sec` | Inside profile `retention` block. Standalone retention units are rendered only when `backup.post_backup_retention` is disabled or no backup block exists; timer units are generated only if `on_calendar` is non-empty |
-| Profile level runtime | `tag`, `system_user`, `restic_binary`, `no_cache`, `retry_lock` | Profile-level overrides; `restic_binary` and `no_cache` can inherit from global settings |
+| Retention sub-table | `keep_last`, `keep_hourly`, `keep_daily`, `keep_weekly`, `keep_monthly`, `keep_yearly`, `prune`, `forget_current_host` | Inside profile `retention` block |
 | Hooks | `hooks.shell`, `hooks.prevalidate`, `hooks.before`, `hooks.after`, `hooks.failure`, `hooks.success` | Rendered under `[profiles.<name>.hooks]` |
 | Hook file helpers | `hooks.<phase>_scripts`, `hooks.<phase>_templates` | Role-only inputs; copy or render controller-side files to `/etc/restic-profile/hooks.d/restic-profile-<name>.<phase>-<seq>.sh` and append those paths to `hooks.<phase>` |
 | Role-only lifecycle | `enabled`, `timer_enabled`, `cpu_quota`, `nice`, `io_scheduling_class`, `io_scheduling_priority` | Never rendered into TOML; used only when generating systemd units |
 
 ## Defaults that matter operationally
 
-- `post_backup_retention: false`: backup runs do not run post-backup retention by default unless you explicitly opt in
-- `post_backup_retention: true`: backup runs invoke retention inline after a successful backup, so the role does not render a separate standalone retention unit for that same profile
+- Mixed profiles always run retention inline after a successful backup.
+- `on_calendar: ""`: profiles do not get a timer unless you opt in with a schedule.
+- `randomized_delay_sec: ""`: leave empty to accept the timer template default window.
 - `one_file_system: false`: backups cross filesystem boundaries unless you opt in
-- `forget_current_host: false`: standalone retention runs are tag-scoped, not host-scoped
-- `prune: false`: standalone retention does not add `--prune` unless you opt in
+- `forget_current_host: false`: retention-only runs are tag-scoped, not host-scoped
+- `prune: false`: retention does not add `--prune` unless you opt in
 - `restic_binary`: inherits `restic_profile_restic_binary`; leave it empty to use PATH-based resolution, or set an absolute path when you want an exact binary
 - `cpu_quota`: inherits `restic_profile_systemd_cpu_quota`; set it to `""` on a profile to remove the generated unit's `CPUQuota=` override
 - `nice`: inherits `restic_profile_systemd_nice`; leave it empty unless you want the generated unit to run below the default scheduler priority
@@ -80,7 +79,7 @@ paths to the matching `hooks.<phase>` array in TOML. Within a phase, the order i
 1. `prevalidate`
 2. Repository/location checks and optional auto-init
 3. `before`
-4. Backup and optional post-backup retention
+4. Backup and inline retention when configured
 5. `after`
 6. `success` or `failure`
 

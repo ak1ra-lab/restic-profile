@@ -121,6 +121,26 @@
     label: "{{ _profile_item.key | default('<empty>') }}"
   no_log: true
 
+- name: assert each enabled backup profile avoids removed nested schedule fields
+  when:
+    - _profile_item.value.enabled | default(true) | ansible.builtin.bool
+    - _profile_item.value is mapping
+    - _profile_item.value.backup is mapping
+  ansible.builtin.assert:
+    that:
+      - _profile_item.value.backup.post_backup_retention is not defined
+      - _profile_item.value.backup.on_calendar is not defined
+      - _profile_item.value.backup.randomized_delay_sec is not defined
+    fail_msg: >-
+      Profile {{ _profile_item.key }}: move backup.on_calendar and backup.randomized_delay_sec
+      to the profile root and remove backup.post_backup_retention. Mixed profiles now run
+      retention automatically after backup.
+  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
+  loop_control:
+    loop_var: _profile_item
+    label: "{{ _profile_item.key | default('<empty>') }}"
+  no_log: true
+
 - name: assert each enabled retention profile is a dict
   when:
     - _profile_item.value.enabled | default(true) | ansible.builtin.bool
@@ -154,6 +174,24 @@
     fail_msg: >-
       Profile {{ _profile_item.key }}: retention section must be a dict with at least one
       keep_* retention policy configured (all are 0).
+  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
+  loop_control:
+    loop_var: _profile_item
+    label: "{{ _profile_item.key | default('<empty>') }}"
+  no_log: true
+
+- name: assert each enabled retention profile avoids removed nested schedule fields
+  when:
+    - _profile_item.value.enabled | default(true) | ansible.builtin.bool
+    - _profile_item.value is mapping
+    - _profile_item.value.retention is mapping
+  ansible.builtin.assert:
+    that:
+      - _profile_item.value.retention.on_calendar is not defined
+      - _profile_item.value.retention.randomized_delay_sec is not defined
+    fail_msg: >-
+      Profile {{ _profile_item.key }}: move retention.on_calendar and
+      retention.randomized_delay_sec to the profile root.
   loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
   loop_control:
     loop_var: _profile_item

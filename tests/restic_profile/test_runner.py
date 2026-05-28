@@ -1,4 +1,4 @@
-"""Tests for restic_profile.runner — build_env, build_forget_args, run_backup, run_forget."""
+"""Tests for restic_profile.runner execution and environment helpers."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from restic_profile.runner import (
     build_global_args,
     run_backup,
     run_hooks,
+    run_profile,
     run_retention,
 )
 
@@ -362,6 +363,46 @@ def test_run_backup_raises_value_error_for_prune_only_profile(
 # run_backup — subprocess calls (normal flow)
 
 
+def test_run_profile_dispatches_mixed_profiles_to_backup(
+    backup_profile: Profile,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """run_profile() routes mixed profiles through the backup workflow."""
+    calls: list[tuple[str, bool]] = []
+
+    monkeypatch.setattr(
+        "restic_profile.runner.run_backup",
+        lambda profile, *, dry_run=False: calls.append((profile.name, dry_run)),
+    )
+    monkeypatch.setattr(
+        "restic_profile.runner.run_retention",
+        lambda profile, *, dry_run=False: calls.append(
+            (f"retention:{profile.name}", dry_run)
+        ),
+    )
+
+    run_profile(backup_profile, dry_run=True)
+
+    assert calls == [("myapp", True)]
+
+
+def test_run_profile_dispatches_retention_only_profiles_to_retention(
+    prune_profile: Profile,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """run_profile() routes retention-only profiles to the retention workflow."""
+    calls: list[tuple[str, bool]] = []
+
+    monkeypatch.setattr(
+        "restic_profile.runner.run_retention",
+        lambda profile, *, dry_run=False: calls.append((profile.name, dry_run)),
+    )
+
+    run_profile(prune_profile, dry_run=True)
+
+    assert calls == [("server_prune", True)]
+
+
 def test_run_backup_invokes_restic_backup_with_correct_args(
     backup_profile: Profile, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -388,10 +429,10 @@ def test_run_backup_invokes_restic_backup_with_correct_args(
         assert source in backup_cmd
 
 
-def test_run_backup_runs_forget_by_default(
+def test_run_backup_runs_retention_when_profile_has_retention(
     backup_profile: Profile, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """run_backup() also calls restic forget when forget is True and policy is set."""
+    """run_backup() calls restic forget when the profile has retention config."""
     calls: list[list[str]] = []
 
     def fake_run(args: list[str], **kwargs: object) -> MagicMock:
@@ -400,7 +441,6 @@ def test_run_backup_runs_forget_by_default(
 
     monkeypatch.setattr("restic_profile.runner._snapshot_host", lambda: "test-host")
     monkeypatch.setattr(subprocess, "run", fake_run)
-    backup_profile.backup.post_backup_retention = True
     run_backup(backup_profile)
 
     forget_calls = [c for c in calls if "forget" in c]
@@ -412,10 +452,10 @@ def test_run_backup_runs_forget_by_default(
     assert forget_cmd[forget_cmd.index("--tag") + 1] == backup_profile.tag
 
 
-def test_run_backup_skips_forget_when_forget_false(
+def test_run_backup_skips_retention_when_no_retention_block(
     backup_profile: Profile, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """run_backup() does not call restic forget when forget is False."""
+    """run_backup() does not call restic forget when retention is not configured."""
     calls: list[list[str]] = []
 
     def fake_run(args: list[str], **kwargs: object) -> MagicMock:
@@ -423,14 +463,14 @@ def test_run_backup_skips_forget_when_forget_false(
         return MagicMock(returncode=0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    backup_profile.backup.post_backup_retention = False
+    backup_profile.retention = None
     run_backup(backup_profile)
 
     forget_calls = [c for c in calls if "forget" in c]
     assert len(forget_calls) == 0
 
 
-def test_run_backup_skips_forget_when_no_retention_policy(
+def test_run_backup_skips_retention_when_no_retention_policy(
     backup_profile: Profile, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """run_backup() skips forget when all keep_* are 0 (no policy configured)."""
@@ -441,7 +481,6 @@ def test_run_backup_skips_forget_when_no_retention_policy(
         return MagicMock(returncode=0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    backup_profile.backup.post_backup_retention = True
     backup_profile.retention = None
     run_backup(backup_profile)
 
@@ -547,7 +586,6 @@ def test_run_backup_continues_when_init_reports_existing_repository(
         lambda profile, env: False,
     )
     monkeypatch.setattr("restic_profile.runner._run", fake_run)
-    backup_profile.backup.post_backup_retention = False
 
     run_backup(backup_profile)
 

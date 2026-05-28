@@ -61,6 +61,10 @@ restic_profile_profiles:
     restic_binary: "/usr/local/bin/restic"
     no_cache: true
     retry_lock: "20m"
+    # One schedule per profile; if retention is also configured it runs inline
+    # after a successful backup.
+    on_calendar: "hourly"
+    randomized_delay_sec: "15min"
 
     backup:
       sources:
@@ -81,12 +85,6 @@ restic_profile_profiles:
         .venv/
         __pycache__/
         .vscode-server/
-
-      # Client-side forget runs after backup because post_backup_retention=true.
-      post_backup_retention: true
-
-      on_calendar: "hourly"
-      randomized_delay_sec: "15min"
 
     retention:
       keep_hourly: 24
@@ -218,15 +216,14 @@ restic_profile_profiles:
   myapp:
     repository_ref: r1
     tag: "myapp"
+    on_calendar: "hourly"
+    randomized_delay_sec: "10min"
 
     backup:
       sources:
         - /srv/myapp
         - /etc/myapp
-      # Append-only repository: do not run client-side forget.
-      post_backup_retention: false
-      on_calendar: "hourly"
-      randomized_delay_sec: "10min"
+      # Append-only repository: this profile only creates snapshots.
 ```
 
 Repository host:
@@ -244,6 +241,8 @@ restic_profile_profiles:
     repository_ref: r1
     tag: "myapp"
     system_user: restic-rest-server
+    on_calendar: "daily"
+    randomized_delay_sec: "30min"
 
     retention:
       forget_current_host: false
@@ -252,8 +251,6 @@ restic_profile_profiles:
       keep_daily: 14
       keep_weekly: 8
       keep_monthly: 12
-      on_calendar: "daily"
-      randomized_delay_sec: "30min"
 ```
 
 This split keeps snapshot creation on the application hosts while leaving
@@ -276,15 +273,14 @@ restic_profile_profiles:
   postgres-basebackup:
     repository_ref: s3_db
     tag: "postgres-basebackup"
+    on_calendar: "03:15"
+    randomized_delay_sec: "5min"
 
     backup:
       sources:
         - /var/backups/postgresql
       exclude_patterns:
         - "*.partial"
-      post_backup_retention: true
-      on_calendar: "03:15"
-      randomized_delay_sec: "5min"
 
     retention:
       keep_last: 7
@@ -314,12 +310,11 @@ restic_profile_profiles:
   analytics:
     repository_ref: gcs_analytics
     tag: "analytics"
+    on_calendar: "daily"
 
     backup:
       sources:
         - /srv/analytics
-      post_backup_retention: true
-      on_calendar: "daily"
 
     retention:
       keep_daily: 7

@@ -1,8 +1,7 @@
 """CLI integration tests for restic_profile.
 
-Tests call main() directly with a list of argv tokens and use capsys to
-capture stdout/stderr.  run_backup and run_forget are monkeypatched wherever
-the CLI would shell out to restic(1).
+Tests call main() directly with argv lists and monkeypatch the runner entrypoint
+where the CLI would otherwise shell out to restic(1).
 """
 
 from __future__ import annotations
@@ -30,14 +29,13 @@ password = "secret2"
 [profiles.myapp]
 repository_ref = "r1"
 tag = "myapp"
+on_calendar = "hourly"
+randomized_delay_sec = "10min"
 system_user = "root"
 retry_lock = ""
 [profiles.myapp.backup]
 sources = ["/home/alice/myapp"]
 exclude_patterns = ["*.log"]
-post_backup_retention = true
-on_calendar = "hourly"
-randomized_delay_sec = "10min"
 [profiles.myapp.retention]
 keep_last = 0
 keep_hourly = 6
@@ -48,11 +46,11 @@ keep_yearly = 0
 
 [profiles.server_prune]
 repository_ref = "r2"
+on_calendar = "daily"
 system_user = "root"
 retry_lock = ""
 [profiles.server_prune.retention]
 keep_daily = 7
-on_calendar = "daily"
 """
 
 _INVALID_PASSWORD_TOML = """\
@@ -85,59 +83,59 @@ def _write_config(tmp_path: Path, content: str) -> Path:
     return p
 
 
-# validate — valid config
+# check — valid config
 
 
-def test_validate_with_valid_config_exits_0(
+def test_check_with_valid_config_exits_0(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """restic-profile validate exits 0 and reports 'Config is valid' for a valid config."""
+    """restic-profile --check exits 0 and reports 'Config is valid'."""
     config_file = _write_config(tmp_path, _VALID_TOML)
 
-    main(["validate", "--config", str(config_file)])
+    main(["--check", "-c", str(config_file)])
 
     captured = capsys.readouterr()
     assert "Config is valid" in captured.out + captured.err
 
 
-# validate — missing config
+# check — missing config
 
 
-def test_validate_with_missing_config_exits_1(
+def test_check_with_missing_config_exits_1(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """restic-profile validate exits 1 and logs an error when the config is missing."""
+    """restic-profile --check exits 1 and logs an error when the config is missing."""
     missing = tmp_path / "does_not_exist.toml"
 
     with pytest.raises(SystemExit) as exc_info:
-        main(["validate", "--config", str(missing)])
+        main(["--check", "--config", str(missing)])
 
     assert exc_info.value.code == 1
     assert "not found" in caplog.text.lower() or str(missing) in caplog.text
 
 
-# validate — invalid config
+# check — invalid config
 
 
-def test_validate_with_invalid_config_exits_1(
+def test_check_with_invalid_config_exits_1(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """restic-profile validate exits 1 and logs an error for an invalid config."""
+    """restic-profile --check exits 1 and logs an error for an invalid config."""
     config_file = _write_config(tmp_path, _INVALID_PASSWORD_TOML)
 
     with pytest.raises(SystemExit) as exc_info:
-        main(["validate", "--config", str(config_file)])
+        main(["--check", "--config", str(config_file)])
 
     assert exc_info.value.code == 1
     assert "bad" in caplog.text or "password" in caplog.text.lower()
 
 
-def test_validate_with_missing_repo_and_password_exits_1(tmp_path: Path) -> None:
-    """restic-profile validate exits 1 when both repository and password are empty."""
+def test_check_with_missing_repo_and_password_exits_1(tmp_path: Path) -> None:
+    """restic-profile --check exits 1 when both repository and password are empty."""
     config_file = _write_config(tmp_path, _MISSING_PASSWORD_AND_REPO_TOML)
 
     with pytest.raises(SystemExit) as exc_info:
-        main(["validate", "--config", str(config_file)])
+        main(["--check", "--config", str(config_file)])
 
     assert exc_info.value.code == 1
 
@@ -148,17 +146,19 @@ def test_validate_with_missing_repo_and_password_exits_1(tmp_path: Path) -> None
 def test_list_with_valid_config(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """restic-profile list exits 0 and prints profile names, types, and schedules."""
+    """restic-profile --list prints profile names, types, and schedules."""
     config_file = _write_config(tmp_path, _VALID_TOML)
 
-    main(["list", "--config", str(config_file)])
+    main(["-l", "--config", str(config_file)])
 
     captured = capsys.readouterr()
     combined = captured.out + captured.err
     assert "myapp" in combined
     assert "server_prune" in combined
-    assert "backup" in combined
-    assert "retention" in combined
+    assert "type=backup+retention" in combined
+    assert "type=retention" in combined
+    assert "schedule=hourly" in combined
+    assert "schedule=daily" in combined
 
 
 # list — missing config
@@ -167,203 +167,134 @@ def test_list_with_valid_config(
 def test_list_with_missing_config_exits_1(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """restic-profile list exits 1 and logs an error when the config is missing."""
+    """restic-profile --list exits 1 and logs an error when the config is missing."""
     missing = tmp_path / "no_config.toml"
 
     with pytest.raises(SystemExit) as exc_info:
-        main(["list", "--config", str(missing)])
+        main(["--list", "--config", str(missing)])
 
     assert exc_info.value.code == 1
     assert "not found" in caplog.text.lower() or str(missing) in caplog.text
 
 
-# backup — mocked run_backup (success)
+# run profile — mocked run_profile (success)
 
 
-def test_backup_with_mocked_run_backup_exits_0(
+def test_run_profile_with_mocked_runner_exits_0(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """restic-profile backup exits 0 when run_backup succeeds."""
+    """restic-profile <profile> exits 0 when run_profile succeeds."""
     config_file = _write_config(tmp_path, _VALID_TOML)
-    monkeypatch.setattr("restic_profile.cli.run_backup", lambda *a, **kw: None)
+    monkeypatch.setattr("restic_profile.cli.run_profile", lambda *a, **kw: None)
 
-    main(["backup", "myapp", "--config", str(config_file)])
+    main(["myapp", "--config", str(config_file)])
 
 
-def test_backup_calls_run_backup_with_profile(
+def test_run_profile_calls_runner_with_profile(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """restic-profile backup passes the correct Profile to run_backup."""
+    """restic-profile <profile> passes the correct Profile to run_profile."""
     config_file = _write_config(tmp_path, _VALID_TOML)
     received: list[object] = []
 
-    def fake_run_backup(profile: object, **kwargs: object) -> None:
+    def fake_run_profile(profile: object, **kwargs: object) -> None:
         received.append(profile)
 
-    monkeypatch.setattr("restic_profile.cli.run_backup", fake_run_backup)
-    main(["backup", "myapp", "--config", str(config_file)])
+    monkeypatch.setattr("restic_profile.cli.run_profile", fake_run_profile)
+    main(["myapp", "--config", str(config_file)])
 
     assert len(received) == 1
     assert getattr(received[0], "name", None) == "myapp"
 
 
-def test_backup_dry_run_flag_is_forwarded(
+def test_run_profile_dry_run_flag_is_forwarded(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """restic-profile backup --dry-run forwards dry_run=True to run_backup."""
+    """restic-profile <profile> --dry-run forwards dry_run=True to run_profile."""
     config_file = _write_config(tmp_path, _VALID_TOML)
     received_kwargs: list[dict] = []
 
-    def fake_run_backup(profile: object, **kwargs: object) -> None:
+    def fake_run_profile(profile: object, **kwargs: object) -> None:
         received_kwargs.append(dict(kwargs))
 
-    monkeypatch.setattr("restic_profile.cli.run_backup", fake_run_backup)
-    main(["backup", "myapp", "--dry-run", "--config", str(config_file)])
+    monkeypatch.setattr("restic_profile.cli.run_profile", fake_run_profile)
+    main(["myapp", "--dry-run", "-c", str(config_file)])
 
     assert len(received_kwargs) == 1
     assert received_kwargs[0].get("dry_run") is True
 
 
-# backup — profile not found
+# run profile — profile not found
 
 
-def test_backup_nonexistent_profile_exits_1(
+def test_run_profile_nonexistent_profile_exits_1(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """restic-profile backup exits 1 and logs an error for an unknown profile."""
+    """restic-profile <profile> exits 1 and logs an error for an unknown profile."""
     config_file = _write_config(tmp_path, _VALID_TOML)
 
     with pytest.raises(SystemExit) as exc_info:
-        main(["backup", "nonexistent", "--config", str(config_file)])
+        main(["nonexistent", "--config", str(config_file)])
 
     assert exc_info.value.code == 1
     assert "nonexistent" in caplog.text or "not found" in caplog.text.lower()
 
 
-# backup — missing config
+# run profile — missing config
 
 
-def test_backup_with_missing_config_exits_1(tmp_path: Path) -> None:
-    """restic-profile backup exits 1 when the config file does not exist."""
+def test_run_profile_with_missing_config_exits_1(tmp_path: Path) -> None:
+    """restic-profile <profile> exits 1 when the config file does not exist."""
     missing = tmp_path / "no_config.toml"
 
     with pytest.raises(SystemExit) as exc_info:
-        main(["backup", "myapp", "--config", str(missing)])
+        main(["myapp", "--config", str(missing)])
 
     assert exc_info.value.code == 1
 
 
-# backup — run_backup raises ValueError (prune-only profile)
+# run profile — run_profile raises ValueError
 
 
-def test_backup_value_error_from_run_backup_exits_1(
+def test_run_profile_value_error_from_runner_exits_1(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """restic-profile backup exits 1 when run_backup raises ValueError."""
+    """restic-profile <profile> exits 1 when run_profile raises ValueError."""
     config_file = _write_config(tmp_path, _VALID_TOML)
 
-    def failing_run_backup(profile: object, **kwargs: object) -> None:
-        raise ValueError("Profile 'server_prune' has no backup block")
+    def failing_run_profile(profile: object, **kwargs: object) -> None:
+        raise ValueError("Profile 'server_prune' has no runnable workflow")
 
-    monkeypatch.setattr("restic_profile.cli.run_backup", failing_run_backup)
+    monkeypatch.setattr("restic_profile.cli.run_profile", failing_run_profile)
 
     with pytest.raises(SystemExit) as exc_info:
-        main(["backup", "server_prune", "--config", str(config_file)])
+        main(["server_prune", "--config", str(config_file)])
 
     assert exc_info.value.code == 1
 
 
-# forget — mocked run_retention (success)
-
-
-def test_forget_with_mocked_run_retention_exits_0(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_cli_requires_a_profile_or_action_flag(
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """restic-profile forget exits 0 when run_retention succeeds."""
-    config_file = _write_config(tmp_path, _VALID_TOML)
-    monkeypatch.setattr("restic_profile.cli.run_retention", lambda *a, **kw: None)
+    """restic-profile exits with usage when no profile or action flag is supplied."""
+    with pytest.raises(SystemExit) as exc_info:
+        main([])
 
-    main(["forget", "server_prune", "--config", str(config_file)])
+    captured = capsys.readouterr()
+    assert exc_info.value.code == 2
+    assert "provide a profile name" in captured.err
 
 
-def test_forget_calls_run_retention_with_profile(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_cli_rejects_profile_name_with_list_flag(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """restic-profile forget passes the correct Profile to run_retention."""
-    config_file = _write_config(tmp_path, _VALID_TOML)
-    received: list[object] = []
-
-    def fake_run_retention(profile: object, **kwargs: object) -> None:
-        received.append(profile)
-
-    monkeypatch.setattr("restic_profile.cli.run_retention", fake_run_retention)
-    main(["forget", "server_prune", "--config", str(config_file)])
-
-    assert len(received) == 1
-    assert getattr(received[0], "name", None) == "server_prune"
-
-
-def test_forget_dry_run_flag_is_forwarded(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """restic-profile forget --dry-run forwards dry_run=True to run_retention."""
-    config_file = _write_config(tmp_path, _VALID_TOML)
-    received_kwargs: list[dict] = []
-
-    def fake_run_retention(profile: object, **kwargs: object) -> None:
-        received_kwargs.append(dict(kwargs))
-
-    monkeypatch.setattr("restic_profile.cli.run_retention", fake_run_retention)
-    main(["forget", "server_prune", "--dry-run", "--config", str(config_file)])
-
-    assert len(received_kwargs) == 1
-    assert received_kwargs[0] == {"dry_run": True}
-
-
-# forget — profile not found
-
-
-def test_forget_nonexistent_profile_exits_1(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    """restic-profile forget exits 1 and logs an error for an unknown profile."""
+    """restic-profile rejects combining a profile name with --list."""
     config_file = _write_config(tmp_path, _VALID_TOML)
 
     with pytest.raises(SystemExit) as exc_info:
-        main(["forget", "ghost_profile", "--config", str(config_file)])
+        main(["myapp", "--list", "--config", str(config_file)])
 
-    assert exc_info.value.code == 1
-    assert "ghost_profile" in caplog.text or "not found" in caplog.text.lower()
-
-
-# forget — missing config
-
-
-def test_forget_with_missing_config_exits_1(tmp_path: Path) -> None:
-    """restic-profile forget exits 1 when the config file does not exist."""
-    missing = tmp_path / "no_config.toml"
-
-    with pytest.raises(SystemExit) as exc_info:
-        main(["forget", "server_prune", "--config", str(missing)])
-
-    assert exc_info.value.code == 1
-
-
-# forget — run_retention raises ValueError (no retention policy)
-
-
-def test_forget_value_error_from_run_retention_exits_1(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """restic-profile forget exits 1 when run_retention raises ValueError."""
-    config_file = _write_config(tmp_path, _VALID_TOML)
-
-    def failing_run_retention(profile: object, **kwargs: object) -> None:
-        raise ValueError("Profile 'server_prune' has no retention policy")
-
-    monkeypatch.setattr("restic_profile.cli.run_retention", failing_run_retention)
-
-    with pytest.raises(SystemExit) as exc_info:
-        main(["forget", "server_prune", "--config", str(config_file)])
-
-    assert exc_info.value.code == 1
+    captured = capsys.readouterr()
+    assert exc_info.value.code == 2
+    assert "cannot be combined" in captured.err

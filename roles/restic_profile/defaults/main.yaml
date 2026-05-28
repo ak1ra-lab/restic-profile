@@ -22,20 +22,28 @@ restic_profile_repositories: {}
 #   repository_ref                    str   reference to a repository in restic_profile_repositories
 #
 # Optional nested fields per profile:
+#   enabled                           bool  true     skip deploying this profile when false
+#   timer_enabled                     bool  true     deploy units but stop/disable the timer when false
 #   tag                               str   <name>   snapshot tag; defaults to the profile name
-#   system_user                       str   "root"   User= field in the generated systemd service unit
+#
+#   on_calendar                       str   ""       OnCalendar value for the profile timer. Leave empty to disable the timer.
+#   randomized_delay_sec              str   ""       RandomizedDelaySec value for the profile timer
+#
 #   restic_binary                     str   <global> override the global restic binary for this profile
 #   no_cache                          bool  <global> override the global --no-cache toggle for this profile
 #   retry_lock                        str   <global> override the global --retry-lock duration for this profile
+#
+#   system_user                       str   "root"   User= field in the generated systemd service unit
+#   cpu_quota                         str   <global> CPUQuota= value for the generated service unit
+#   nice                              int   <global> Nice= value for the generated service unit
+#   io_scheduling_class               str   <global> IOSchedulingClass= value for the generated service unit
+#   io_scheduling_priority            int   <global> IOSchedulingPriority= value for the generated service unit
 #
 #   backup                            dict  backup configurations (optional):
 #     sources                         list  []       source paths
 #     exclude_patterns                list  []       each entry becomes one --exclude
 #     exclude_file_content            str   ""       rendered to /etc/restic-profile/restic-profile-<name>.exclude; passed as --exclude-file
 #     one_file_system                 bool  false    add --one-file-system to restic backup
-#     post_backup_retention           bool  false    run post-backup restic forget after backup
-#     on_calendar                     str   ""       OnCalendar value for the backup systemd timer. Leave empty to disable timer.
-#     randomized_delay_sec            str   ""       RandomizedDelaySec value for the backup timer
 #
 #   retention                         dict  retention policy configurations (optional):
 #     keep_last                       int   0        keep last N snapshots
@@ -46,8 +54,6 @@ restic_profile_repositories: {}
 #     keep_yearly                     int   0        keep last N yearly snapshots
 #     prune                           bool  false    add --prune to restic forget
 #     forget_current_host             bool  false    add --host <current host> to restic forget
-#     on_calendar                     str   ""       OnCalendar value for the retention systemd timer. Leave empty to disable timer.
-#     randomized_delay_sec            str   ""       RandomizedDelaySec value for the retention timer
 #
 #   hooks                             dict  hooks config (rendered under [profiles.<name>.hooks])
 #     shell                           str   "/bin/sh"
@@ -57,13 +63,6 @@ restic_profile_repositories: {}
 #     failure                         list  []       inline commands when prevalidate/before/backup fails
 #     success                         list  []       inline commands when the full backup flow succeeds
 #
-# Role-only inputs:
-#   enabled                           bool  true     skip deploying this profile when false
-#   timer_enabled                     bool  true     deploy units but stop/disable the timer when false
-#   cpu_quota                         str   <global> CPUQuota= value for the generated service unit
-#   nice                              int   <global> Nice= value for the generated service unit
-#   io_scheduling_class               str   <global> IOSchedulingClass= value for the generated service unit
-#   io_scheduling_priority            int   <global> IOSchedulingPriority= value for the generated service unit
 restic_profile_profiles: {}
 
 # str: deployment state; set "absent" to stop timers and remove all managed files

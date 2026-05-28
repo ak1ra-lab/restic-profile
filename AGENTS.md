@@ -1,5 +1,7 @@
 # AGENTS.md
 
+This project is under active development. Refactor without any concern for backward compatibility.
+
 ## What This Project Does
 
 `restic-profile` provides the `restic-profile` Python CLI plus Ansible roles for `restic_profile` and `restic_rest_server`. The repository manages restic config rendering, backup timers, and operator workflows on managed hosts. See `README.md` for setup and user-facing usage details.

@@ -22,10 +22,12 @@
         password: "molecule-unused-password"
 
     restic_profile_profiles:
-      # Backup profile — backup block present → restic-profile-backup-test_backup.{service,timer}
+      # Backup+retention profile — one service/timer pair per profile.
       test_backup:
         repository_ref: test_backup_repo
         tag: "molecule"
+        on_calendar: "daily"
+        randomized_delay_sec: "5min"
         backup:
           sources:
             - /tmp/test-data
@@ -39,9 +41,6 @@
             .local/share/Trash/
             node_modules/
           one_file_system: true
-          post_backup_retention: true
-          on_calendar: "daily"
-          randomized_delay_sec: "5min"
         retention:
           keep_hourly: 6
           keep_daily: 7
@@ -54,16 +53,16 @@
         # is present but we only verify file artefacts, not live execution.
         timer_enabled: false
 
-      # Retention-only profile — retention block only → restic-profile-retention-test_prune.{service,timer}
+      # Retention-only profile — still one service/timer pair per profile.
       test_prune:
         repository_ref: test_prune_repo
+        on_calendar: "daily"
+        randomized_delay_sec: "5min"
         retention:
           prune: true
           keep_daily: 7
           keep_weekly: 4
           keep_monthly: 3
-          on_calendar: "daily"
-          randomized_delay_sec: "5min"
         system_user: root
         enabled: true
         timer_enabled: false

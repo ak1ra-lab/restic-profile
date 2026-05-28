@@ -45,12 +45,13 @@ def minimal_config_dict() -> dict:
             "myapp": {
                 "repository_ref": "r1",
                 "tag": "myapp",
+                "on_calendar": "hourly",
+                "randomized_delay_sec": "10min",
                 "system_user": "root",
                 "retry_lock": "",
                 "backup": {
                     "sources": ["/home/alice/myapp"],
                     "exclude_patterns": ["*.log", "node_modules/"],
-                    "post_backup_retention": True,
                 },
                 "retention": {
                     "keep_last": 0,
@@ -63,6 +64,7 @@ def minimal_config_dict() -> dict:
             },
             "server_prune": {
                 "repository_ref": "r2",
+                "on_calendar": "daily",
                 "system_user": "root",
                 "retry_lock": "",
                 "retention": {

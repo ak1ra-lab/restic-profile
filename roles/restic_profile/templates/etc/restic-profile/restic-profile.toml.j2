@@ -54,6 +54,12 @@ repository_ref = "{{ profile.repository_ref }}"
 {% if profile.tag is defined or (profile.tag | default('')) != '' %}
 tag = "{{ profile.tag }}"
 {% endif %}
+{% if profile.on_calendar is defined %}
+on_calendar = "{{ profile.on_calendar }}"
+{% endif %}
+{% if profile.randomized_delay_sec is defined %}
+randomized_delay_sec = "{{ profile.randomized_delay_sec }}"
+{% endif %}
 system_user = "{{ profile.system_user | default('root') }}"
 {% if profile.restic_binary is defined %}
 restic_binary = "{{ profile.restic_binary }}"
@@ -84,9 +90,6 @@ exclude_file = "{{ restic_profile_config_dir }}/restic-profile-{{ pname }}.exclu
 {% endif %}
 {% if profile.backup.one_file_system is defined %}
 one_file_system = {{ profile.backup.one_file_system | ansible.builtin.bool | lower }}
-{% endif %}
-{% if profile.backup.post_backup_retention is defined %}
-post_backup_retention = {{ profile.backup.post_backup_retention | ansible.builtin.bool | lower }}
 {% endif %}
 {% endif %}
 

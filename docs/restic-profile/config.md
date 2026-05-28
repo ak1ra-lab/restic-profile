@@ -21,9 +21,11 @@ retry_lock = ""
 
 Credentials and URLs are defined under a top-level `[repositories]` section to keep them DRY and independent of backup/retention operations. Each profile in `[profiles.<name>]` references its repository using the `repository_ref` key.
 
-Backup and retention tasks are fully decoupled within each profile as nested sub-tables:
-- `[profiles.<name>.backup]`: specific to sources, exclusions, and calendar schedule for backing up.
-- `[profiles.<name>.retention]`: specific to retention policies (keep_*), pruning, and calendar schedule for cleanups.
+Backup and retention data stay grouped in nested sub-tables, but schedule now
+lives at the profile root:
+- `[profiles.<name>]`: common runtime fields plus the single profile schedule.
+- `[profiles.<name>.backup]`: sources, exclusions, and backup-only flags.
+- `[profiles.<name>.retention]`: retention policies (`keep_*`), host scoping, and `prune`.
 
 Two role-only controls never appear in the TOML:
 
@@ -47,9 +49,10 @@ Additional runtime fields worth knowing:
 
 - `restic_binary`: optional global or per-profile string; when empty, `restic-profile` resolves `restic` from PATH to an absolute path and then falls back to common locations such as `/usr/local/bin/restic` and `/usr/bin/restic`
 - `no_cache`: optional global or per-profile boolean that adds `--no-cache`; profiles inherit the global value unless they set their own override
+- `on_calendar` / `randomized_delay_sec`: optional per-profile schedule for the single generated timer
 - `one_file_system`: optional per-profile backup boolean that adds `--one-file-system` to `restic backup`
 - Unsupported configured flags are not masked by `restic-profile`; the selected restic binary fails directly so operators can either upgrade restic, clear the flag, or pin `restic_binary` to a newer build
-- Missing `sources` paths are warned about and skipped at runtime; if no configured source still exists, `restic-profile backup` aborts before invoking `restic`
+- Missing `sources` paths are warned about and skipped at runtime; if no configured source still exists, `restic-profile <profile>` aborts before invoking `restic`
 
 ## Rendered TOML: REST backup client
 
@@ -71,6 +74,8 @@ cacert = "/etc/ssl/certs/backup-ca.pem"
 [profiles.home-alice]
 repository_ref = "r1"
 tag = "home-alice"
+on_calendar = "hourly"
+randomized_delay_sec = "15min"
 system_user = "root"
 restic_binary = "/usr/local/bin/restic"
 retry_lock = "20m"
@@ -85,9 +90,6 @@ exclude_patterns = [
 ]
 exclude_file = "/etc/restic-profile/restic-profile-home-alice.exclude"
 one_file_system = true
-post_backup_retention = true
-on_calendar = "hourly"
-randomized_delay_sec = "15min"
 
 [profiles.home-alice.retention]
 keep_last = 0
@@ -121,17 +123,16 @@ If a phase mixes inline commands with file-backed hooks, TOML order stays stable
 inline `hooks.<phase>` entries first, then `hooks.<phase>_scripts`, then
 `hooks.<phase>_templates`.
 
-## Decoupled Systemd Timers and Services
+## Per-profile Systemd Timers and Services
 
-| Profile action | Generated units | Invocation |
+| Profile shape | Generated units | Invocation |
 | --- | --- | --- |
-| `backup` | `restic-profile-backup-<name>.{service,timer}` | `restic-profile backup <name>` |
-| `retention` | `restic-profile-retention-<name>.{service,timer}` for standalone retention runs | `restic-profile retention <name>` |
+| `backup` only | `restic-profile-<name>.{service,timer}` | `restic-profile <name>` |
+| `retention` only | `restic-profile-<name>.{service,timer}` | `restic-profile <name>` |
+| `backup` + `retention` | `restic-profile-<name>.{service,timer}` | `restic-profile <name>` |
 
-Timer units are dynamically deployed only if `on_calendar` schedule is configured for that respective action.
-When `backup.post_backup_retention = true`, the backup command runs forget/prune
-inline after backup and the role does not render a separate standalone
-retention service or timer for that profile.
+Timer units are deployed only when the profile-level `on_calendar` is non-empty.
+Mixed profiles always run inline retention after a successful backup.
 
 ## Rendered TOML: retention-only repository host
 
@@ -148,6 +149,8 @@ password = "vault-redacted"
 [profiles.myapp_retention]
 repository_ref = "r1"
 tag = "myapp"
+on_calendar = "daily"
+randomized_delay_sec = "30min"
 system_user = "restic-rest-server"
 retry_lock = ""
 
@@ -160,8 +163,6 @@ keep_monthly = 12
 keep_yearly = 0
 prune = true
 forget_current_host = false
-on_calendar = "daily"
-randomized_delay_sec = "30min"
 ```
 
 Use this pattern when backup clients write to an append-only REST repository and
@@ -185,6 +186,8 @@ aws_secret_access_key = "vault-redacted"
 [profiles.postgres-basebackup]
 repository_ref = "s3_db"
 tag = "postgres-basebackup"
+on_calendar = "03:15"
+randomized_delay_sec = "5min"
 system_user = "root"
 retry_lock = ""
 
@@ -195,9 +198,6 @@ sources = [
 exclude_patterns = [
 	"*.partial",
 ]
-post_backup_retention = true
-on_calendar = "03:15"
-randomized_delay_sec = "5min"
 
 [profiles.postgres-basebackup.retention]
 keep_last = 7
@@ -226,6 +226,7 @@ google_access_token = ""
 [profiles.analytics]
 repository_ref = "gcs_analytics"
 tag = "analytics"
+on_calendar = "daily"
 system_user = "root"
 retry_lock = ""
 
@@ -233,8 +234,6 @@ retry_lock = ""
 sources = [
 	"/srv/analytics",
 ]
-post_backup_retention = true
-on_calendar = "daily"
 
 [profiles.analytics.retention]
 keep_last = 0

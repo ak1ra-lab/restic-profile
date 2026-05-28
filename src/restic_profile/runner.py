@@ -341,7 +341,7 @@ def run_hooks(
 
 
 def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
-    """Run ``restic backup`` (and optional ``retention``) for *profile*.
+    """Run ``restic backup`` and any configured inline retention for *profile*.
 
     Parameters
     ----------
@@ -441,26 +441,20 @@ def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
         else:
             _run(backup_cmd, env)
 
-        if profile.backup.post_backup_retention:
-            if profile.retention:
-                forget_cmd = _build_forget_command(
-                    profile,
-                    current_host_only=True,
-                    snapshot_host=snapshot_host,
-                    prune=profile.retention.prune,
-                    restic_executable=restic_executable,
-                    global_args=global_args,
-                )
-                if forget_cmd:
-                    if dry_run:
-                        logger.info("DRY RUN: Would run: %s", " ".join(forget_cmd))
-                    else:
-                        _run(forget_cmd, env)
-            else:
-                logger.warning(
-                    "Profile %s: post_backup_retention is enabled but no retention configuration exists",
-                    profile.name,
-                )
+        if profile.retention:
+            forget_cmd = _build_forget_command(
+                profile,
+                current_host_only=True,
+                snapshot_host=snapshot_host,
+                prune=profile.retention.prune,
+                restic_executable=restic_executable,
+                global_args=global_args,
+            )
+            if forget_cmd:
+                if dry_run:
+                    logger.info("DRY RUN: Would run: %s", " ".join(forget_cmd))
+                else:
+                    _run(forget_cmd, env)
     except _CommandError:
         backup_failed = True
 
@@ -517,3 +511,18 @@ def run_retention(
             _run(forget_cmd, env)
         except _CommandError:
             sys.exit(1)
+
+
+def run_profile(profile: Profile, *, dry_run: bool = False) -> None:
+    """Run the configured workflow for *profile*."""
+    if profile.is_backup:
+        run_backup(profile, dry_run=dry_run)
+        return
+
+    if profile.runs_retention:
+        run_retention(profile, dry_run=dry_run)
+        return
+
+    raise ValueError(
+        f"Profile {profile.name!r} has no runnable backup or retention configuration"
+    )

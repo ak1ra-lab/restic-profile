@@ -17,16 +17,16 @@ The `restic_profile` role:
 
 The systemd units still execute `restic_profile_bin` directly. The
 `/usr/local/bin/restic-profile` symlink is only a stable operator-facing PATH
-entry so you can run `restic-profile list`, `validate`, `backup`, or
-`retention` (alias: `forget`)
-without activating the dedicated virtual environment.
+entry so you can run `restic-profile --list`, `restic-profile --check`, or
+`restic-profile <profile>` without activating the dedicated virtual
+environment.
 
 If you want an interactive `restic-profile` run to use the same global systemd
 resource controls as the managed timer services, use the separate helper:
 
 ```shell
-restic-profile-scope backup myapp
-restic-profile-scope retention repo-prune
+restic-profile-scope myapp
+restic-profile-scope repo-prune
 ```
 
 The scope helper uses the global role defaults such as `CPUQuota=`. Per-profile
@@ -134,8 +134,7 @@ to be overridden.
 | `restic_profile_bin`                | `/var/lib/restic-profile/venv/bin/restic-profile`         |
 | `restic_profile_cli_link`           | `/usr/local/bin/restic-profile`                           |
 | `restic_profile_scope_helper_path`  | `/usr/local/bin/restic-profile-scope`                     |
-| `restic_profile_backup_unit_prefix` | `restic-profile-backup-`                                  |
-| `restic_profile_retention_unit_prefix` | `restic-profile-retention-`                            |
+| `restic_profile_unit_prefix`        | `restic-profile-`                                         |
 
 ## Removing all managed resources
 
@@ -166,6 +165,7 @@ Before writing files, the role asserts that:
 1. Every enabled profile is a mapping with a non-empty `repository_ref` that points to `restic_profile_repositories`.
 1. Every enabled profile configures at least one of `backup` or `retention`.
 1. Every enabled `backup` block is a mapping with a non-empty `sources` list.
+1. Every enabled profile uses profile-level `on_calendar` / `randomized_delay_sec`; removed nested schedule fields fail fast.
 1. Every enabled `retention` block is a mapping with at least one non-zero `keep_*` field.
 
 ## Security notes

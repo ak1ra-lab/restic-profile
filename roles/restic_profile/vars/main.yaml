@@ -25,13 +25,10 @@ restic_profile_cli_link: /usr/local/bin/restic-profile
 # str: operator-facing helper that runs restic-profile in a transient systemd scope
 restic_profile_scope_helper_path: /usr/local/bin/restic-profile-scope
 
-# --- Systemd unit naming prefixes ---
-# Backup units: <backup_prefix><name>.{service,timer}
-# Retention/Forget units: <retention_prefix><name>.{service,timer}
-# These are defined here so that tasks and templates reference a single source
-# of truth instead of duplicating the string literals in multiple places.
-restic_profile_backup_unit_prefix: "restic-profile-backup-"
-restic_profile_retention_unit_prefix: "restic-profile-retention-"
+# --- Systemd unit naming prefix ---
+# Profile units: <prefix><name>.{service,timer}
+# Defined here so tasks and templates reference one source of truth.
+restic_profile_unit_prefix: "restic-profile-"
 
 # list[str]: hook lifecycle phases shared by the role tasks and TOML template
 restic_profile_hook_phases:

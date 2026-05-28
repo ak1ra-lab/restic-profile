@@ -1,62 +1,56 @@
 # restic-profile CLI reference
 
-## Global options
+## Command shapes
 
 ```text
-restic-profile COMMAND [command options]
+restic-profile [--config PATH] [--dry-run] PROFILE
+restic-profile --check [--config PATH]
+restic-profile --list [--config PATH]
 ```
 
-`--config` is a per-command option on `backup`, `retention`, `validate`, and `list`.
+- `PROFILE` runs the configured workflow for one profile.
+- `--check` parses and validates the TOML config.
+- `--list` prints a profile summary including workflow type and schedule.
+- `--dry-run` only affects `PROFILE` execution; it logs commands without running them.
 
-## restic-profile backup PROFILE
-
-Run `restic backup` (and optional post-backup retention) for one profile.
+## restic-profile PROFILE
 
 ```shell
-restic-profile backup myapp
-restic-profile backup myapp --dry-run
-restic-profile backup myapp --config /path/to/custom.toml
+restic-profile myapp
+restic-profile myapp --dry-run
+restic-profile myapp --config /path/to/custom.toml
 ```
 
-Execution order:
+Execution depends on the profile shape:
+
+- Backup-only profile: run `restic backup`.
+- Retention-only profile: run `restic forget` and optional `--prune`.
+- Backup+retention profile: run backup first, then inline retention after a successful backup.
+
+Backup-capable profiles use this lifecycle:
 
 1. Run `prevalidate` hooks.
 2. For local repositories, ensure the path exists.
 3. Auto-init repository (`restic cat config` then optional `restic init`).
 4. Run `before` hooks.
 5. Run `restic backup --host <host> --tag <tag> ...`.
-6. Optionally run `restic forget --host <host> --tag <tag> ...` when `post_backup_retention=true`.
+6. If the profile also has retention config, run `restic forget --host <host> --tag <tag> ...` and optional `--prune`.
 7. Run `after` hooks.
 8. Run `success` hooks on success, or `failure` hooks on error.
 
 If `prevalidate` or `before` fails, backup and `after` are skipped; only `failure`
 hooks run.
 
-`backup` requires a `backup` sub-table to be configured on the profile. A retention-only profile (one with only a `retention` sub-table configured) must be run through `restic-profile retention` instead.
+Retention-only profiles skip the backup hook lifecycle and execute standalone
+retention directly.
 
-## restic-profile retention PROFILE
-
-Run standalone retention (forget & prune) for one profile.
-
-```shell
-restic-profile retention myapp
-restic-profile retention myapp --dry-run
-```
-
-Notes:
-
-- Always filters by profile `tag`.
-- Adds host filter only when `forget_current_host = true` in the retention sub-table.
-- Adds `--prune` only when `prune = true` in the retention sub-table.
-- Requires at least one non-zero `keep_*` value in the retention sub-table.
-
-## restic-profile validate
+## restic-profile --check
 
 Parse and validate TOML config.
 
 ```shell
-restic-profile validate
-restic-profile validate --config /etc/restic-profile/restic-profile.toml
+restic-profile --check
+restic-profile --check --config /etc/restic-profile/restic-profile.toml
 ```
 
 Checks:
@@ -67,19 +61,19 @@ Checks:
 - Every profile with a `backup` section has a non-empty `sources` list.
 - Every profile with a `retention` section has at least one non-zero `keep_*` policy.
 
-## restic-profile list
+## restic-profile --list
 
 Print profile summary.
 
 ```shell
-restic-profile list
-# myapp        type=backup+retention  repository_ref=r1  backup_schedule=hourly  retention_schedule=daily
-# prune_myapp  type=retention         repository_ref=r2  retention_schedule=daily
+restic-profile --list
+# myapp        type=backup+retention  schedule=hourly  repository=rest:https://backup.example.com/
+# prune_myapp  type=retention         schedule=daily   repository=rest:https://backup.example.com/server
 ```
 
 ## Shell Autocompletion
 
-`restic-profile` supports automatic tab-completion of commands and profile names via `argcomplete`.
+`restic-profile` supports automatic tab-completion of flags and profile names via `argcomplete`.
 
 ### One-time Setup
 

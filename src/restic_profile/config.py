@@ -74,9 +74,6 @@ class BackupConfig(BaseModel):
     exclude_patterns: list[str] = Field(default_factory=list)
     exclude_file: str = ""
     one_file_system: bool = False
-    post_backup_retention: bool = False
-    on_calendar: str = ""
-    randomized_delay_sec: str = ""
 
 
 class RetentionConfig(BaseModel):
@@ -90,8 +87,6 @@ class RetentionConfig(BaseModel):
     keep_yearly: int = 0
     prune: bool = False
     forget_current_host: bool = False
-    on_calendar: str = ""
-    randomized_delay_sec: str = ""
 
     @property
     def has_policy(self) -> bool:
@@ -115,6 +110,8 @@ class Profile(BaseModel):
     name: str = ""
     repository_ref: str = ""
     tag: str = ""  # snapshot tag; defaults to profile name
+    on_calendar: str = ""
+    randomized_delay_sec: str = ""
 
     # Runtime
     system_user: str = "root"
@@ -159,6 +156,11 @@ class Profile(BaseModel):
     def is_retention_only(self) -> bool:
         """True when the profile only has a retention block configured."""
         return self.backup is None and self.retention is not None
+
+    @property
+    def runs_retention(self) -> bool:
+        """True when the profile executes a retention step."""
+        return self.retention is not None
 
 
 class ResticProfileConfig(BaseModel):

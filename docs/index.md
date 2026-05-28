@@ -6,7 +6,8 @@ This repository also carries the `restic_rest_server` Ansible role so client
 profiles and server-side storage automation live together.
 
 The recommended deployment path is the Ansible role `roles/restic_profile`, which
-installs the CLI, renders TOML config, and manages systemd units end-to-end.
+installs the CLI, renders TOML config, and manages one systemd service+timer
+pair per enabled profile.
 
 ## Configuration flow
 
@@ -15,10 +16,10 @@ host_vars / group_vars
   -> restic_profile_profiles
   -> roles/restic_profile
       |- /etc/restic-profile/restic-profile.toml
-  |- /etc/restic-profile/restic-profile-<repository-ref>.env
+      |- /etc/restic-profile/restic-profile-<repository-ref>.env
       |- /etc/restic-profile/restic-profile-<name>.exclude
-      |- restic-profile-{backup|retention}-<name>.service
-      `- restic-profile-{backup|retention}-<name>.timer
+      |- restic-profile-<name>.service
+      `- restic-profile-<name>.timer
   -> restic-profile CLI
   -> restic
 ```
@@ -31,10 +32,13 @@ The key split in the documentation is:
 
 The CLI itself is stateless and delegates to `restic`:
 
-- `restic-profile backup PROFILE`
-- `restic-profile retention PROFILE` (alias: `restic-profile forget PROFILE`)
-- `restic-profile validate`
-- `restic-profile list`
+- `restic-profile PROFILE`
+- `restic-profile --check`
+- `restic-profile --list`
+
+When a profile contains both `backup` and `retention`, `restic-profile PROFILE`
+runs backup first and then inline retention. Retention-only profiles run
+standalone `forget`/`prune` through the same entrypoint.
 
 Credentials are passed to `restic` via environment variables only.
 
@@ -58,10 +62,10 @@ uv tool install restic-profile
 just sync
 ```
 
-The role installs into `/var/lib/restic-profile/venv` and installs
-`restic` from APT. It also exposes `/usr/local/bin/restic-profile` as a stable
-CLI entry point on the managed host and renders one
-`/etc/restic-profile/restic-profile-<repository-ref>.env` file per referenced repository for direct
-shell sourcing before raw `restic` commands. The role does not modify user
-shell startup files; see `docs/restic-profile/ansible.md` for the recommended
-workflow.
+The role installs into `/var/lib/restic-profile/venv` and installs `restic`
+from APT. It also exposes `/usr/local/bin/restic-profile` as a stable CLI entry
+point on the managed host and renders one
+`/etc/restic-profile/restic-profile-<repository-ref>.env` file per referenced
+repository for direct shell sourcing before raw `restic` commands. The role
+does not modify user shell startup files; see `docs/restic-profile/ansible.md`
+for the recommended workflow.

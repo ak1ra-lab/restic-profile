@@ -350,6 +350,48 @@ def test_profile_one_file_system_parsed_from_toml(tmp_path: Path) -> None:
     assert result.profiles["myapp"].backup.one_file_system is True
 
 
+def test_profile_on_calendar_defaults_to_empty(tmp_path: Path) -> None:
+    """on_calendar defaults to an empty string when omitted from TOML."""
+    toml_file = tmp_path / "config.toml"
+    toml_file.write_text(
+        "[repositories.r1]\n"
+        'repository = "rest:https://example.com/"\n'
+        'password = "secret"\n'
+        "[profiles.myapp]\n"
+        'repository_ref = "r1"\n'
+        "[profiles.myapp.retention]\n"
+        "keep_daily = 7\n",
+        encoding="utf-8",
+    )
+
+    result = load_config(toml_file)
+
+    assert result.profiles["myapp"].on_calendar == ""
+
+
+def test_profile_schedule_fields_are_parsed_from_profile_root(tmp_path: Path) -> None:
+    """Profile-level schedule fields are parsed from the profile root."""
+    toml_file = tmp_path / "config.toml"
+    toml_file.write_text(
+        "[repositories.r1]\n"
+        'repository = "rest:https://example.com/"\n'
+        'password = "secret"\n'
+        "[profiles.myapp]\n"
+        'repository_ref = "r1"\n'
+        'on_calendar = "daily"\n'
+        'randomized_delay_sec = "30m"\n'
+        "[profiles.myapp.backup]\n"
+        'sources = ["/data"]\n',
+        encoding="utf-8",
+    )
+
+    result = load_config(toml_file)
+    profile = result.profiles["myapp"]
+
+    assert profile.on_calendar == "daily"
+    assert profile.randomized_delay_sec == "30m"
+
+
 def test_profile_keep_values_default_when_absent(tmp_path: Path) -> None:
     """keep_* fields use the RetentionConfig dataclass defaults when not in TOML."""
     toml_file = tmp_path / "config.toml"
@@ -388,6 +430,20 @@ def test_profile_is_retention_only_when_sources_empty(prune_profile: Profile) ->
     """Profile.is_retention_only is True and is_backup is False when sources is empty."""
     assert prune_profile.is_retention_only is True
     assert prune_profile.is_backup is False
+
+
+def test_profile_runs_retention_when_retention_is_configured(
+    prune_profile: Profile,
+) -> None:
+    """Profile.runs_retention is True when a retention block exists."""
+    assert prune_profile.runs_retention is True
+
+
+def test_profile_runs_retention_when_backup_and_retention_exist(
+    backup_profile: Profile,
+) -> None:
+    """Mixed backup profiles still report that they run retention."""
+    assert backup_profile.runs_retention is True
 
 
 # Profile validation — invalid profiles raise ValidationError

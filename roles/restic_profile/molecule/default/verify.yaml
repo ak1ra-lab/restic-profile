@@ -15,10 +15,10 @@
     _backup_repository_env_file: /etc/restic-profile/restic-profile-test_backup_repo.env
     _legacy_backup_env_file: /etc/restic-profile/restic-profile-test_backup.env
     _unused_repository_env_file: /etc/restic-profile/restic-profile-unused_repo.env
-    _backup_service: /etc/systemd/system/restic-profile-backup-test_backup.service
-    _backup_timer: /etc/systemd/system/restic-profile-backup-test_backup.timer
-    _retention_service: /etc/systemd/system/restic-profile-retention-test_prune.service
-    _retention_timer: /etc/systemd/system/restic-profile-retention-test_prune.timer
+    _backup_service: /etc/systemd/system/restic-profile-test_backup.service
+    _backup_timer: /etc/systemd/system/restic-profile-test_backup.timer
+    _retention_service: /etc/systemd/system/restic-profile-test_prune.service
+    _retention_timer: /etc/systemd/system/restic-profile-test_prune.timer
     _exclude_file: /etc/restic-profile/restic-profile-test_backup.exclude
 
   tasks:
@@ -109,34 +109,34 @@
       changed_when: false
       failed_when: restic_profile_verify_help.rc != 0
 
-    - name: assert --help output mentions the backup subcommand
+    - name: assert --help output mentions the profile positional entrypoint
       ansible.builtin.assert:
         that:
           - >-
-            'backup' in (restic_profile_verify_help.stdout | lower) or
-            'backup' in (restic_profile_verify_help.stderr | lower)
+            'profile name from config to execute' in (restic_profile_verify_help.stdout | lower) or
+            'profile name from config to execute' in (restic_profile_verify_help.stderr | lower)
         fail_msg: >-
-          restic-profile --help did not mention the 'backup' subcommand.
+          restic-profile --help did not describe the profile positional entrypoint.
           Output: {{ restic_profile_verify_help.stdout }} {{ restic_profile_verify_help.stderr }}
 
-    - name: assert --help output mentions the retention subcommand
+    - name: assert --help output mentions the --list flag
       ansible.builtin.assert:
         that:
           - >-
-            'retention' in (restic_profile_verify_help.stdout | lower) or
-            'retention' in (restic_profile_verify_help.stderr | lower)
+            '--list' in (restic_profile_verify_help.stdout | lower) or
+            '--list' in (restic_profile_verify_help.stderr | lower)
         fail_msg: >-
-          restic-profile --help did not mention the 'retention' subcommand.
+          restic-profile --help did not mention the --list flag.
           Output: {{ restic_profile_verify_help.stdout }} {{ restic_profile_verify_help.stderr }}
 
-    - name: assert --help output mentions the validate subcommand
+    - name: assert --help output mentions the --check flag
       ansible.builtin.assert:
         that:
           - >-
-            'validate' in (restic_profile_verify_help.stdout | lower) or
-            'validate' in (restic_profile_verify_help.stderr | lower)
+            '--check' in (restic_profile_verify_help.stdout | lower) or
+            '--check' in (restic_profile_verify_help.stderr | lower)
         fail_msg: >-
-          restic-profile --help did not mention the 'validate' subcommand.
+          restic-profile --help did not mention the --check flag.
           Output: {{ restic_profile_verify_help.stdout }} {{ restic_profile_verify_help.stderr }}
 
     # ------------------------------------------------------------------ #
@@ -419,13 +419,13 @@
         src: "{{ _backup_service }}"
       register: restic_profile_verify_backup_svc_content
 
-    - name: assert backup service ExecStart calls restic-profile backup
+    - name: assert backup service ExecStart calls restic-profile with the profile name
       ansible.builtin.assert:
         that:
           - >-
-            'restic-profile backup test_backup' in (restic_profile_verify_backup_svc_content.content | ansible.builtin.b64decode)
+            'restic-profile test_backup' in (restic_profile_verify_backup_svc_content.content | ansible.builtin.b64decode)
         fail_msg: >-
-          Expected ExecStart to contain 'restic-profile backup test_backup'
+          Expected ExecStart to contain 'restic-profile test_backup'
           in {{ _backup_service }}.
           Content: {{ restic_profile_verify_backup_svc_content.content | ansible.builtin.b64decode }}
 
@@ -520,24 +520,23 @@
           - restic_profile_verify_retention_svc_stat.stat.isreg
         fail_msg: >-
           Expected {{ _retention_service }} to exist.
-          A retention-only profile should generate a
-          restic-profile-retention-*.service file.
+          A retention-only profile should generate a per-profile service file.
 
     - name: read retention-only service file content
       ansible.builtin.slurp:
         src: "{{ _retention_service }}"
       register: restic_profile_verify_retention_svc_content
 
-    - name: assert retention-only service ExecStart calls restic-profile retention
+    - name: assert retention-only service ExecStart calls restic-profile with the profile name
       ansible.builtin.assert:
         that:
           - >-
-            'restic-profile retention test_prune' in (restic_profile_verify_retention_svc_content.content | ansible.builtin.b64decode)
+            'restic-profile test_prune' in (restic_profile_verify_retention_svc_content.content | ansible.builtin.b64decode)
           - >-
             '--prune' not in (restic_profile_verify_retention_svc_content.content | ansible.builtin.b64decode)
         fail_msg: >-
           Expected ExecStart to contain
-          'restic-profile retention test_prune' without CLI prune flags in
+          'restic-profile test_prune' without CLI prune flags in
           {{ _retention_service }}.
           Content: {{ restic_profile_verify_retention_svc_content.content | ansible.builtin.b64decode }}
 
@@ -580,60 +579,58 @@
         fail_msg: "Expected OnCalendar=daily in {{ _retention_timer }}"
 
     # ------------------------------------------------------------------ #
-    # 7. Naming convention — no cross-contamination                        #
+    # 7. Legacy naming cleanup                                              #
     # ------------------------------------------------------------------ #
 
-    - name: assert backup profile did NOT generate a restic-profile-retention-test_backup file
+    - name: assert legacy backup-prefixed service does not exist for test_backup
       ansible.builtin.stat:
-        path: /etc/systemd/system/restic-profile-retention-test_backup.service
+        path: /etc/systemd/system/restic-profile-backup-test_backup.service
       register: restic_profile_verify_wrong_retention_svc
 
-    - name: assert restic-profile-retention-test_backup.service does not exist
+    - name: assert restic-profile-backup-test_backup.service does not exist
       ansible.builtin.assert:
         that:
           - not restic_profile_verify_wrong_retention_svc.stat.exists
         fail_msg: >-
-          restic-profile-retention-test_backup.service should NOT exist.
-          test_backup is a backup profile and must use the
-          restic-profile-backup-* naming convention.
+          restic-profile-backup-test_backup.service should NOT exist.
+          The role now uses a single restic-profile-<name> naming convention.
 
-    - name: assert retention-only profile did NOT generate a restic-profile-backup-test_prune file
+    - name: assert legacy retention-prefixed service does not exist for test_prune
       ansible.builtin.stat:
-        path: /etc/systemd/system/restic-profile-backup-test_prune.service
+        path: /etc/systemd/system/restic-profile-retention-test_prune.service
       register: restic_profile_verify_wrong_backup_svc
 
-    - name: assert restic-profile-backup-test_prune.service does not exist
+    - name: assert restic-profile-retention-test_prune.service does not exist
       ansible.builtin.assert:
         that:
           - not restic_profile_verify_wrong_backup_svc.stat.exists
         fail_msg: >-
-          restic-profile-backup-test_prune.service should NOT exist.
-          test_prune is a retention-only profile and must use the
-          restic-profile-retention-* naming convention.
+          restic-profile-retention-test_prune.service should NOT exist.
+          The role now uses a single restic-profile-<name> naming convention.
 
     # ------------------------------------------------------------------ #
-    # 8. restic-profile validate CLI sanity check                          #
+    # 8. restic-profile --check CLI sanity check                          #
     # ------------------------------------------------------------------ #
 
-    - name: run restic-profile validate against deployed config
+    - name: run restic-profile --check against deployed config
       ansible.builtin.command:
         argv:
           - "{{ _bin }}"
-          - validate
+          - --check
           - --config
           - "{{ _config_file }}"
       register: restic_profile_verify_validate
       changed_when: false
       failed_when: restic_profile_verify_validate.rc != 0
 
-    - name: assert validate reports config is valid
+    - name: assert --check reports config is valid
       ansible.builtin.assert:
         that:
           - >-
             'valid' in (restic_profile_verify_validate.stdout | lower) or
             restic_profile_verify_validate.rc == 0
         fail_msg: >-
-          restic-profile validate exited non-zero or did not report a valid
+          restic-profile --check exited non-zero or did not report a valid
           config.
           stdout: {{ restic_profile_verify_validate.stdout }}
           stderr: {{ restic_profile_verify_validate.stderr }}

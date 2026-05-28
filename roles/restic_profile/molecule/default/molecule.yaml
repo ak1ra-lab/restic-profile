@@ -10,8 +10,8 @@
 #   content and
 #   file permissions (0640).
 # * Per-profile systemd service + timer unit files are deployed:
-#     restic-profile-backup-test_backup.{service,timer}   (backup profile)
-#     restic-profile-retention-test_prune.{service,timer} (retention-only profile)
+#     restic-profile-test_backup.{service,timer} (backup+retention profile)
+#     restic-profile-test_prune.{service,timer}  (retention-only profile)
 # * The restic-profile CLI responds to --help with exit code 0.
 #
 # Status
