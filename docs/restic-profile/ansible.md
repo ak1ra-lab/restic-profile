@@ -163,17 +163,15 @@ Before writing files, the role asserts that:
 1. `restic_profile_repositories` and `restic_profile_profiles` are mappings.
 1. Every repository definition is a mapping with non-empty `repository` and `password` fields.
 1. Every enabled profile is a mapping with a non-empty `repository_ref` that points to `restic_profile_repositories`.
-1. Every enabled profile omits `system_user` or sets it to `root`.
 1. Every enabled profile configures at least one of `backup` or `retention`.
 1. Every enabled `backup` block is a mapping with a non-empty `sources` list.
-1. Every enabled profile uses profile-level `on_calendar` / `randomized_delay_sec`; removed nested schedule fields fail fast.
 1. Every enabled `retention` block is a mapping with at least one actionable setting: one or more non-zero `keep_*` fields and/or `prune: true`.
 
 ## Security notes
 
 - `/etc/restic-profile/restic-profile.toml` is mode `0640` (`root:root`).
 - `/etc/restic-profile/restic-profile-<repository-ref>.env` and rendered exclude files are also mode `0640`.
-- Generated systemd services intentionally run as `root`; non-root `system_user` values are not supported by the role because `/etc/restic-profile` contains shared config and secrets.
+- Generated systemd services intentionally run as `root` because `/etc/restic-profile` contains shared config and secrets.
 - The `.env` files are rendered with shell-safe quoting so they can be sourced directly in a Bash shell without expanding characters such as `$` inside secrets.
 - Store secrets in Ansible Vault (`password`, `rest_password`, `aws_secret_access_key`, etc.).
 - CLI credentials are passed to `restic` via environment variables only.

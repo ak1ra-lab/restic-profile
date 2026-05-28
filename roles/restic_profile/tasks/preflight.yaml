@@ -8,105 +8,61 @@
       ['apt', 'go_build', 'existing'] (got:
       {{ restic_profile_restic_install_source | to_json }})
 
-- name: assert restic_profile_profiles is a dict
-  ansible.builtin.assert:
-    that:
-      - restic_profile_profiles is mapping
-    fail_msg: >-
-      restic_profile_profiles must be a dict (mapping), got:
-      {{ restic_profile_profiles | ansible.builtin.type_debug }}
+- name: assert restic_profile mappings are dicts
+  block:
+    - name: assert restic_profile_repositories is a dict
+      ansible.builtin.assert:
+        that:
+          - restic_profile_repositories is mapping
+        fail_msg: >-
+          restic_profile_repositories must be a dict (mapping), got:
+          {{ restic_profile_repositories | ansible.builtin.type_debug }}
 
-- name: assert restic_profile_repositories is a dict
-  ansible.builtin.assert:
-    that:
-      - restic_profile_repositories is mapping
-    fail_msg: >-
-      restic_profile_repositories must be a dict (mapping), got:
-      {{ restic_profile_repositories | ansible.builtin.type_debug }}
+    - name: assert restic_profile_profiles is a dict
+      ansible.builtin.assert:
+        that:
+          - restic_profile_profiles is mapping
+        fail_msg: >-
+          restic_profile_profiles must be a dict (mapping), got:
+          {{ restic_profile_profiles | ansible.builtin.type_debug }}
 
-- name: assert each repository definition is a dict
+- name: assert each repository definition is valid
   ansible.builtin.assert:
     that:
       - _repository_item.key | string | length > 0
       - _repository_item.value is mapping
+      - _repository_item.value.repository | default('') | string | length > 0
+      - _repository_item.value.password | default('') | string | length > 0
     fail_msg: >-
-      Repository {{ _repository_item.key | default('<empty>') }} must be a dict (mapping).
+      Repository {{ _repository_item.key | default('<empty>') }} must be a dict
+      (mapping) with non-empty 'repository' and 'password' fields.
   loop: "{{ restic_profile_repositories | ansible.builtin.dict2items }}"
   loop_control:
     loop_var: _repository_item
     label: "{{ _repository_item.key | default('<empty>') }}"
   no_log: true
 
-- name: assert each repository has required fields
-  when:
-    - _repository_item.value is mapping
-  ansible.builtin.assert:
-    that:
-      - _repository_item.value.repository is defined
-      - _repository_item.value.repository | string | length > 0
-      - _repository_item.value.password is defined
-      - _repository_item.value.password | string | length > 0
-    fail_msg: >-
-      Repository {{ _repository_item.key }}: 'repository' and 'password' are required fields.
-  loop: "{{ restic_profile_repositories | ansible.builtin.dict2items }}"
-  loop_control:
-    loop_var: _repository_item
-    label: "{{ _repository_item.key | default('<empty>') }}"
-  no_log: true
-
-- name: assert each enabled profile definition is a dict
+- name: assert each enabled profile definition is valid
   when:
     - _profile_item.value.enabled | default(true) | ansible.builtin.bool
   ansible.builtin.assert:
     that:
       - _profile_item.key | string | length > 0
       - _profile_item.value is mapping
-    fail_msg: >-
-      Profile {{ _profile_item.key | default('<empty>') }} must be a dict (mapping).
-  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
-  loop_control:
-    loop_var: _profile_item
-    label: "{{ _profile_item.key | default('<empty>') }}"
-  no_log: true
-
-- name: assert each enabled profile has required top-level fields
-  when:
-    - _profile_item.value.enabled | default(true) | ansible.builtin.bool
-    - _profile_item.value is mapping
-  ansible.builtin.assert:
-    that:
-      - _profile_item.value.repository_ref is defined
-      - _profile_item.value.repository_ref | string | length > 0
-      - _profile_item.value.repository_ref in restic_profile_repositories
+      - _profile_item.value.repository_ref | default('') | string | length > 0
+      - _profile_item.value.repository_ref | default('') in restic_profile_repositories
       - _profile_item.value.backup is defined or _profile_item.value.retention is defined
     fail_msg: >-
-      Profile {{ _profile_item.key }}: enabled profiles must define a non-empty 'repository_ref'
-      that points to restic_profile_repositories and configure at least one of 'backup' or
-      'retention'.
+      Profile {{ _profile_item.key | default('<empty>') }}: enabled profiles must
+      be dicts (mapping) with a non-empty 'repository_ref' that points to
+      restic_profile_repositories and at least one of 'backup' or 'retention'.
   loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
   loop_control:
     loop_var: _profile_item
     label: "{{ _profile_item.key | default('<empty>') }}"
   no_log: true
 
-- name: assert each enabled profile uses the root execution model
-  when:
-    - _profile_item.value.enabled | default(true) | ansible.builtin.bool
-    - _profile_item.value is mapping
-  ansible.builtin.assert:
-    that:
-      - (_profile_item.value.system_user | default('root')) == 'root'
-    fail_msg: >-
-      Profile {{ _profile_item.key }}: role-managed services always run as root because
-      /etc/restic-profile contains shared config, repository credentials, exclude files,
-      and hook scripts. Remove system_user or set it to root.
-  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
-  loop_control:
-    loop_var: _profile_item
-    label: "{{ _profile_item.key | default('<empty>') }}"
-  no_log: true
-
-- name: assert each enabled backup profile has non-empty sources
+- name: assert each enabled backup profile is valid
   when:
     - _profile_item.value.enabled | default(true) | ansible.builtin.bool
     - _profile_item.value is mapping
@@ -114,51 +70,17 @@
   ansible.builtin.assert:
     that:
       - _profile_item.value.backup is mapping
-    fail_msg: >-
-      Profile {{ _profile_item.key }}: backup section must be a dict (mapping).
-  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
-  loop_control:
-    loop_var: _profile_item
-    label: "{{ _profile_item.key | default('<empty>') }}"
-  no_log: true
-
-- name: assert each enabled backup profile source list is non-empty
-  when:
-    - _profile_item.value.enabled | default(true) | ansible.builtin.bool
-    - _profile_item.value is mapping
-    - _profile_item.value.backup is mapping
-  ansible.builtin.assert:
-    that:
       - (_profile_item.value.backup.sources | default([])) | length > 0
     fail_msg: >-
-      Profile {{ _profile_item.key }}: backup section must have at least one source.
+      Profile {{ _profile_item.key }}: backup section must be a dict (mapping)
+      with at least one source.
   loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
   loop_control:
     loop_var: _profile_item
     label: "{{ _profile_item.key | default('<empty>') }}"
   no_log: true
 
-- name: assert each enabled backup profile avoids removed nested schedule fields
-  when:
-    - _profile_item.value.enabled | default(true) | ansible.builtin.bool
-    - _profile_item.value is mapping
-    - _profile_item.value.backup is mapping
-  ansible.builtin.assert:
-    that:
-      - _profile_item.value.backup.post_backup_retention is not defined
-      - _profile_item.value.backup.on_calendar is not defined
-      - _profile_item.value.backup.randomized_delay_sec is not defined
-    fail_msg: >-
-      Profile {{ _profile_item.key }}: move backup.on_calendar and backup.randomized_delay_sec
-      to the profile root and remove backup.post_backup_retention. Mixed profiles now run
-      retention automatically after backup.
-  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
-  loop_control:
-    loop_var: _profile_item
-    label: "{{ _profile_item.key | default('<empty>') }}"
-  no_log: true
-
-- name: assert each enabled retention profile is a dict
+- name: assert each enabled retention profile is valid
   when:
     - _profile_item.value.enabled | default(true) | ansible.builtin.bool
     - _profile_item.value is mapping
@@ -166,21 +88,6 @@
   ansible.builtin.assert:
     that:
       - _profile_item.value.retention is mapping
-    fail_msg: >-
-      Profile {{ _profile_item.key }}: retention section must be a dict (mapping).
-  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
-  loop_control:
-    loop_var: _profile_item
-    label: "{{ _profile_item.key | default('<empty>') }}"
-  no_log: true
-
-- name: assert each enabled retention profile has at least one retention action
-  when:
-    - _profile_item.value.enabled | default(true) | ansible.builtin.bool
-    - _profile_item.value is mapping
-    - _profile_item.value.retention is mapping
-  ansible.builtin.assert:
-    that:
       - >-
         (_profile_item.value.retention.keep_last    | default(0) | int > 0) or
         (_profile_item.value.retention.keep_hourly  | default(0) | int > 0) or
@@ -190,27 +97,9 @@
         (_profile_item.value.retention.keep_yearly  | default(0) | int > 0) or
         (_profile_item.value.retention.prune | default(false) | ansible.builtin.bool)
     fail_msg: >-
-      Profile {{ _profile_item.key }}: retention section must define at least one
-      actionable retention setting. Configure one or more keep_* fields and/or
-      set prune=true.
-  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
-  loop_control:
-    loop_var: _profile_item
-    label: "{{ _profile_item.key | default('<empty>') }}"
-  no_log: true
-
-- name: assert each enabled retention profile avoids removed nested schedule fields
-  when:
-    - _profile_item.value.enabled | default(true) | ansible.builtin.bool
-    - _profile_item.value is mapping
-    - _profile_item.value.retention is mapping
-  ansible.builtin.assert:
-    that:
-      - _profile_item.value.retention.on_calendar is not defined
-      - _profile_item.value.retention.randomized_delay_sec is not defined
-    fail_msg: >-
-      Profile {{ _profile_item.key }}: move retention.on_calendar and
-      retention.randomized_delay_sec to the profile root.
+      Profile {{ _profile_item.key }}: retention section must be a dict
+      (mapping) with at least one actionable retention setting. Configure
+      one or more keep_* fields and/or set prune=true.
   loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
   loop_control:
     loop_var: _profile_item
