@@ -13,6 +13,7 @@ import pytest
 from restic_profile import runner as runner_module
 from restic_profile.config import Profile
 from restic_profile.runner import (
+    WorkflowError,
     build_env,
     build_forget_args,
     build_global_args,
@@ -892,19 +893,17 @@ def test_run_backup_passes_both_exclude_patterns_and_exclude_file(
     assert "--exclude-file" in backup_cmd
 
 
-# run_forget — failure triggers sys.exit(1)
+# run_forget — failure triggers WorkflowError
 
 
-def test_run_retention_exits_on_restic_failure(
+def test_run_retention_raises_on_restic_failure(
     prune_profile: Profile, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """run_retention() calls sys.exit(1) when restic exits non-zero."""
+    """run_retention() raises WorkflowError when restic exits non-zero."""
     monkeypatch.setattr(subprocess, "run", lambda *a, **kw: MagicMock(returncode=1))
 
-    with pytest.raises(SystemExit) as exc_info:
+    with pytest.raises(WorkflowError, match="retention command failed"):
         run_retention(prune_profile)
-
-    assert exc_info.value.code == 1
 
 
 # run_hooks — empty list
@@ -1105,10 +1104,10 @@ def test_run_backup_runs_success_hooks_on_success(
 # run_backup — hook failure cases
 
 
-def test_run_backup_runs_failure_hooks_and_exits_when_prevalidate_fails(
+def test_run_backup_runs_failure_hooks_and_raises_when_prevalidate_fails(
     hooks_backup_profile: Profile, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """run_backup() runs failure hooks and exits when a prevalidate hook fails."""
+    """run_backup() runs failure hooks and raises when a prevalidate hook fails."""
     hook_calls: list[str] = []
     backup_called = False
 
@@ -1125,19 +1124,18 @@ def test_run_backup_runs_failure_hooks_and_exits_when_prevalidate_fails(
 
     monkeypatch.setattr(subprocess, "run", fake_run)
 
-    with pytest.raises(SystemExit) as exc_info:
+    with pytest.raises(WorkflowError, match="prevalidate hook failed"):
         run_backup(hooks_backup_profile)
 
-    assert exc_info.value.code == 1
     assert "echo failure" in hook_calls
     assert backup_called is False
     assert "echo after" not in hook_calls
 
 
-def test_run_backup_runs_failure_hooks_and_exits_when_before_fails(
+def test_run_backup_runs_failure_hooks_and_raises_when_before_fails(
     hooks_backup_profile: Profile, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """run_backup() runs failure hooks and exits when a before hook fails."""
+    """run_backup() runs failure hooks and raises when a before hook fails."""
     hook_calls: list[str] = []
     backup_called = False
 
@@ -1153,19 +1151,18 @@ def test_run_backup_runs_failure_hooks_and_exits_when_before_fails(
 
     monkeypatch.setattr(subprocess, "run", fake_run)
 
-    with pytest.raises(SystemExit) as exc_info:
+    with pytest.raises(WorkflowError, match="before hook failed"):
         run_backup(hooks_backup_profile)
 
-    assert exc_info.value.code == 1
     assert "echo failure" in hook_calls
     assert backup_called is False
     assert "echo after" not in hook_calls
 
 
-def test_run_backup_runs_after_and_failure_hooks_and_exits_when_backup_fails(
+def test_run_backup_runs_after_and_failure_hooks_and_raises_when_backup_fails(
     hooks_backup_profile: Profile, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """run_backup() runs after and failure hooks then exits when backup fails."""
+    """run_backup() runs after and failure hooks then raises when backup fails."""
     hook_calls: list[str] = []
 
     def fake_run(args: list[str], **kw: object) -> MagicMock:
@@ -1179,10 +1176,9 @@ def test_run_backup_runs_after_and_failure_hooks_and_exits_when_backup_fails(
 
     monkeypatch.setattr(subprocess, "run", fake_run)
 
-    with pytest.raises(SystemExit) as exc_info:
+    with pytest.raises(WorkflowError, match="backup command failed"):
         run_backup(hooks_backup_profile)
 
-    assert exc_info.value.code == 1
     assert "echo after" in hook_calls
     assert "echo failure" in hook_calls
     assert "echo success" not in hook_calls

@@ -10,7 +10,7 @@ from chaos_utils.logging import setup_logger
 from pydantic import ValidationError
 
 from .config import load_config
-from .runner import run_profile
+from .runner import WorkflowError, run_profile
 
 logger = setup_logger(__name__)
 
@@ -62,7 +62,7 @@ def _cmd_run(args: argparse.Namespace) -> None:
 
     try:
         run_profile(profile, dry_run=args.dry_run)
-    except ValueError as exc:
+    except (ValueError, WorkflowError) as exc:
         logger.error("%s", exc)
         sys.exit(1)
 
@@ -90,7 +90,8 @@ def _cmd_list(args: argparse.Namespace) -> None:
         )
         schedule = profile.on_calendar or "manual"
         print(
-            f"{name}  type={_profile_type(profile)}  schedule={schedule}  repository={repo_url}"
+            f"{name}  type={_profile_type(profile)}  "
+            f"schedule={schedule}  repository={repo_url}"
         )
 
 

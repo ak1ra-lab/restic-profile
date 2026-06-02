@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import logging
+import os
 import pwd
 import shutil
 import socket
 import subprocess
-import sys
-from functools import cache
+from functools import lru_cache
 from pathlib import Path
 
 from .config import Profile
@@ -34,6 +34,10 @@ class _CommandError(Exception):
         super().__init__(f"Command failed (exit {returncode}): {' '.join(cmd)}")
 
 
+class WorkflowError(Exception):
+    """Raised when a backup/retention workflow cannot continue."""
+
+
 def build_env(profile: Profile) -> dict[str, str]:
     """Build the environment dict for a restic subprocess.
 
@@ -41,8 +45,6 @@ def build_env(profile: Profile) -> dict[str, str]:
     variables are preserved.  Credentials are injected via env vars only —
     never written to disk.
     """
-    import os
-
     env = os.environ.copy()
 
     if not env.get("HOME"):
@@ -86,7 +88,7 @@ def build_env(profile: Profile) -> dict[str, str]:
     return env
 
 
-@cache
+@lru_cache(maxsize=32)
 def _resolve_restic_executable(configured: str) -> str:
     """Resolve a configured restic command to the executable path to run."""
     candidate = configured.strip() or "restic"
@@ -250,9 +252,7 @@ def _existing_backup_sources(profile: Profile) -> list[str]:
 
 def _is_existing_repository_error(error: _CommandError) -> bool:
     """Return True when ``restic init`` failed because the repo already exists."""
-    combined_output = "\n".join(
-        part for part in [error.stdout, error.stderr] if part
-    ).lower()
+    combined_output = "\n".join(filter(None, [error.stdout, error.stderr])).lower()
     return "config file already exists" in combined_output
 
 
@@ -380,7 +380,7 @@ def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
     # prevalidate: run before checking / mounting the backup location
     if not run_hooks(hooks.prevalidate, env, hooks.shell, dry_run=dry_run):
         run_hooks(hooks.failure, env, hooks.shell, dry_run=dry_run)
-        sys.exit(1)
+        raise WorkflowError(f"Profile {profile.name!r}: prevalidate hook failed")
 
     sources = _existing_backup_sources(profile)
     if not sources:
@@ -422,12 +422,14 @@ def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
                 )
             else:
                 run_hooks(hooks.failure, env, hooks.shell, dry_run=dry_run)
-                sys.exit(1)
+                raise WorkflowError(
+                    f"Profile {profile.name!r}: repository initialization failed"
+                )
 
     # before: run after location checks, before the backup starts
     if not run_hooks(hooks.before, env, hooks.shell, dry_run=dry_run):
         run_hooks(hooks.failure, env, hooks.shell, dry_run=dry_run)
-        sys.exit(1)
+        raise WorkflowError(f"Profile {profile.name!r}: before hook failed")
 
     snapshot_host = _snapshot_host()
     backup_cmd = [
@@ -491,7 +493,7 @@ def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
 
     if backup_failed:
         run_hooks(hooks.failure, env, hooks.shell, dry_run=dry_run)
-        sys.exit(1)
+        raise WorkflowError(f"Profile {profile.name!r}: backup command failed")
 
     run_hooks(hooks.success, env, hooks.shell, dry_run=dry_run)
 
@@ -538,8 +540,10 @@ def run_retention(
     else:
         try:
             _run(command, env)
-        except _CommandError:
-            sys.exit(1)
+        except _CommandError as exc:
+            raise WorkflowError(
+                f"Profile {profile.name!r}: retention command failed"
+            ) from exc
 
 
 def run_profile(profile: Profile, *, dry_run: bool = False) -> None:

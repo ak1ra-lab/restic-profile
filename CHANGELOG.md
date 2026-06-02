@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- `restic_profile.runner` now raises `WorkflowError` instead of calling `sys.exit(1)`, allowing library functions to be used programmatically without terminating the process.
+- `restic_profile.runner._resolve_restic_executable` uses `@lru_cache(maxsize=32)` instead of `@cache` for safer caching behavior.
+
 ## [0.1.0] - 2026-05-27
 
 ### Added
