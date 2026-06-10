@@ -1,47 +1,75 @@
 # AGENTS.md
 
-This project is under active development. Refactor without any concern for backward compatibility.
-
 ## What This Project Does
 
-`restic-profile` provides the `restic-profile` Python CLI plus Ansible roles for `restic_profile` and `restic_rest_server`. The repository manages restic config rendering, backup timers, and operator workflows on managed hosts. See `README.md` for setup and user-facing usage details.
+`restic-profile` bundles a Python CLI (`restic-profile`) with Ansible roles for
+`restic_profile` and `restic_rest_server` deployments. See `README.md` for
+setup, usage, and the development workflow.
 
 ## Environment & Tooling - CRITICAL
 
-- MUST use `uv` or `just`; treat `pyproject.toml` and `justfile` as the sources of truth.
-- MUST sync dependencies with `just sync` or `uv sync --group dev`.
-- MUST run tests with `just test` or `uv run pytest -v tests/<slice>` for a narrow check.
-- MUST run `just lint` after Python edits and `just typecheck` after CLI or model changes.
-- MUST run `ansible-lint` after changes under `roles/`, `playbooks/`, or templates.
-- MUST run `just docs-build` after docs changes.
-- MUST NOT use `pip install`, bare `pytest`, `ruff`, `ty`, or `zensical`.
-- MUST NOT edit generated output under `site/`.
-- MUST NOT treat dormant Molecule scenarios as routine validation.
+- Environment manager: **uv**. Sync with `uv sync --group dev`.
+- Lint & format: **ruff**. Run `just lint` (or `uv run ruff check --fix src/ tests/` then `uv run ruff format src/ tests/`).
+- Type check: **ty** (`astral-sh/ty`). Run `just typecheck`.
+- Test runner: **pytest** (`uv run pytest -v tests/` or `just test`).
+- Ansible lint: `ansible-lint` (global install, see `README.md`).
+- Build: `uv build -v` (or `just build`).
+- Docs: `uv run zensical build` (or `just docs-build`).
+
+You MUST NOT use `pip`, `poetry`, `pipenv`, `mypy`, `black`, `flake8`, `isort`,
+or `mkdocs` directly. All Python tooling flows through **uv** and **ruff**/**ty**.
 
 ## Conventions
 
-- Python package code lives in `src/restic_profile`; tests mirror it under `tests/restic_profile`.
-- Role-internal constants belong in `roles/*/vars/main.yaml`; caller-overridable values belong in `roles/*/defaults/main.yaml`.
-- `roles/restic_profile/templates/etc/restic-profile/restic-profile.env.j2` is the source of truth for the shell variables managed by the selector helper.
-- CLI subcommands use `argparse` plus `argcomplete` and MUST end in `set_defaults(handler=...)`.
-- CLI logging is configured with `chaos_utils.logging.setup_logger`; library modules SHOULD use `logging.getLogger(__name__)`.
-- YAML files MUST use the `.yaml` extension.
+### Directory Layout (mandatory for Ansible operations)
+
+This repository MUST be cloned into the standard Ansible collection namespace
+layout so that the relative `collections_path` in `ansible.cfg` resolves
+correctly:
+
+```
+collections/
+  ansible_collections/
+    ak1ra_lab/
+      restic_profile/   # <-- this repo
+      general/          # ansible-collection-general
+```
+
+`ansible.cfg` sets `collections_path=../../../../collections:~/.ansible/collections`.
+From `restic_profile/` this traverses up 4 levels to reach the top-level
+`collections/` directory, allowing ansible to discover all collections under
+that root. Any deviation from this directory structure will break collection
+resolution.
+
+### Code Layout
+
+- Python source: `src/restic_profile/`
+- Tests: `tests/restic_profile/` (mirrors source layout)
+- Ansible roles: `roles/<role_name>/`
+- Ansible playbooks: `playbooks/`
+
+### Python Style
+
+- Line length 88, double quotes, spaces for indent (see `ruff.toml`).
+- Target Python 3.11+ (`pyproject.toml`).
 
 ## Testing Guidelines
 
-- Add or update pytest coverage when CLI behavior, config parsing, runner logic, or shipped shell helpers change.
-- Mock external I/O in tests; do not make real network calls or talk to real restic backends.
-- Keep tests and call sites in sync when function signatures or rendered outputs change.
-- Use `ansible-lint` for roles, playbooks, and templates.
-- Do NOT rely on Molecule unless the user explicitly asks for it.
+- Tests live in `tests/` and mirror the `src/` package layout.
+- Run: `just test` or `uv run pytest -v tests/`.
+- Coverage: `just coverage`.
+- Ansible linting is separate: `ansible-lint`.
+- Molecule scenarios exist under `roles/*/molecule/` but are dormant; do not
+  rely on them for validation.
 
 ## Common Operations
 
 ```shell
-just sync         # install or update dev dependencies
-just lint         # run ruff check and format for src/ and tests/
-just typecheck    # run ty against src/
-just test         # run the pytest suite
-ansible-lint      # validate roles, tasks, playbooks, and templates
-just docs-build   # build docs and refresh site/
+just sync           # sync dependencies
+just lint           # lint and format Python code
+just typecheck      # static type check
+just test           # run pytest
+just build          # build distribution packages
+just docs-build     # build documentation site
+ansible-lint        # lint Ansible roles and playbooks
 ```
