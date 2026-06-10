@@ -23,6 +23,18 @@ Routine Ansible validation currently uses `ansible-lint`. Molecule scenarios rem
 If you use `roles/go_build` or the playbooks under `playbooks/go_build/`, the
 control node also needs a working `go` toolchain in `PATH`.
 
+## Repository Development Workflow
+
+Clone collections into the `ansible_collections/ak1ra_lab/` namespace layout:
+
+```shell
+mkdir -p ~/code/github.com/ansible/collections/ansible_collections/ak1ra_lab
+git clone https://github.com/ak1ra-lab/ansible-collection-general.git \
+	~/code/github.com/ansible/collections/ansible_collections/ak1ra_lab/general
+git clone https://github.com/ak1ra-lab/restic-profile.git \
+	~/code/github.com/ansible/collections/ansible_collections/ak1ra_lab/restic_profile
+```
+
 ## Usage
 
 ```shell

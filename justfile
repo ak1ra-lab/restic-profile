@@ -40,10 +40,3 @@ clean:
     rm -rf dist/ site/ .cache/ .ruff_cache/ .pytest_cache/ htmlcov/ .coverage ansible-navigator.log
     find src/ tests/ -type f -name "*.pyc" -delete
     find src/ tests/ -type d -name "__pycache__" -delete
-
-# Install project-local Ansible collections
-ansible-collections:
-    mkdir -p ./.ansible/collections/ansible_collections/ak1ra_lab
-    test -L ./.ansible/collections/ansible_collections/ak1ra_lab/restic_profile || \
-        ln -s ../../../.. ./.ansible/collections/ansible_collections/ak1ra_lab/restic_profile
-    ansible-galaxy collection install -r requirements.dev.yaml -p ./.ansible/collections --force
