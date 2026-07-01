@@ -9,9 +9,12 @@
 Description=Restic profile timer — {{ _profile_name }}
 
 [Timer]
-# Run on this schedule; Persistent=true catches up a missed run after reboot/sleep
+# Run on this schedule.
+# When Persistent=true, a missed run (e.g. system was powered off) is
+# triggered immediately after the next boot — keep it false for
+# workload-sensitive profiles (e.g. gitlab-backups during business hours).
 OnCalendar={{ _profile.on_calendar | default('hourly') }}
-Persistent=true
+Persistent={{ _profile.persistent | default(true) | ansible.builtin.bool | lower }}
 # Spread load: fire at a random offset within this window
 RandomizedDelaySec={{ _profile.randomized_delay_sec | default('10min') }}
 

@@ -31,6 +31,8 @@ restic_profile_repositories: {}
 #
 #   on_calendar                       str   ""       OnCalendar value for the profile timer. Leave empty to disable the timer.
 #   randomized_delay_sec              str   ""       RandomizedDelaySec value for the profile timer
+#   persistent                        bool  true     Persistent= value for the profile timer; set to false to
+#                                                          skip catch-up runs after unplanned downtime
 #
 #   restic_binary                     str   <global> override the global restic binary for this profile
 #   no_cache                          bool  <global> override the global --no-cache toggle for this profile
