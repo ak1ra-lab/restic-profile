@@ -5,17 +5,16 @@
 {% macro render_managed_hook_paths(profile_name, phase, script_srcs, template_srcs) -%}
 {% for _src in script_srcs -%}
 {% set _basename = _src | basename -%}
-{% set _ext = '.' ~ (_basename.split('.') | last) if '.' in _basename else '.sh' -%}
+{% set _ext = '.' ~ (_basename.split('.') | last) if '.' in _basename else '.sh' %}
   "{{ restic_profile_hooks_dir }}/restic-profile-{{ profile_name }}.{{ phase }}-{{ '%02d' | format(loop.index) }}{{ _ext }}",
 {% endfor -%}
 {% set _script_count = script_srcs | length %}
 {% for _src in template_srcs -%}
 {% set _basename = (_src | basename) | replace('.j2', '') -%}
-{% set _ext = '.' ~ (_basename.split('.') | last) if '.' in _basename else '.sh' -%}
+{% set _ext = '.' ~ (_basename.split('.') | last) if '.' in _basename else '.sh' %}
   "{{ restic_profile_hooks_dir }}/restic-profile-{{ profile_name }}.{{ phase }}-{{ '%02d' | format(_script_count + loop.index) }}{{ _ext }}",
 {% endfor -%}
 {%- endmacro %}
-
 [global]
 restic_binary = "{{ restic_profile_restic_binary | default('') }}"
 no_cache = {{ restic_profile_no_cache | default(false) | ansible.builtin.bool | lower }}
@@ -48,7 +47,6 @@ google_access_token            = "{{ r.google_access_token | default('') }}"
 {% endif %}
 
 {% endfor %}
-
 # --- Profiles ---
 {% for pname, profile in restic_profile_profiles.items() %}
 {% set _profile_enabled = profile.enabled | default(true) | ansible.builtin.bool %}
@@ -116,7 +114,6 @@ forget_current_host = {{ profile.retention.forget_current_host | ansible.builtin
 {% set _hook_phases = restic_profile_hook_phases %}
 {% set _hooks_shell = _hooks.shell | default('/bin/sh') %}
 {% set _has_hook_cmds = namespace(v=false) %}
-
 {% for _phase in _hook_phases %}
 {% set _phase_commands = _hooks.get(_phase, []) %}
 {% set _phase_scripts = _hooks.get(_phase ~ '_scripts', []) %}
@@ -125,7 +122,6 @@ forget_current_host = {{ profile.retention.forget_current_host | ansible.builtin
 {% set _has_hook_cmds.v = true %}
 {% endif %}
 {% endfor %}
-
 {% if _has_hook_cmds.v or _hooks_shell != '/bin/sh' %}
 [profiles.{{ pname }}.hooks]
 shell = "{{ _hooks_shell }}"
@@ -139,11 +135,13 @@ shell = "{{ _hooks_shell }}"
 {% for _cmd in _phase_commands %}
   {{ _cmd | tojson }},
 {% endfor %}
-{{ render_managed_hook_paths(pname, _phase, _phase_scripts, _phase_templates) }}
+{% if _phase_scripts | length > 0 or _phase_templates | length > 0 %}
+{{ render_managed_hook_paths(pname, _phase, _phase_scripts, _phase_templates) -}}
+{% endif %}
 ]
 {% endif %}
 {% endfor %}
+{% endif %}
+{% endif %}
 
-{% endif %}
-{% endif %}
 {% endfor %}
