@@ -23,7 +23,6 @@ if [ "$(id -u)" -eq 0 ]; then
 {% endif %}
 {% endif %}
         --scope \
-        --same-dir \
         --quiet \
         --description=restic-profile\ scoped\ run \
         -- {{ restic_profile_cli_link }} "$@"
@@ -44,7 +43,6 @@ exec systemd-run \
 {% endif %}
 {% endif %}
     --scope \
-    --same-dir \
     --quiet \
     --description=restic-profile\ scoped\ run \
     -- {{ restic_profile_cli_link }} "$@"
