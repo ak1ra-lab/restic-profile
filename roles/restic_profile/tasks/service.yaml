@@ -4,40 +4,6 @@
 # Naming convention (defined in vars/main.yaml):
 #   Profile units: restic-profile-<name>.{service,timer}
 
-- name: find legacy backup/retention systemd unit files
-  become: true
-  ansible.builtin.find:
-    paths: /etc/systemd/system
-    patterns:
-      - "restic-profile-backup-*.service"
-      - "restic-profile-backup-*.timer"
-      - "restic-profile-retention-*.service"
-      - "restic-profile-retention-*.timer"
-  register: _restic_profile_found_legacy_units
-
-- name: stop and disable legacy backup/retention timers
-  become: true
-  ansible.builtin.systemd_service:
-    name: "{{ item | ansible.builtin.basename }}"
-    state: stopped
-    enabled: false
-  loop: >-
-    {{
-      _restic_profile_found_legacy_units.files
-      | map(attribute='path')
-      | select('search', '\\.timer$')
-      | list
-    }}
-  failed_when: false
-
-- name: remove legacy backup/retention systemd unit files
-  become: true
-  ansible.builtin.file:
-    path: "{{ item.path }}"
-    state: absent
-  loop: "{{ _restic_profile_found_legacy_units.files }}"
-  notify: systemctl daemon-reload
-
 - name: Construct flat list of service units to deploy
   vars:
     restic_profile_service_units_json: >-
@@ -55,6 +21,46 @@
       {{ units | to_json }}
   ansible.builtin.set_fact:
     restic_profile_service_units: "{{ restic_profile_service_units_json | from_json }}"
+
+- name: find managed systemd unit files on disk
+  become: true
+  ansible.builtin.find:
+    paths: /etc/systemd/system
+    patterns:
+      - "{{ restic_profile_unit_prefix }}*.service"
+      - "{{ restic_profile_unit_prefix }}*.timer"
+  register: _restic_profile_existing_units
+
+- name: stop and disable orphaned systemd timers
+  become: true
+  ansible.builtin.systemd_service:
+    name: "{{ item | ansible.builtin.basename }}"
+    state: stopped
+    enabled: false
+  loop: >-
+    {{
+      _restic_profile_existing_units.files
+      | map(attribute='path')
+      | select('ansible.builtin.search', '\\.timer$')
+      | list
+    }}
+  when:
+    - >-
+      (item | ansible.builtin.basename | ansible.builtin.regex_replace('\\.timer$', ''))
+      not in (restic_profile_service_units | default([]) | map(attribute='unit_name') | list)
+  failed_when: false
+
+- name: remove orphaned systemd unit files
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ _restic_profile_existing_units.files }}"
+  when:
+    - >-
+      (item.path | ansible.builtin.basename | ansible.builtin.regex_replace('\\.(service|timer)$', ''))
+      not in (restic_profile_service_units | default([]) | map(attribute='unit_name') | list)
+  notify: systemctl daemon-reload
 
 - name: deploy systemd service unit for each enabled profile
   become: true
