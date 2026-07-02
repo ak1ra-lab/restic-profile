@@ -44,4 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Orphan unit cleanup**: automatically stops, disables, and removes systemd
   units for profiles removed or renamed in `restic_profile_profiles` during a
   normal `state: present` run.
+- **Stale lock handling**: `restic-profile --unlock <name>` CLI flag for
+  manual stale lock removal, plus per-profile `unlock` config field that
+  automatically runs `restic unlock` before backup/retention to prevent
+  interrupted processes from blocking future jobs.
 - Full Python test suite with type checking (`ty`) and Ansible lint coverage.
