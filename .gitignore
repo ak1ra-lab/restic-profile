@@ -341,6 +341,7 @@ playbooks/templates/*
 !inventory/hosts.example.yaml
 
 # Ansible requirements
+requirements.*.yml
 requirements.*.yaml
 
 # General configuration file and examples folder

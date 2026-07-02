@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "Profile-based restic wrapper with Ansible deployment support"
 authors = [{ name = "ak1ra", email = "git@ak1ra.xyz" }]
 dependencies = [
-    "argcomplete>=3.6.3",
+    "argcomplete>=3.7.0",
     "chaos-utils>=0.4.1",
     "pydantic>=2.13.3",
 ]
@@ -20,6 +20,11 @@ classifiers = [
 keywords = ["restic", "backup", "ansible"]
 readme = { file = "README.md", content-type = "text/markdown" }
 license = "MIT"
+
+[project.urls]
+Homepage = "https://github.com/ak1ra-lab/restic-profile"
+Repository = "https://github.com/ak1ra-lab/restic-profile"
+Documentation = "https://ak1ra-lab.github.io/restic-profile/"
 
 [project.scripts]
 restic-profile = "restic_profile.cli:main"
@@ -38,14 +43,14 @@ fallback_version = "0.1.0"
 packages = ["src/restic_profile"]
 
 [dependency-groups]
-tests = ["pytest>=8.3.5", "pytest-cov>=6.0.0"]
-lint = ["ruff>=0.11.0", "ty>=0.0.1a16"]
-docs = ["zensical>=0.0.29", "mkdocstrings-python>=2.0.3"]
+tests = ["pytest>=9.1.1", "pytest-cov>=7.1.0"]
+lint = ["ruff>=0.15.20", "ty>=0.0.56"]
+docs = ["zensical>=0.0.46", "mkdocstrings-python>=2.0.5"]
 dev = [
     { include-group = "tests" },
     { include-group = "lint" },
     { include-group = "docs" },
-    "pre-commit>=4.2.0",
+    "pre-commit>=4.6.0",
 ]
 
 [tool.pytest.ini_options]

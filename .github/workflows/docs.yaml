@@ -13,11 +13,11 @@ on:
       - ".github/workflows/docs.yaml"
 
 permissions:
-  # This permission is needed for private repositories.
   contents: read
-  # IMPORTANT: this permission is mandatory for trusted publishing
-  id-token: write
+
   pages: write
+  id-token: write
+
 
 concurrency:
   group: docs

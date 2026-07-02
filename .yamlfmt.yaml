@@ -8,7 +8,7 @@ extensions:
   - yaml
   - yml
 # Use gitignore files for exclude paths. This is in addition to the patterns from the exclude option.
-gitignore_excludes: true    # default: false
+gitignore_excludes: true # default: false
 gitignore_path: .gitignore
 include: []
 line_ending: lf
@@ -24,7 +24,7 @@ formatter:
   force_array_style: ""
   force_quote_style: ""
   # Include --- at document start.
-  include_document_start: true    # default: false
+  include_document_start: true # default: false
   indent: 2
   indent_root_array: false
   indentless_arrays: false
@@ -33,9 +33,9 @@ formatter:
   pad_line_comments: 1
   retain_line_breaks: false
   # (NOTE: Takes precedence over retain_line_breaks) Retain line breaks in formatted YAML, but only keep a single line in groups of many blank lines.
-  retain_line_breaks_single: true    # default: false
+  retain_line_breaks_single: true # default: false
   # Option that will preserve newlines in folded block scalars (blocks that start with >).
-  scan_folded_as_literal: true    # default: false
+  scan_folded_as_literal: true # default: false
   strip_directives: false
   trim_trailing_whitespace: false
   type: basic

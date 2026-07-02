@@ -16,9 +16,6 @@ jobs:
       url: https://pypi.org/project/restic-profile/
 
     permissions:
-      # This permission is needed for private repositories.
-      contents: read
-      # IMPORTANT: this permission is mandatory for trusted publishing
       id-token: write
 
     steps:
