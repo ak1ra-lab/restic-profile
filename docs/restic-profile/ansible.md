@@ -14,6 +14,7 @@ The `restic_profile` role:
 5. Renders `/etc/restic-profile/restic-profile.toml` (mode `0640`).
 6. Renders one repository-scoped environment file per repository actually referenced by enabled profiles, plus optional per-profile exclude files.
 7. Deploys one root-run systemd service+timer pair per enabled profile.
+8. Automatically stops, disables, and removes systemd units for profiles that are removed or renamed from `restic_profile_profiles`.
 
 The systemd units still execute `restic_profile_bin` directly. The
 `/usr/local/bin/restic-profile` symlink is only a stable operator-facing PATH
@@ -114,7 +115,7 @@ Practical deployment examples are in
 
 Role-only profile fields include:
 
-- `enabled`: skip deploying the profile entirely
+- `enabled`: skip deploying the profile entirely; existing systemd units for this profile are automatically stopped and removed on the next run
 - `timer_enabled`: still render the units, but stop/disable the timer
 - `cpu_quota`: override the generated service unit's `CPUQuota=`
 - `nice`: override the generated service unit's `Nice=`
@@ -154,6 +155,19 @@ When `state: absent`, the role:
 
 It does not remove the distro `restic` package or any go-build-managed restic
 binary.
+
+## Cleaning up removed profiles
+
+When you remove or rename a profile in `restic_profile_profiles`, the
+role detects orphaned systemd units on disk (files whose names no longer
+correspond to any enabled profile) and automatically:
+
+1. Stops and disables orphaned `.timer` units.
+2. Removes orphaned `.service` and `.timer` unit files.
+
+This also applies when you set a previously deployed profile's `enabled`
+to `false`. No separate `state: absent` step is needed; a single
+`state: present` run handles the cleanup.
 
 ## Preflight checks
 

@@ -62,7 +62,7 @@ restic_profile_profiles:
 - `io_scheduling_class` and `io_scheduling_priority`: inherit the global systemd I/O scheduling defaults and apply only to generated service units
 - `no_cache`: inherits `restic_profile_no_cache` unless the profile overrides it
 - `retry_lock`: inherits `restic_profile_retry_lock`; leave it empty unless the selected restic build supports `--retry-lock`
-- `enabled: true`, `timer_enabled: true`: profiles deploy and their timers start unless you disable them
+- `enabled: true`, `timer_enabled: true`: profiles deploy and their timers start unless you disable them. Setting `enabled: false` on a previously deployed profile automatically stops and removes its systemd units on the next run.
 - Role-managed services always run as `root` so they can read the shared config, secrets, exclude files, and hook scripts under `/etc/restic-profile`
 
 ## Hook lifecycle
