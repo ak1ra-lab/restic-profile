@@ -226,6 +226,19 @@ def _build_prune_command(
     return [restic_executable, *global_args, "prune"]
 
 
+def _build_unlock_command(
+    profile: Profile,
+    *,
+    restic_executable: str | None = None,
+    global_args: list[str] | None = None,
+) -> list[str]:
+    """Return the full restic unlock command for *profile*."""
+    if restic_executable is None or global_args is None:
+        restic_executable, global_args = _restic_command_parts(profile)
+
+    return [restic_executable, *global_args, "unlock"]
+
+
 def _is_local_repo(repository: str) -> bool:
     """Return True when *repository* looks like a local filesystem path."""
     return ":" not in repository
@@ -431,6 +444,15 @@ def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
         run_hooks(hooks.failure, env, hooks.shell, dry_run=dry_run)
         raise WorkflowError(f"Profile {profile.name!r}: before hook failed")
 
+    if profile.unlock:
+        try:
+            run_unlock(profile, dry_run=dry_run)
+        except _CommandError:
+            logger.warning(
+                "restic unlock failed for profile %s; continuing with backup",
+                profile.name,
+            )
+
     snapshot_host = _snapshot_host()
     backup_cmd = [
         restic_executable,
@@ -535,6 +557,15 @@ def run_retention(
 
     env = build_env(profile)
 
+    if profile.unlock:
+        try:
+            run_unlock(profile, dry_run=dry_run)
+        except _CommandError:
+            logger.warning(
+                "restic unlock failed for profile %s; continuing with retention",
+                profile.name,
+            )
+
     if dry_run:
         logger.info("DRY RUN: Would run: %s", " ".join(command))
     else:
@@ -544,6 +575,25 @@ def run_retention(
             raise WorkflowError(
                 f"Profile {profile.name!r}: retention command failed"
             ) from exc
+
+
+def run_unlock(profile: Profile, *, dry_run: bool = False) -> None:
+    """Run ``restic unlock`` for *profile* to remove stale locks.
+
+    Parameters
+    ----------
+    profile:
+        The resolved :class:`Profile` to operate on.
+    dry_run:
+        When *True* log the action without executing any subprocess calls.
+    """
+    env = build_env(profile)
+    unlock_cmd = _build_unlock_command(profile)
+
+    if dry_run:
+        logger.info("DRY RUN: Would run: %s", " ".join(unlock_cmd))
+    else:
+        _run(unlock_cmd, env)
 
 
 def run_profile(profile: Profile, *, dry_run: bool = False) -> None:

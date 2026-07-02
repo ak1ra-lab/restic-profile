@@ -266,6 +266,69 @@ def test_profile_no_cache_overrides_global_when_set(tmp_path: Path) -> None:
     assert result.profiles["myapp"].no_cache is False
 
 
+# Profile defaults — unlock inheritance
+
+
+def test_profile_unlock_inherits_from_global(tmp_path: Path) -> None:
+    """A profile without unlock inherits the global unlock value."""
+    toml_file = tmp_path / "config.toml"
+    toml_file.write_text(
+        "[global]\nunlock = true\n\n"
+        "[repositories.r1]\n"
+        'repository = "rest:https://example.com/"\n'
+        'password = "secret"\n'
+        "[profiles.myapp]\n"
+        'repository_ref = "r1"\n'
+        "[profiles.myapp.retention]\n"
+        "keep_daily = 7\n",
+        encoding="utf-8",
+    )
+
+    result = load_config(toml_file)
+
+    assert result.profiles["myapp"].unlock is True
+
+
+def test_profile_unlock_overrides_global_when_set(tmp_path: Path) -> None:
+    """A profile can explicitly disable unlock even when the global setting is true."""
+    toml_file = tmp_path / "config.toml"
+    toml_file.write_text(
+        "[global]\nunlock = true\n\n"
+        "[repositories.r1]\n"
+        'repository = "rest:https://example.com/"\n'
+        'password = "secret"\n'
+        "[profiles.myapp]\n"
+        'repository_ref = "r1"\n'
+        "unlock = false\n"
+        "[profiles.myapp.retention]\n"
+        "keep_daily = 7\n",
+        encoding="utf-8",
+    )
+
+    result = load_config(toml_file)
+
+    assert result.profiles["myapp"].unlock is False
+
+
+def test_profile_unlock_defaults_to_false(tmp_path: Path) -> None:
+    """unlock defaults to False when not specified in global or profile."""
+    toml_file = tmp_path / "config.toml"
+    toml_file.write_text(
+        "[repositories.r1]\n"
+        'repository = "rest:https://example.com/"\n'
+        'password = "secret"\n'
+        "[profiles.myapp]\n"
+        'repository_ref = "r1"\n'
+        "[profiles.myapp.retention]\n"
+        "keep_daily = 7\n",
+        encoding="utf-8",
+    )
+
+    result = load_config(toml_file)
+
+    assert result.profiles["myapp"].unlock is False
+
+
 def test_profile_restic_binary_inherits_from_global(tmp_path: Path) -> None:
     """A profile without restic_binary inherits the global executable setting."""
     toml_file = tmp_path / "config.toml"

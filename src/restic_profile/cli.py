@@ -10,7 +10,7 @@ from chaos_utils.logging import setup_logger
 from pydantic import ValidationError
 
 from .config import load_config
-from .runner import WorkflowError, run_profile
+from .runner import WorkflowError, run_profile, run_unlock
 
 logger = setup_logger(__name__)
 
@@ -67,6 +67,18 @@ def _cmd_run(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _cmd_unlock(args: argparse.Namespace) -> None:
+    """Run restic unlock on the named profile's repository."""
+    profile = _resolve_profile_or_exit(args)
+    logger.info("Unlocking repository for profile: %s", args.profile_name)
+
+    try:
+        run_unlock(profile, dry_run=args.dry_run)
+    except (ValueError, WorkflowError) as exc:
+        logger.error("%s", exc)
+        sys.exit(1)
+
+
 def _cmd_check(args: argparse.Namespace) -> None:
     """Validate the TOML config file and print any errors."""
     _load_config_or_exit(args.config)
@@ -115,10 +127,18 @@ def _build_parser() -> argparse.ArgumentParser:
         help="List all configured profiles",
     )
     action_group.add_argument(
+        "-C",
         "--check",
         action="store_true",
         default=False,
         help="Validate the TOML config file and exit",
+    )
+    action_group.add_argument(
+        "-U",
+        "--unlock",
+        action="store_true",
+        default=False,
+        help="Remove stale restic locks for the named profile",
     )
     parser.add_argument(
         "-c",
@@ -129,10 +149,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Path to TOML config file (default: %(default)s)",
     )
     parser.add_argument(
+        "-n",
         "--dry-run",
         action="store_true",
         default=False,
-        help="Log actions without executing",
+        help="Log actions without executing (no-op)",
     )
 
     return parser
@@ -144,8 +165,10 @@ def main(argv: list[str] | None = None) -> None:
     argcomplete.autocomplete(parser)
     args = parser.parse_args(argv)
 
-    if args.profile_name and (args.list or args.check):
-        parser.error("profile name cannot be combined with --list or --check")
+    if args.profile_name and (args.list or args.check or args.unlock):
+        parser.error(
+            "profile name cannot be combined with --list, --check, or --unlock"
+        )
 
     if args.list:
         _cmd_list(args)
@@ -155,7 +178,13 @@ def main(argv: list[str] | None = None) -> None:
         _cmd_check(args)
         return
 
+    if args.unlock:
+        if not args.profile_name:
+            parser.error("--unlock requires a profile name")
+        _cmd_unlock(args)
+        return
+
     if not args.profile_name:
-        parser.error("provide a profile name or one of --list/--check")
+        parser.error("provide a profile name or one of --list/--check/--unlock")
 
     _cmd_run(args)

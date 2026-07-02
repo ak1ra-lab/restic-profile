@@ -90,6 +90,11 @@ restic_profile_no_cache: false
 #      Set to "" to disable globally.
 restic_profile_retry_lock: ""
 
+# bool: global unlock toggle. When true, run restic unlock before backup or
+#       retention to remove stale locks left by interrupted processes.
+#       Individual profiles can override this with their own unlock field.
+restic_profile_unlock: false
+
 # str: global CPUQuota= applied to managed restic-profile systemd services and
 #      the optional restic-profile-scope helper. "100%" caps execution to one
 #      CPU worth of runtime; set to "" to disable the quota entirely.

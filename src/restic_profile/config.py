@@ -122,6 +122,7 @@ class Profile(BaseModel):
     restic_binary: str = ""
     no_cache: bool = False
     retry_lock: str = ""
+    unlock: bool = False
 
     # Hooks
     hooks: HooksConfig = Field(default_factory=HooksConfig)
@@ -195,6 +196,7 @@ def load_config(path: Path) -> ResticProfileConfig:
     global_restic_binary: str = str(global_section.get("restic_binary", ""))
     global_no_cache: bool = bool(global_section.get("no_cache", False))
     global_retry_lock: str = str(global_section.get("retry_lock", ""))
+    global_unlock: bool = bool(global_section.get("unlock", False))
 
     # Parse repositories
     repositories_data: dict[str, Repository] = {}
@@ -214,6 +216,8 @@ def load_config(path: Path) -> ResticProfileConfig:
             entry["no_cache"] = global_no_cache
         if not entry.get("retry_lock", ""):
             entry["retry_lock"] = global_retry_lock
+        if "unlock" not in entry:
+            entry["unlock"] = global_unlock
 
         profile = Profile.model_validate(entry)
 

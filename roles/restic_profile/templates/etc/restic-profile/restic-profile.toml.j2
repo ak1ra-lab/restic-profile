@@ -19,6 +19,7 @@
 restic_binary = "{{ restic_profile_restic_binary | default('') }}"
 no_cache = {{ restic_profile_no_cache | default(false) | ansible.builtin.bool | lower }}
 retry_lock = "{{ restic_profile_retry_lock }}"
+unlock = {{ restic_profile_unlock | default(false) | ansible.builtin.bool | lower }}
 
 # --- Repositories ---
 {% for rname, r in restic_profile_repositories.items() %}
@@ -70,6 +71,9 @@ no_cache = {{ profile.no_cache | ansible.builtin.bool | lower }}
 {% endif %}
 {% if profile.retry_lock is defined %}
 retry_lock = "{{ profile.retry_lock }}"
+{% endif %}
+{% if profile.unlock is defined %}
+unlock = {{ profile.unlock | ansible.builtin.bool | lower }}
 {% endif %}
 
 {% if profile.backup is defined %}

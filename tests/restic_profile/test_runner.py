@@ -14,6 +14,7 @@ from restic_profile import runner as runner_module
 from restic_profile.config import Profile
 from restic_profile.runner import (
     WorkflowError,
+    _build_unlock_command,
     build_env,
     build_forget_args,
     build_global_args,
@@ -21,6 +22,7 @@ from restic_profile.runner import (
     run_hooks,
     run_profile,
     run_retention,
+    run_unlock,
 )
 
 # Helpers
@@ -1202,3 +1204,155 @@ def test_run_backup_exclude_file_is_ignored_in_dry_run(
 
     # dry_run must never call subprocess regardless of exclude settings
     assert calls == []
+
+
+# _build_unlock_command
+
+
+def test_build_unlock_command_returns_restic_unlock(
+    backup_profile: Profile,
+) -> None:
+    """_build_unlock_command() returns a command ending with 'unlock'."""
+    cmd = _build_unlock_command(backup_profile)
+
+    assert cmd[-1] == "unlock"
+    assert Path(cmd[0]).name == "restic"
+
+
+def test_build_unlock_command_includes_global_args(
+    backup_profile: Profile,
+) -> None:
+    """_build_unlock_command() includes --retry-lock when profile.retry_lock is set."""
+    backup_profile.retry_lock = "10m"
+
+    cmd = _build_unlock_command(backup_profile)
+
+    assert "--retry-lock" in cmd
+    assert "10m" in cmd
+
+
+# run_unlock
+
+
+def test_run_unlock_invokes_restic_unlock(
+    backup_profile: Profile, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """run_unlock() calls restic unlock with the correct executable."""
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], **kwargs: object) -> MagicMock:
+        calls.append(list(args))
+        return MagicMock(returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    run_unlock(backup_profile)
+
+    assert len(calls) >= 1
+    unlock_call = calls[-1]
+    assert "unlock" in unlock_call
+
+
+def test_run_unlock_dry_run_skips_subprocess(
+    backup_profile: Profile, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """run_unlock(dry_run=True) does not invoke subprocess."""
+    calls: list[list[str]] = []
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda args, **kw: calls.append(args) or MagicMock(returncode=0),
+    )
+    run_unlock(backup_profile, dry_run=True)
+
+    assert calls == []
+
+
+def test_run_backup_unlock_when_unlock_enabled(
+    backup_profile: Profile,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """run_backup() runs restic unlock before backup when profile.unlock is True."""
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], **kwargs: object) -> MagicMock:
+        calls.append(list(args))
+        return MagicMock(returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    backup_profile.unlock = True
+    run_backup(backup_profile)
+
+    unlock_calls = [c for c in calls if "unlock" in c]
+    backup_calls = [c for c in calls if "backup" in c]
+    assert len(unlock_calls) >= 1
+    assert len(backup_calls) >= 1
+    unlock_idx = calls.index(unlock_calls[0])
+    backup_idx = calls.index(backup_calls[0])
+    assert unlock_idx < backup_idx
+
+
+def test_run_backup_skips_unlock_when_unlock_disabled(
+    backup_profile: Profile,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """run_backup() does not run restic unlock when profile.unlock is False."""
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], **kwargs: object) -> MagicMock:
+        calls.append(list(args))
+        return MagicMock(returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    backup_profile.unlock = False
+    run_backup(backup_profile)
+
+    unlock_calls = [c for c in calls if "unlock" in c]
+    assert len(unlock_calls) == 0
+
+
+def test_run_backup_continues_when_unlock_fails(
+    backup_profile: Profile,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """run_backup() continues with backup when unlock fails."""
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], **kwargs: object) -> MagicMock:
+        calls.append(list(args))
+        if "unlock" in args:
+            return MagicMock(returncode=1, stdout="", stderr="already locked")
+        return MagicMock(returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    backup_profile.unlock = True
+    run_backup(backup_profile)
+
+    backup_calls = [c for c in calls if "backup" in c]
+    assert len(backup_calls) >= 1
+    assert "continuing with backup" in caplog.text
+
+
+def test_run_retention_unlock_when_unlock_enabled(
+    prune_profile: Profile,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """run_retention() runs restic unlock before retention when profile.unlock is True."""
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], **kwargs: object) -> MagicMock:
+        calls.append(list(args))
+        return MagicMock(returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    prune_profile.unlock = True
+    run_retention(prune_profile)
+
+    unlock_calls = [c for c in calls if "unlock" in c]
+    forget_calls = [c for c in calls if "forget" in c]
+    assert len(unlock_calls) >= 1
+    assert len(forget_calls) >= 1
+    unlock_idx = calls.index(unlock_calls[0])
+    forget_idx = calls.index(forget_calls[0])
+    assert unlock_idx < forget_idx
