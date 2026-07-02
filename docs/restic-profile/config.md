@@ -17,6 +17,7 @@ For the Ansible-side field lookup, see [profiles.md](profiles.md).
 restic_binary = ""
 no_cache = false
 retry_lock = ""
+unlock = false
 ```
 
 Credentials and URLs are defined under a top-level `[repositories]` section to keep them DRY and independent of backup/retention operations. Each profile in `[profiles.<name>]` references its repository using the `repository_ref` key.

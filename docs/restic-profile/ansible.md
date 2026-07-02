@@ -78,6 +78,7 @@ means running it as `root`.
 | `restic_profile_systemd_io_scheduling_priority` | `""` | Global `IOSchedulingPriority=` value for generated services and `restic-profile-scope` |
 | `restic_profile_no_cache`           | `false`   | Global `--no-cache` toggle                            |
 | `restic_profile_retry_lock`         | `""`     | Global `--retry-lock` duration; opt-in because unsupported builds fail directly |
+| `restic_profile_unlock`             | `false`   | Global `unlock` toggle; when true, run `restic unlock` before backup/retention to remove stale locks |
 
 When you configure `retry_lock`, `no_cache`, or `one_file_system`,
 `restic-profile` passes those flags through unchanged. If the selected restic
@@ -121,6 +122,7 @@ Role-only profile fields include:
 - `nice`: override the generated service unit's `Nice=`
 - `io_scheduling_class`: override the generated service unit's `IOSchedulingClass=`
 - `io_scheduling_priority`: override the generated service unit's `IOSchedulingPriority=`
+- `unlock`: auto-run `restic unlock` before backup/retention to clear stale locks
 
 ### Fixed role paths
 

@@ -6,11 +6,13 @@
 restic-profile [--config PATH] [--dry-run] PROFILE
 restic-profile --check [--config PATH]
 restic-profile --list [--config PATH]
+restic-profile --unlock [--config PATH] [--dry-run] PROFILE
 ```
 
 - `PROFILE` runs the configured workflow for one profile.
 - `--check` parses and validates the TOML config.
 - `--list` prints a profile summary including workflow type and schedule.
+- `--unlock` removes stale restic locks for the named profile's repository.
 - `--dry-run` only affects `PROFILE` execution; it logs commands without running them.
 
 ## restic-profile PROFILE
@@ -70,6 +72,17 @@ restic-profile --list
 # myapp        type=backup+retention  schedule=hourly  repository=rest:https://backup.example.com/
 # prune_myapp  type=retention         schedule=daily   repository=rest:https://backup.example.com/server
 ```
+
+## restic-profile --unlock
+
+Remove stale repository locks left by interrupted restic processes.
+
+```shell
+restic-profile --unlock myapp
+restic-profile --unlock myapp --dry-run
+```
+
+Uses `restic unlock` (without `--remove-all`) so only locks older than 30 minutes are removed; active backups from concurrently running processes remain protected.
 
 ## Shell Autocompletion
 
