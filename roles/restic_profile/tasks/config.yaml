@@ -113,12 +113,6 @@
     label: "{{ _repository_item.key }}"
   no_log: true
 
-- name: remove legacy interactive profile selector
-  become: true
-  ansible.builtin.file:
-    path: "{{ restic_profile_config_dir }}/restic-profile-select.bash"
-    state: absent
-
 - name: deploy restic-profile.toml
   become: true
   ansible.builtin.template:

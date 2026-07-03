@@ -78,18 +78,6 @@
     path: "{{ restic_profile_scope_helper_path }}"
     state: absent
 
-- name: remove legacy restic.sh helper
-  become: true
-  ansible.builtin.file:
-    path: /usr/local/bin/restic.sh
-    state: absent
-
-- name: remove legacy interactive profile selector
-  become: true
-  ansible.builtin.file:
-    path: "{{ restic_profile_config_dir }}/restic-profile-select.bash"
-    state: absent
-
 - name: remove managed hook directory
   become: true
   ansible.builtin.file:
