@@ -17,6 +17,9 @@
 #   google_project_id                 str   ""       required for gs: repositories
 #   google_application_credentials    str   ""       service-account JSON path
 #   google_access_token               str   ""       short-lived OAuth2 token; takes precedence
+#   env                               dict  {}       runtime environment variables injected at subprocess level
+#                                                      (e.g. HTTP_PROXY, RESTIC_COMPRESSION); never written
+#                                                      to systemd service files, effective only when restic runs
 restic_profile_repositories: {}
 
 # dict: profile definitions. Each key becomes the profile name, which is used as
@@ -37,6 +40,9 @@ restic_profile_repositories: {}
 #   restic_binary                     str   <global> override the global restic binary for this profile
 #   no_cache                          bool  <global> override the global --no-cache toggle for this profile
 #   retry_lock                        str   <global> override the global --retry-lock duration for this profile
+#
+#   notify_ref                        str   ""       reference to a notifier in restic_profile_notify_configs;
+#                                                      leave empty to skip IM notifications for this profile
 #
 #   cpu_quota                         str   <global> CPUQuota= value for the generated service unit
 #   nice                              int   <global> Nice= value for the generated service unit
@@ -141,3 +147,43 @@ restic_profile_restic_go_build_static: true
 
 # str: linker flags passed when go_build builds restic
 restic_profile_restic_go_build_ldflags: "-s -w"
+
+# dict: notify channel definitions. Each key is a unique notifier name
+#   (resolved via a profile's notify_ref).
+# Supported types and their required fields:
+#   telegram  → token, chat_id  (optional: timeout, send_kwargs, env.*, top_files_limit)
+#   dingtalk  → access_token    (optional: secret, env.*, top_files_limit)
+#   wechat    → key             (optional: env.*, top_files_limit)
+#
+# Optional per-notifier fields:
+#   top_files_limit  int   3     max largest files and diff-changed files in success
+#                                 notification; set 0 to disable both
+#   env              dict  {}    environment variables injected at send time
+#                                 (e.g. HTTP_PROXY, HTTPS_PROXY — only affects
+#                                 the notification HTTP call, never restic)
+#   send_kwargs      dict  {}    telegram only: extra kwargs forwarded to
+#                                 send_rich_message (e.g. disable_notification)
+restic_profile_notify_configs: {}
+
+# str: optional directory for custom Jinja2 notify report templates.
+#      When set, restic-profile searches this directory for notify_success.md.j2
+#      and notify_failure.md.j2 before falling back to the built-in defaults.
+#      Use with restic_profile_notify_templates to deploy custom templates.
+restic_profile_notify_template_dir: ""
+
+# dict: custom notify report template content (Jinja2).
+#   Keys: "notify_success.md.j2", "notify_failure.md.j2"
+#   When non-empty, the role writes these to restic_profile_notify_template_dir
+#   and sets [global].template_dir in restic-profile.toml.
+#   Template variables available for success:
+#     host, profile, short_id, time, tags, paths,
+#     data_added, duration, largest_files (list of (name, size) tuples),
+#     diff_has_parent (bool),
+#     diff_changed_files, diff_added_files, diff_added_dirs,
+#     diff_added_bytes, diff_removed_files, diff_removed_dirs,
+#     diff_removed_bytes (human-readable strings),
+#     diff_changes (list of (modifier, path) tuples),
+#     repo_snapshots_count, repo_total_size
+#   Template variables available for failure:
+#     host, profile, time, error
+restic_profile_notify_templates: {}

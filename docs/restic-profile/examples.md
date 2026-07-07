@@ -48,6 +48,14 @@ restic_profile_repositories:
     rest_password: "{{ vault_restic_home_alice_rest_password }}"
     cacert: "/etc/ssl/certs/backup-ca.pem"
 
+    # Optional: runtime env vars injected at restic subprocess level.
+    # Use for proxy settings or restic-native env vars like RESTIC_COMPRESSION.
+    # These are NOT written to systemd service files — runtime only.
+    env:
+      HTTP_PROXY: "http://192.168.0.254:7890"
+      HTTPS_PROXY: "http://192.168.0.254:7890"
+      RESTIC_COMPRESSION: "max"
+
 restic_profile_profiles:
   home-alice:
     repository_ref: r1

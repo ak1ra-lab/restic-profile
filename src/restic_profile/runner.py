@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import pwd
+import re
 import shutil
 import socket
 import subprocess
@@ -10,6 +11,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from .config import Profile
+from .notify import try_notify_failure, try_notify_success
 
 logger = logging.getLogger(__name__)
 
@@ -347,6 +349,17 @@ def _run(
             stdout=result.stdout or "",
             stderr=result.stderr or "",
         )
+    if capture_output:
+        stdout: str | None = result.stdout if isinstance(result.stdout, str) else None
+        stderr: str | None = result.stderr if isinstance(result.stderr, str) else None
+        if stdout:
+            stdout = stdout.rstrip()
+        if stderr:
+            stderr = stderr.rstrip()
+        if stdout:
+            logger.info("%s", stdout)
+        if stderr:
+            logger.info("%s", stderr)
     return result
 
 
@@ -382,7 +395,9 @@ def run_hooks(
     return True
 
 
-def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
+def run_backup(
+    profile: Profile, *, dry_run: bool = False, force_notify: bool = False
+) -> None:
     """Run ``restic backup`` and any configured inline retention for *profile*.
 
     Parameters
@@ -392,6 +407,9 @@ def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
     dry_run:
         When *True* log the actions that would be taken without executing
         any subprocess calls.
+    force_notify:
+        When *True* and *dry_run* is also *True*, still send the notification
+        at the end. Without *dry_run* this flag has no effect.
     """
     if not profile.is_backup or not profile.backup:
         raise ValueError(
@@ -487,12 +505,20 @@ def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
 
     backup_cmd += sources
 
+    _BACKUP_SNAPSHOT_RE = re.compile(r"snapshot ([0-9a-f]+) saved")
+
     backup_failed = False
+    snapshot_id: str | None = None
+    backup_error: _CommandError | None = None
     try:
         if dry_run:
             logger.info("DRY RUN: Would run: %s", " ".join(backup_cmd))
         else:
-            _run(backup_cmd, env)
+            result = _run(backup_cmd, env, capture_output=True)
+            stderr_text = result.stderr
+            if isinstance(stderr_text, str):
+                if m := _BACKUP_SNAPSHOT_RE.search(stderr_text):
+                    snapshot_id = m.group(1)
 
         if profile.retention:
             forget_cmd = _build_forget_command(
@@ -519,17 +545,41 @@ def run_backup(profile: Profile, *, dry_run: bool = False) -> None:
                         logger.info("DRY RUN: Would run: %s", " ".join(prune_cmd))
                     else:
                         _run(prune_cmd, env)
-    except _CommandError:
+    except _CommandError as exc:
         backup_failed = True
+        backup_error = exc
 
     # after: always runs after the backup attempt (success or failure)
     run_hooks(hooks.after, env, hooks.shell, dry_run=dry_run)
 
     if backup_failed:
         run_hooks(hooks.failure, env, hooks.shell, dry_run=dry_run)
+        if profile.resolved_notifier is not None:
+            if dry_run:
+                logger.info(
+                    "DRY RUN: Would send failure notification via %s",
+                    profile.resolved_notifier.type,
+                )
+            else:
+                error_detail = f"exit {backup_error.returncode}" if backup_error else ""
+                try_notify_failure(profile, error_detail)
         raise WorkflowError(f"Profile {profile.name!r}: backup command failed")
 
     run_hooks(hooks.success, env, hooks.shell, dry_run=dry_run)
+    if profile.resolved_notifier is not None:
+        if dry_run and not force_notify:
+            logger.info(
+                "DRY RUN: Would send success notification via %s",
+                profile.resolved_notifier.type,
+            )
+        else:
+            try_notify_success(
+                profile,
+                snapshot_id=snapshot_id,
+                env=env,
+                restic_executable=restic_executable,
+                global_args=global_args,
+            )
 
 
 def run_retention(
@@ -608,10 +658,12 @@ def run_unlock(profile: Profile, *, dry_run: bool = False) -> None:
         _run(unlock_cmd, env)
 
 
-def run_profile(profile: Profile, *, dry_run: bool = False) -> None:
+def run_profile(
+    profile: Profile, *, dry_run: bool = False, force_notify: bool = False
+) -> None:
     """Run the configured workflow for *profile*."""
     if profile.is_backup:
-        run_backup(profile, dry_run=dry_run)
+        run_backup(profile, dry_run=dry_run, force_notify=force_notify)
         return
 
     if profile.runs_retention:

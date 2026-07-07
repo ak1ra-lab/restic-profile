@@ -105,3 +105,44 @@
     loop_var: _profile_item
     label: "{{ _profile_item.key | default('<empty>') }}"
   no_log: true
+
+- name: assert restic_profile_notify_configs is a dict
+  when: restic_profile_notify_configs | length > 0
+  ansible.builtin.assert:
+    that:
+      - restic_profile_notify_configs is mapping
+    fail_msg: >-
+      restic_profile_notify_configs must be a dict (mapping), got:
+      {{ restic_profile_notify_configs | ansible.builtin.type_debug }}
+
+- name: assert each notify config has a valid type
+  when: restic_profile_notify_configs | length > 0
+  ansible.builtin.assert:
+    that:
+      - _ncfg_item.value is mapping
+      - _ncfg_item.value.type | default('') in ['telegram', 'dingtalk', 'wechat']
+    fail_msg: >-
+      Notify config {{ _ncfg_item.key }}: must be a dict (mapping) with a
+      valid 'type' field (telegram, dingtalk, or wechat).
+  loop: "{{ restic_profile_notify_configs | ansible.builtin.dict2items }}"
+  loop_control:
+    loop_var: _ncfg_item
+    label: "{{ _ncfg_item.key | default('<empty>') }}"
+  no_log: true
+
+- name: assert notify_ref on profiles references an existing notify config
+  when:
+    - _pitem_nf.value.enabled | default(true) | ansible.builtin.bool
+    - _pitem_nf.value.notify_ref is defined
+    - _pitem_nf.value.notify_ref | default('') != ''
+  ansible.builtin.assert:
+    that:
+      - _pitem_nf.value.notify_ref in restic_profile_notify_configs
+    fail_msg: >-
+      Profile {{ _pitem_nf.key }}: notify_ref '{{ _pitem_nf.value.notify_ref }}'
+      not found in restic_profile_notify_configs.
+  loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
+  loop_control:
+    loop_var: _pitem_nf
+    label: "{{ _pitem_nf.key | default('<empty>') }}"
+  no_log: true

@@ -39,6 +39,7 @@ Backup-capable profiles use this lifecycle:
 6. If the profile also has retention config, run inline retention: `restic forget --host <host> --tag <tag> ...` with optional `--prune`, or standalone `restic prune` for prune-only retention.
 7. Run `after` hooks.
 8. Run `success` hooks on success, or `failure` hooks on error.
+9. On success, send IM notification to the configured notifier (DingTalk / Telegram / WeChat) with snapshot stats, diff against parent snapshot, repository stats, and top-N largest files.
 
 If `prevalidate` or `before` fails, backup and `after` are skipped; only `failure`
 hooks run.

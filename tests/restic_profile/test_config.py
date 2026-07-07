@@ -774,11 +774,11 @@ password = "secret"
 type = "telegram"
 token = "123:abc"
 chat_id = 123456
+top_files_limit = 5
 
 [profiles.myapp]
 repository_ref = "r1"
 notify_ref = "tg"
-notify_top_files_limit = 5
 [profiles.myapp.backup]
 sources = ["/data"]
 """
@@ -791,10 +791,10 @@ sources = ["/data"]
     assert isinstance(result.notify["tg"], TelegramNotifyConfig)
     assert result.notify["tg"].token == "123:abc"
     assert result.notify["tg"].chat_id == 123456
+    assert result.notify["tg"].top_files_limit == 5
 
     profile = result.profiles["myapp"]
     assert profile.notify_ref == "tg"
-    assert profile.notify_top_files_limit == 5
     assert profile.resolved_notifier is not None
     assert isinstance(profile.resolved_notifier, TelegramNotifyConfig)
 
@@ -818,7 +818,6 @@ sources = ["/data"]
 
     profile = result.profiles["myapp"]
     assert profile.notify_ref == ""
-    assert profile.notify_top_files_limit == 3
     assert profile.resolved_notifier is None
 
 

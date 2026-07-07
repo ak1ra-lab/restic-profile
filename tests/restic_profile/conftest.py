@@ -193,6 +193,11 @@ def _dict_to_toml(config: dict) -> str:
                         lines.append(f"\n[profiles.{p_name}.{k}]")
                         for sub_k, sub_v in v.items():
                             lines.append(_toml_kv(sub_k, sub_v))
+        elif section == "notify":
+            for n_name, n_cfg in value.items():
+                lines.append(f"\n[notify.{n_name}]")
+                for k, v in n_cfg.items():
+                    lines.append(_toml_kv(k, v))
         elif isinstance(value, dict):
             lines.append(f"\n[{section}]")
             for k, v in value.items():

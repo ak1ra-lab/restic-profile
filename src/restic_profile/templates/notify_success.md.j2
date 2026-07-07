@@ -1,0 +1,45 @@
+### restic Backup Succeeded
+
+- Host: {{ host }}
+- Snapshot: {{ short_id }} @ {{ time }}
+- Profile: {{ profile }}
+{% if tags %}
+- Tags: {{ tags | join(', ') }}
+{% endif %}
+{% if paths %}
+- Paths: {{ paths | join(', ') }}
+{% endif %}
+
+### Statistics
+
+- Data Added: {{ data_added }}
+{% if duration %}
+- Duration: {{ duration }}
+{% endif %}
+{% if diff_has_parent %}
+
+### Changes
+
+> +{{ diff_added_files }} files, +{{ diff_added_dirs }} dirs ({{ diff_added_bytes }})   -{{ diff_removed_files }} files, -{{ diff_removed_dirs }} dirs ({{ diff_removed_bytes }})
+{% if diff_changed_files %}
+>  {{ diff_changed_files }} changed
+{% endif %}
+{% if diff_changes %}
+
+{% for modifier, path in diff_changes %}
+- `{{ modifier }}` {{ path }}
+{% endfor %}
+{% endif %}
+{% endif %}
+
+### Repository
+
+- {{ repo_snapshots_count }} snapshots  ·  {{ repo_total_size }}
+{% if largest_files %}
+
+### Largest Files
+
+{% for name, size in largest_files %}
+- {{ name }}  {{ size }}
+{% endfor %}
+{% endif %}

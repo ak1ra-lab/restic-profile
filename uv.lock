@@ -114,17 +114,19 @@ wheels = [
 
 [[package]]
 name = "chaos-utils"
-version = "0.4.2"
+version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "argcomplete" },
     { name = "chardet" },
     { name = "httpx2" },
     { name = "pathspec" },
+    { name = "pydantic" },
     { name = "pyzstd" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e2/16/df0dcfc943d6ba36c27b4bd953360ba678869bdd618c1c6fcb5cbb9cd3f8/chaos_utils-0.4.2.tar.gz", hash = "sha256:b3c69bcd7a14a87c28e8864a0a39f62550bb8e60815185bc4ce83a410dd10c68", size = 67239, upload-time = "2026-06-10T06:29:48.809Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/36/27/c34e03460c275b4f66256aa16148b42c011ec494341073fe2d4d22f3e012/chaos_utils-0.5.0.tar.gz", hash = "sha256:9908361019ad008c4892770c3f40812283919268619e3a98a73dc7d291a93707", size = 95509, upload-time = "2026-07-03T08:35:10.609Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bb/8e/6b95186698f2f6e4ca89c7cb6e2853337a740302b64a142e8bf919eee644/chaos_utils-0.4.2-py3-none-any.whl", hash = "sha256:0b0d72738e14d1aeef8339a27610eb4c922cbf81691af72c1506ee8d46899047", size = 19296, upload-time = "2026-06-10T06:29:47.731Z" },
+    { url = "https://files.pythonhosted.org/packages/b2/33/53dacf1a15e2b6cfdfa20bf91bf06234e881320d6247c4360713a6fc68b5/chaos_utils-0.5.0-py3-none-any.whl", hash = "sha256:c2b136e67179e9a0ffc9f2eef27780e116d3173c41d753044ef7ab6f93e593cb", size = 21473, upload-time = "2026-07-03T08:35:09.329Z" },
 ]
 
 [[package]]
@@ -915,6 +917,7 @@ source = { editable = "." }
 dependencies = [
     { name = "argcomplete" },
     { name = "chaos-utils" },
+    { name = "jinja2" },
     { name = "pydantic" },
 ]
 
@@ -944,7 +947,8 @@ tests = [
 [package.metadata]
 requires-dist = [
     { name = "argcomplete", specifier = ">=3.7.0" },
-    { name = "chaos-utils", specifier = ">=0.4.1" },
+    { name = "chaos-utils", specifier = ">=0.5.0" },
+    { name = "jinja2", specifier = ">=3.1.2" },
     { name = "pydantic", specifier = ">=2.13.3" },
 ]
 

@@ -39,12 +39,14 @@ restic_profile_profiles:
 | Group | Fields | Notes |
 | --- | --- | --- |
 | Required | `repository_ref` | Required for every enabled profile; resolves credentials from `restic_profile_repositories` |
-| Repository config | `repository`, `password`, `rest_username`, `rest_password`, `cacert`, `aws_default_region`, `aws_access_key_id`, `aws_secret_access_key`, `google_project_id`, `google_application_credentials`, `google_access_token` | Defined under `restic_profile_repositories` keys; S3-compatible endpoints are encoded directly in `repository`, and `aws_default_region` stays optional |
+| Repository config | `repository`, `password`, `rest_username`, `rest_password`, `cacert`, `aws_default_region`, `aws_access_key_id`, `aws_secret_access_key`, `google_project_id`, `google_application_credentials`, `google_access_token`, `env` | Defined under `restic_profile_repositories` keys; `env` is an optional `dict[str,str]` of runtime environment variables injected at subprocess level (e.g. `HTTP_PROXY`, `RESTIC_COMPRESSION`) |
 | Profile-level schedule/runtime | `tag`, `on_calendar`, `randomized_delay_sec`, `restic_binary`, `no_cache`, `retry_lock`, `unlock` | `on_calendar` and `randomized_delay_sec` drive the single per-profile timer; runtime fields can inherit from global settings |
 | Backup sub-table | `sources`, `exclude_patterns`, `one_file_system` | Inside profile `backup` block |
 | Exclude file helper | `exclude_file_content` | Role-only input inside `backup` block; writes `/etc/restic-profile/restic-profile-<name>.exclude` and then renders `exclude_file = ...` into TOML |
 | Retention sub-table | `keep_last`, `keep_hourly`, `keep_daily`, `keep_weekly`, `keep_monthly`, `keep_yearly`, `prune`, `forget_current_host` | Inside profile `retention` block; at least one `keep_*` value or `prune: true` is required |
 | Hooks | `hooks.shell`, `hooks.prevalidate`, `hooks.before`, `hooks.after`, `hooks.failure`, `hooks.success` | Rendered under `[profiles.<name>.hooks]` |
+| Notify | `notify_ref` | `notify_ref` resolves to a `[notify.<name>]` channel; `top_files_limit` (on the notifier) caps largest files and diff changed files in the notification |
+| Template override | `template_dir` | Set under `[global]`; directory containing custom `notify_success.md.j2` / `notify_failure.md.j2` |
 | Hook file helpers | `hooks.<phase>_scripts`, `hooks.<phase>_templates` | Role-only inputs; copy or render controller-side files to `/etc/restic-profile/hooks.d/restic-profile-<name>.<phase>-<seq>.sh` and append those paths to `hooks.<phase>` |
 | Role-only lifecycle | `enabled`, `timer_enabled`, `cpu_quota`, `nice`, `io_scheduling_class`, `io_scheduling_priority` | Never rendered into TOML; used only when generating systemd units |
 

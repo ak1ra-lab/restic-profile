@@ -113,6 +113,35 @@
     label: "{{ _repository_item.key }}"
   no_log: true
 
+- name: ensure notify templates directory exists
+  become: true
+  ansible.builtin.file:
+    path: "{{ restic_profile_notify_template_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when:
+    - restic_profile_notify_template_dir | default('') | length > 0
+    - restic_profile_notify_templates | default({}) | length > 0
+
+- name: deploy notify report templates
+  become: true
+  ansible.builtin.copy:
+    content: "{{ _template_item.value }}"
+    dest: "{{ restic_profile_notify_template_dir }}/{{ _template_item.key }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ restic_profile_notify_templates | dict2items }}"
+  loop_control:
+    loop_var: _template_item
+    label: "{{ _template_item.key }}"
+  when:
+    - restic_profile_notify_template_dir | default('') | length > 0
+    - restic_profile_notify_templates | default({}) | length > 0
+  no_log: true
+
 - name: deploy restic-profile.toml
   become: true
   ansible.builtin.template:

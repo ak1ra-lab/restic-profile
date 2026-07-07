@@ -20,6 +20,7 @@ restic_binary = "{{ restic_profile_restic_binary | default('') }}"
 no_cache = {{ restic_profile_no_cache | default(false) | ansible.builtin.bool | lower }}
 retry_lock = "{{ restic_profile_retry_lock }}"
 unlock = {{ restic_profile_unlock | default(false) | ansible.builtin.bool | lower }}
+template_dir = "{{ restic_profile_notify_template_dir }}"
 
 # --- Repositories ---
 {% for rname, r in restic_profile_repositories.items() %}
@@ -45,6 +46,47 @@ aws_secret_access_key = "{{ r.aws_secret_access_key }}"
 google_project_id              = "{{ r.google_project_id }}"
 google_application_credentials = "{{ r.google_application_credentials | default('') }}"
 google_access_token            = "{{ r.google_access_token | default('') }}"
+{% endif %}
+{% if r.env is defined and r.env | length > 0 %}
+[repositories.{{ rname }}.env]
+{%   for _ek, _ev in r.env.items() %}
+{{ _ek }} = "{{ _ev }}"
+{%   endfor %}
+{% endif %}
+
+{% endfor %}
+# --- Notify Channels ---
+{% for nname, ncfg in restic_profile_notify_configs.items() %}
+[notify.{{ nname }}]
+type = "{{ ncfg.type }}"
+{% if ncfg.top_files_limit is defined %}
+top_files_limit = {{ ncfg.top_files_limit | int }}
+{% endif %}
+{% if ncfg.type == "telegram" %}
+token = "{{ ncfg.token }}"
+chat_id = {{ ncfg.chat_id | int if ncfg.chat_id is number else ncfg.chat_id | tojson }}
+{% if ncfg.timeout is defined %}
+timeout = {{ ncfg.timeout }}
+{% endif %}
+{% if ncfg.send_kwargs is defined and ncfg.send_kwargs | length > 0 %}
+[notify.{{ nname }}.send_kwargs]
+{%   for _sk, _sv in ncfg.send_kwargs.items() %}
+{{ _sk }} = {{ _sv | tojson }}
+{%   endfor %}
+{% endif %}
+{% elif ncfg.type == "dingtalk" %}
+access_token = "{{ ncfg.access_token }}"
+{% if ncfg.secret | default('') != '' %}
+secret = "{{ ncfg.secret }}"
+{% endif %}
+{% elif ncfg.type == "wechat" %}
+key = "{{ ncfg.key }}"
+{% endif %}
+{% if ncfg.env is defined and ncfg.env | length > 0 %}
+[notify.{{ nname }}.env]
+{%   for _ek, _ev in ncfg.env.items() %}
+{{ _ek }} = "{{ _ev }}"
+{%   endfor %}
 {% endif %}
 
 {% endfor %}
@@ -74,6 +116,9 @@ retry_lock = "{{ profile.retry_lock }}"
 {% endif %}
 {% if profile.unlock is defined %}
 unlock = {{ profile.unlock | ansible.builtin.bool | lower }}
+{% endif %}
+{% if profile.notify_ref is defined and (profile.notify_ref | default('')) != '' %}
+notify_ref = "{{ profile.notify_ref }}"
 {% endif %}
 
 {% if profile.backup is defined %}

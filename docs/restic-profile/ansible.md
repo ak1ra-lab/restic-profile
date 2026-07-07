@@ -79,6 +79,9 @@ means running it as `root`.
 | `restic_profile_no_cache`           | `false`   | Global `--no-cache` toggle                            |
 | `restic_profile_retry_lock`         | `""`     | Global `--retry-lock` duration; opt-in because unsupported builds fail directly |
 | `restic_profile_unlock`             | `false`   | Global `unlock` toggle; when true, run `restic unlock` before backup/retention to remove stale locks |
+| `restic_profile_notify_configs`     | `{}`      | `[notify.<name>]` channel definitions mapping to Telegram/DingTalk/WeChat configs via `chaos_utils.notify` |
+| `restic_profile_notify_template_dir` | `""`     | Directory for custom Jinja2 notify templates; when set, `[global].template_dir` is rendered to TOML |
+| `restic_profile_notify_templates`   | `{}`      | Dict of `notify_success.md.j2` / `notify_failure.md.j2` content; the role writes these to `notify_template_dir` |
 
 When you configure `retry_lock`, `no_cache`, or `one_file_system`,
 `restic-profile` passes those flags through unchanged. If the selected restic

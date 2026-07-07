@@ -2,8 +2,19 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from chaos_utils.notify.dingtalk import DingTalkBot
+from chaos_utils.notify.telegram import TelegramBot
+from chaos_utils.notify.wechat import WechatWorkBot
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    field_validator,
+    model_validator,
+)
 
 
 class HooksConfig(BaseModel):
@@ -28,6 +39,59 @@ class HooksConfig(BaseModel):
     after: list[str] = Field(default_factory=list)
     failure: list[str] = Field(default_factory=list)
     success: list[str] = Field(default_factory=list)
+
+
+class _BaseNotifyConfig(BaseModel):
+    """Shared base for per-platform notifier configs."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    env: dict[str, str] = Field(
+        default_factory=dict,
+        description="Environment variables injected before sending (e.g. HTTP_PROXY).",
+    )
+    top_files_limit: int = Field(
+        default=3,
+        ge=0,
+        description="Max largest files and diff-changed files in success notification.",
+    )
+
+
+class DingTalkNotifyConfig(_BaseNotifyConfig):
+    type: Literal["dingtalk"] = "dingtalk"
+    access_token: str = Field(min_length=1)
+    secret: str = ""
+
+    def build(self) -> DingTalkBot:
+        return DingTalkBot(access_token=self.access_token, secret=self.secret)
+
+
+class TelegramNotifyConfig(_BaseNotifyConfig):
+    type: Literal["telegram"] = "telegram"
+    token: str = Field(min_length=1)
+    chat_id: int | str
+    timeout: float = Field(default=5.0, ge=0.1)
+    send_kwargs: dict[str, object] = Field(
+        default_factory=dict,
+        description="Extra keyword arguments forwarded to send_rich_message / send_message.",
+    )
+
+    def build(self) -> TelegramBot:
+        return TelegramBot(token=self.token, chat_id=self.chat_id, timeout=self.timeout)
+
+
+class WechatWorkNotifyConfig(_BaseNotifyConfig):
+    type: Literal["wechat"] = "wechat"
+    key: str = Field(min_length=1)
+
+    def build(self) -> WechatWorkBot:
+        return WechatWorkBot(key=self.key)
+
+
+NotifierConfig = Annotated[
+    DingTalkNotifyConfig | TelegramNotifyConfig | WechatWorkNotifyConfig,
+    Field(discriminator="type"),
+]
 
 
 class Repository(BaseModel):
@@ -129,12 +193,17 @@ class Profile(BaseModel):
     # Hooks
     hooks: HooksConfig = Field(default_factory=HooksConfig)
 
+    # Notify
+    notify_ref: str = ""
+
     # Sub-task blocks
     backup: BackupConfig | None = None
     retention: RetentionConfig | None = None
 
-    # Transient runtime resolved repository
+    # Transient runtime resolved state
     resolved_repository: Repository | None = None
+    resolved_notifier: NotifierConfig | None = None
+    resolved_template_dir: str = ""
 
     @model_validator(mode="after")
     def _validate_and_set_defaults(self) -> "Profile":
@@ -176,6 +245,8 @@ class ResticProfileConfig(BaseModel):
 
     repositories: dict[str, Repository] = Field(default_factory=dict)
     profiles: dict[str, Profile] = Field(default_factory=dict)
+    notify: dict[str, NotifierConfig] = Field(default_factory=dict)
+    template_dir: str = ""
 
 
 def load_config(path: Path) -> ResticProfileConfig:
@@ -199,6 +270,7 @@ def load_config(path: Path) -> ResticProfileConfig:
     global_no_cache: bool = bool(global_section.get("no_cache", False))
     global_retry_lock: str = str(global_section.get("retry_lock", ""))
     global_unlock: bool = bool(global_section.get("unlock", False))
+    global_template_dir: str = str(global_section.get("template_dir", ""))
 
     # Parse repositories
     repositories_data: dict[str, Repository] = {}
@@ -206,6 +278,15 @@ def load_config(path: Path) -> ResticProfileConfig:
         entry = dict(rdata)
         entry.setdefault("name", rname)
         repositories_data[rname] = Repository.model_validate(entry)
+
+    # Parse notify channels
+    notify_adapter: TypeAdapter[dict[str, NotifierConfig]] = TypeAdapter(
+        dict[str, NotifierConfig]
+    )
+    notify_data: dict[str, NotifierConfig] = {}
+    raw_notify: dict[str, Any] = data.get("notify", {})  # type: ignore[assignment]
+    if raw_notify:
+        notify_data = notify_adapter.validate_python(raw_notify)
 
     # Parse profiles
     profiles_data: dict[str, Profile] = {}
@@ -232,6 +313,22 @@ def load_config(path: Path) -> ResticProfileConfig:
             )
 
         profile.resolved_repository = repositories_data[profile.repository_ref]
+
+        # Resolve notify reference
+        if profile.notify_ref:
+            if profile.notify_ref not in notify_data:
+                raise ValueError(
+                    f"Profile {profile.name!r}: referenced notifier {profile.notify_ref!r} not found"
+                )
+            profile.resolved_notifier = notify_data[profile.notify_ref]
+
+        profile.resolved_template_dir = global_template_dir
+
         profiles_data[pname] = profile
 
-    return ResticProfileConfig(repositories=repositories_data, profiles=profiles_data)
+    return ResticProfileConfig(
+        repositories=repositories_data,
+        profiles=profiles_data,
+        notify=notify_data,
+        template_dir=global_template_dir,
+    )

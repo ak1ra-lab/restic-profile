@@ -18,9 +18,12 @@ restic_binary = ""
 no_cache = false
 retry_lock = ""
 unlock = false
+template_dir = ""
 ```
 
 Credentials and URLs are defined under a top-level `[repositories]` section to keep them DRY and independent of backup/retention operations. Each profile in `[profiles.<name>]` references its repository using the `repository_ref` key.
+
+Notification channels (DingTalk, Telegram, WeChat) are configured in separate `[notify.*]` TOML sections and referenced from profiles via `notify_ref`. Each channel has a `type` identifying the provider, plus provider-specific fields such as `token`, `secret`, `chat_id`, `corp_id`, and an optional `env` block for HTTP proxy settings.
 
 Backup and retention data stay grouped in nested sub-tables, but schedule now
 lives at the profile root:
@@ -59,6 +62,9 @@ Additional runtime fields worth knowing:
 - `one_file_system`: optional per-profile backup boolean that adds `--one-file-system` to `restic backup`
 - `forget_current_host`: defaults to `true` for retention blocks; set it to `false` only when one retention job should manage snapshots created by other hosts
 - `retention`: a retention block is actionable when at least one `keep_*` value is non-zero or `prune = true`; prune-only profiles run standalone `restic prune`
+- `notify_ref`: references a `[notify.<name>]` channel; on success sends snapshot stats, diff against the parent snapshot, repository stats, and top-N largest files; on failure sends the error message
+- `template_dir`: optional path for custom Jinja2 notification templates (`notify_success.md.j2` / `notify_failure.md.j2`)
+- `[repositories.<name>.env]`: optional `dict[str, str]` of runtime environment variables injected into the restic subprocess (e.g. `HTTP_PROXY`, `RESTIC_COMPRESSION`). Applied after built-in credential fields, so a key like `RESTIC_REPOSITORY` intentionally overrides the repository URL. Conflicts are logged at DEBUG level. Mirrors the existing `[notify.<name>.env]` pattern for runtime-only injection — never written to systemd service units.
 - Unsupported configured flags are not masked by `restic-profile`; the selected restic binary fails directly so operators can either upgrade restic, clear the flag, or pin `restic_binary` to a newer build
 - Missing `sources` paths are warned about and skipped at runtime; if no configured source still exists, `restic-profile <profile>` aborts before invoking `restic`
 
@@ -78,6 +84,10 @@ password = "vault-redacted"
 rest_username = "alice"
 rest_password = "vault-redacted"
 cacert = "/etc/ssl/certs/backup-ca.pem"
+
+[repositories.r1.env]
+HTTP_PROXY = "http://192.168.0.254:7890"
+RESTIC_COMPRESSION = "max"
 
 [profiles.home-alice]
 repository_ref = "r1"
@@ -129,6 +139,43 @@ success = [
 If a phase mixes inline commands with file-backed hooks, TOML order stays stable:
 inline `hooks.<phase>` entries first, then `hooks.<phase>_scripts`, then
 `hooks.<phase>_templates`.
+
+## Notification
+
+```toml
+[notify.telegram_bot]
+type = "telegram"
+token = "..."
+chat_id = 123456789
+top_files_limit = 5
+
+[notify.dingtalk_bot]
+type = "dingtalk"
+token = "..."
+secret = "..."
+
+[notify.wechat_bot]
+type = "wechat"
+key = "..."
+
+[{notify.telegram_bot.env}]
+HTTPS_PROXY = "http://proxy:8080"
+
+[profiles.home-alice]
+notify_ref = "telegram_bot"
+```
+
+Each `[notify.<name>]` block requires a `type` matching one of `telegram`, `dingtalk`, or `wechat`. Profiles reference the channel via `notify_ref`. Set `top_files_limit` (default 3, min 0) to control how many largest files and diff-changed files appear in the success notification.
+
+On backup success the notification includes:
+
+- Snapshot ID, timestamp, tags, paths
+- Data added and duration
+- Diff summary (added/removed files, dirs, bytes) plus changed files list (limited by `top_files_limit`)
+- Repository stats (total snapshot count and size)
+- Top-N largest files (also limited by `top_files_limit`)
+
+The built-in Jinja2 template is `notify_success.md.j2`; on failure it sends `notify_failure.md.j2`. Set `[global].template_dir` to a directory containing custom templates to override the built-in defaults.
 
 ## Per-profile Systemd Timers and Services
 

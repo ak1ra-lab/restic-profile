@@ -55,25 +55,30 @@ def _profile_type(profile) -> str:
     return "+".join(sub_types)
 
 
-def _cmd_run(args: argparse.Namespace) -> None:
+def _cmd_run(
+    args: argparse.Namespace,
+    *,
+    is_dry_run: bool = False,
+    force_notify: bool = False,
+) -> None:
     """Run the configured workflow for a named profile."""
     profile = _resolve_profile_or_exit(args)
     logger.info("Running configured workflow for profile: %s", args.profile_name)
 
     try:
-        run_profile(profile, dry_run=args.dry_run)
+        run_profile(profile, dry_run=is_dry_run, force_notify=force_notify)
     except (ValueError, WorkflowError) as exc:
         logger.error("%s", exc)
         sys.exit(1)
 
 
-def _cmd_unlock(args: argparse.Namespace) -> None:
+def _cmd_unlock(args: argparse.Namespace, *, is_dry_run: bool = False) -> None:
     """Run restic unlock on the named profile's repository."""
     profile = _resolve_profile_or_exit(args)
     logger.info("Unlocking repository for profile: %s", args.profile_name)
 
     try:
-        run_unlock(profile, dry_run=args.dry_run)
+        run_unlock(profile, dry_run=is_dry_run)
     except (ValueError, WorkflowError) as exc:
         logger.error("%s", exc)
         sys.exit(1)
@@ -151,9 +156,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "-n",
         "--dry-run",
-        action="store_true",
-        default=False,
-        help="Log actions without executing (no-op)",
+        nargs="?",
+        const="all",
+        default=None,
+        choices=["all", "notify"],
+        help="Dry-run mode: 'all' logs actions without executing (no-op), "
+        "'notify' dry-runs everything but sends the success notification for "
+        "real. When -n is used without a value, defaults to 'all'.",
     )
 
     return parser
@@ -181,10 +190,15 @@ def main(argv: list[str] | None = None) -> None:
     if args.unlock:
         if not args.profile_name:
             parser.error("--unlock requires a profile name")
-        _cmd_unlock(args)
+        _cmd_unlock(args, is_dry_run=args.dry_run == "all")
         return
 
     if not args.profile_name:
-        parser.error("provide a profile name or one of --list/--check/--unlock")
+        parser.error(
+            "provide a profile name or one of --list/--check/--unlock/--dry-run"
+        )
 
-    _cmd_run(args)
+    if args.dry_run == "notify":
+        _cmd_run(args, is_dry_run=True, force_notify=True)
+    else:
+        _cmd_run(args, is_dry_run=args.dry_run == "all")

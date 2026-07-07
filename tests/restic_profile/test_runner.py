@@ -7,7 +7,7 @@ import os
 import pwd
 import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -417,7 +417,9 @@ def test_run_profile_dispatches_mixed_profiles_to_backup(
 
     monkeypatch.setattr(
         "restic_profile.runner.run_backup",
-        lambda profile, *, dry_run=False: calls.append((profile.name, dry_run)),
+        lambda profile, *, dry_run=False, force_notify=False: calls.append(
+            (profile.name, dry_run)
+        ),
     )
     monkeypatch.setattr(
         "restic_profile.runner.run_retention",
@@ -1393,3 +1395,34 @@ def test_run_retention_unlock_when_unlock_enabled(
     unlock_idx = calls.index(unlock_calls[0])
     forget_idx = calls.index(forget_calls[0])
     assert unlock_idx < forget_idx
+
+
+def test_run_backup_force_notify_sends_notification_in_dry_run(
+    backup_profile: Profile,
+) -> None:
+    """When dry_run=True and force_notify=True, notification is still sent."""
+    backup_profile.resolved_notifier = MagicMock()
+    backup_profile.unlock = False
+    backup_profile.retention = None
+
+    with (
+        patch.object(runner_module, "run_hooks", return_value=True),
+        patch.object(runner_module, "run_unlock"),
+        patch.object(runner_module, "try_notify_success") as mock_success,
+    ):
+        runner_module.run_backup(backup_profile, dry_run=True, force_notify=True)
+
+    mock_success.assert_called_once()
+
+
+def test_run_profile_passes_force_notify_to_run_backup(
+    backup_profile: Profile,
+) -> None:
+    """run_profile passes force_notify through to run_backup."""
+    with patch.object(runner_module, "run_backup") as mock_backup:
+        runner_module.run_profile(backup_profile, dry_run=True, force_notify=True)
+
+    mock_backup.assert_called_once()
+    call_kwargs = mock_backup.call_args.kwargs
+    assert call_kwargs["dry_run"] is True
+    assert call_kwargs["force_notify"] is True
