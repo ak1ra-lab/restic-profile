@@ -213,6 +213,39 @@ def test_build_env_repo_env_overrides_existing_value(
     assert "overrides existing value" in caplog.text
 
 
+def test_build_env_injects_profile_env_vars(backup_profile: Profile) -> None:
+    """build_env() injects profile-level env vars into the subprocess environment."""
+    backup_profile.env = {
+        "PGPASSWORD": "db-secret",
+        "PGHOST": "db.example.com",
+    }
+    env = build_env(backup_profile)
+
+    assert env["PGPASSWORD"] == "db-secret"
+    assert env["PGHOST"] == "db.example.com"
+    assert env["RESTIC_REPOSITORY"] == "rest:https://backup.example.com/"
+
+
+def test_build_env_profile_env_overrides_repo_env(
+    backup_profile: Profile, caplog: pytest.LogCaptureFixture
+) -> None:
+    """build_env() allows profile.env to override repo.env values with a debug log."""
+    backup_profile.resolved_repository.env = {
+        "PGPASSWORD": "repo-password",
+        "RESTIC_COMPRESSION": "max",
+    }
+    backup_profile.env = {
+        "PGPASSWORD": "profile-password",
+    }
+    with caplog.at_level(logging.DEBUG, logger="restic_profile.runner"):
+        env = build_env(backup_profile)
+
+    assert env["PGPASSWORD"] == "profile-password"
+    assert env["RESTIC_COMPRESSION"] == "max"
+    assert "Profile" in caplog.text
+    assert "overrides existing value" in caplog.text
+
+
 # build_global_args
 
 

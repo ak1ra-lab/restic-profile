@@ -180,6 +180,8 @@ class Profile(BaseModel):
 
     name: str = ""
     repository_ref: str = ""
+    notify_ref: str = ""
+
     tag: str = ""  # snapshot tag; defaults to profile name
     on_calendar: str = ""
     randomized_delay_sec: str = ""
@@ -190,11 +192,9 @@ class Profile(BaseModel):
     retry_lock: str = ""
     unlock: bool = False
 
-    # Hooks
+    # Runtime env & hooks
+    env: dict[str, str] = Field(default_factory=dict)
     hooks: HooksConfig = Field(default_factory=HooksConfig)
-
-    # Notify
-    notify_ref: str = ""
 
     # Sub-task blocks
     backup: BackupConfig | None = None

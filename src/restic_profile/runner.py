@@ -101,6 +101,18 @@ def build_env(profile: Profile) -> dict[str, str]:
                 )
             env[k] = v
 
+    if profile.env:
+        for k, v in profile.env.items():
+            if k in env:
+                logger.debug(
+                    "Profile %r env %r=%r overrides existing value %r",
+                    profile.name,
+                    k,
+                    v,
+                    env[k],
+                )
+            env[k] = v
+
     return env
 
 

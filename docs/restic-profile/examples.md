@@ -66,9 +66,16 @@ restic_profile_repositories:
 restic_profile_profiles:
   myapp:
     repository_ref: r1
+    notify_ref: tg
     on_calendar: "daily"
     randomized_delay_sec: "30min"
-    notify_ref: tg
+    hooks:
+      prevalidate:
+        - "test -d /srv/myapp || exit 1"
+      before:
+        - "systemctl stop myapp.service"
+      after:
+        - "systemctl start myapp.service"
     backup:
       sources:
         - /srv/myapp
@@ -83,13 +90,6 @@ restic_profile_profiles:
       keep_daily: 14
       keep_weekly: 8
       keep_monthly: 12
-    hooks:
-      prevalidate:
-        - "test -d /srv/myapp || exit 1"
-      before:
-        - "systemctl stop myapp.service"
-      after:
-        - "systemctl start myapp.service"
 ```
 
 Backup runs first, then inline retention (host-scoped). On success, Telegram gets
@@ -136,17 +136,23 @@ restic_profile_repositories:
     aws_default_region: "us-east-1"
     aws_access_key_id: "{{ vault_s3_access_key }}"
     aws_secret_access_key: "{{ vault_s3_secret_key }}"
-    env:
-      PGHOST: "{{ vault_postgres_host }}"
-      PGPORT: "{{ vault_postgres_port | default('5432') }}"
-      PGUSER: "{{ vault_postgres_user }}"
-      PGPASSWORD: "{{ vault_postgres_password }}"
 
 restic_profile_profiles:
   postgres:
     repository_ref: s3
     on_calendar: "03:15"
     randomized_delay_sec: "5min"
+    env:
+      PGHOST: "{{ vault_postgres_host }}"
+      PGPORT: "{{ vault_postgres_port | default('5432') }}"
+      PGUSER: "{{ vault_postgres_user }}"
+      PGPASSWORD: "{{ vault_postgres_password }}"
+    hooks:
+      before:
+        - "mkdir -p /var/backups/postgresql"
+        - "pg_dumpall -U postgres > /var/backups/postgresql/all.sql"
+      success:
+        - "rm -f /var/backups/postgresql/all.sql"
     backup:
       sources:
         - /var/backups/postgresql
@@ -154,12 +160,6 @@ restic_profile_profiles:
       keep_last: 7
       keep_daily: 7
       keep_weekly: 4
-    hooks:
-      before:
-        - "mkdir -p /var/backups/postgresql"
-        - "pg_dumpall -U postgres > /var/backups/postgresql/all.sql"
-      success:
-        - "rm -f /var/backups/postgresql/all.sql"
 ```
 
 The S3 endpoint is embedded in the `repository` URL (`s3:https://host/bucket`).
@@ -180,27 +180,27 @@ restic_profile_repositories:
     password: "{{ vault_mysql_restic_password }}"
     rest_username: "mysql"
     rest_password: "{{ vault_rest_server_mysql_password }}"
-    env:
-      MYSQL_HOST: "{{ vault_mysql_host }}"
-      MYSQL_TCP_PORT: "{{ vault_mysql_port | default('3306') }}"
-      MYSQL_PWD: "{{ vault_mysql_root_password }}"
 
 restic_profile_profiles:
   mysql:
     repository_ref: r1
     on_calendar: "daily"
     randomized_delay_sec: "10min"
-    backup:
-      sources:
-        - /var/backups/mysql
-    retention:
-      keep_daily: 7
+    env:
+      MYSQL_HOST: "{{ vault_mysql_host }}"
+      MYSQL_TCP_PORT: "{{ vault_mysql_port | default('3306') }}"
+      MYSQL_PWD: "{{ vault_mysql_root_password }}"
     hooks:
       before:
         - "mkdir -p /var/backups/mysql"
         - "mysqldump --all-databases --single-transaction -u root > /var/backups/mysql/all.sql"
       success:
         - "rm -f /var/backups/mysql/all.sql"
+    backup:
+      sources:
+        - /var/backups/mysql
+    retention:
+      keep_daily: 7
 ```
 
 `--single-transaction` ensures a consistent snapshot for InnoDB tables without
@@ -221,17 +221,17 @@ restic_profile_profiles:
   sqlite:
     repository_ref: r1
     on_calendar: "daily"
-    backup:
-      sources:
-        - /var/backups/sqlite
-    retention:
-      keep_daily: 7
     hooks:
       before:
         - "mkdir -p /var/backups/sqlite"
         - "sqlite3 /srv/myapp/data.db '.backup /var/backups/sqlite/data.db'"
       success:
         - "rm -f /var/backups/sqlite/data.db"
+    backup:
+      sources:
+        - /var/backups/sqlite
+    retention:
+      keep_daily: 7
 ```
 
 SQLite's `.backup` command creates a consistent snapshot using the online
@@ -252,15 +252,15 @@ restic_profile_profiles:
     repository_ref: r1
     on_calendar: "daily"
     randomized_delay_sec: "15min"
+    hooks:
+      before:
+        - "/usr/bin/gitlab-rake gitlab:backup:create"
     backup:
       sources:
         - /var/opt/gitlab/backups
     retention:
       keep_daily: 7
       keep_weekly: 4
-    hooks:
-      before:
-        - "/usr/bin/gitlab-rake gitlab:backup:create"
 ```
 
 `gitlab:backup:create` writes timestamped tarballs to

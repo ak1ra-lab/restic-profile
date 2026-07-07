@@ -28,6 +28,9 @@ restic_profile_repositories: {}
 #   repository_ref                    str   reference to a repository in restic_profile_repositories
 #
 # Optional nested fields per profile:
+#   notify_ref                        str   ""       reference to a notifier in restic_profile_notify_configs;
+#                                                      leave empty to skip IM notifications for this profile
+#
 #   enabled                           bool  true     skip deploying this profile when false
 #   timer_enabled                     bool  true     deploy units but stop/disable the timer when false
 #   tag                               str   <name>   snapshot tag; defaults to the profile name
@@ -40,14 +43,24 @@ restic_profile_repositories: {}
 #   restic_binary                     str   <global> override the global restic binary for this profile
 #   no_cache                          bool  <global> override the global --no-cache toggle for this profile
 #   retry_lock                        str   <global> override the global --retry-lock duration for this profile
-#
-#   notify_ref                        str   ""       reference to a notifier in restic_profile_notify_configs;
-#                                                      leave empty to skip IM notifications for this profile
+#   unlock                            bool  <global> override the global unlock toggle for this profile
 #
 #   cpu_quota                         str   <global> CPUQuota= value for the generated service unit
 #   nice                              int   <global> Nice= value for the generated service unit
 #   io_scheduling_class               str   <global> IOSchedulingClass= value for the generated service unit
 #   io_scheduling_priority            int   <global> IOSchedulingPriority= value for the generated service unit
+#
+#   env                               dict  {}       runtime environment variables injected at subprocess level;
+#                                                      applied after repository env, so profile env can override
+#                                                      repository env (e.g. PGPASSWORD, MYSQL_PWD for backup hooks)
+#
+#   hooks                             dict  hooks config (rendered under [profiles.<name>.hooks])
+#     shell                           str   "/bin/sh"
+#     prevalidate                     list  []       inline commands before repository checks / auto-init
+#     before                          list  []       inline commands before backup
+#     after                           list  []       inline commands after the backup attempt
+#     failure                         list  []       inline commands when prevalidate/before/backup fails
+#     success                         list  []       inline commands when the full backup flow succeeds
 #
 #   backup                            dict  backup configurations (optional):
 #     sources                         list  []       source paths
@@ -66,14 +79,6 @@ restic_profile_repositories: {}
 #                                                      otherwise add --prune to restic forget
 #     forget_current_host             bool  true     add --host <current host> to restic forget by default;
 #                                                      set false for cross-host retention jobs
-#
-#   hooks                             dict  hooks config (rendered under [profiles.<name>.hooks])
-#     shell                           str   "/bin/sh"
-#     prevalidate                     list  []       inline commands before repository checks / auto-init
-#     before                          list  []       inline commands before backup
-#     after                           list  []       inline commands after the backup attempt
-#     failure                         list  []       inline commands when prevalidate/before/backup fails
-#     success                         list  []       inline commands when the full backup flow succeeds
 #
 restic_profile_profiles: {}
 

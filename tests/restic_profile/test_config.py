@@ -995,3 +995,53 @@ sources = ["/data"]
     repo = result.repositories["r1"]
 
     assert repo.env == {}
+
+
+def test_profile_env_parsed_from_toml(tmp_path: Path) -> None:
+    """Profile.env is parsed as a dict[str, str] from a nested TOML table."""
+    toml = """\
+[repositories.r1]
+repository = "rest:https://backup.example.com/"
+password = "secret"
+
+[profiles.myapp]
+repository_ref = "r1"
+
+[profiles.myapp.env]
+PGPASSWORD = "db-secret"
+PGHOST = "db.example.com"
+
+[profiles.myapp.backup]
+sources = ["/data"]
+"""
+    toml_file = tmp_path / "profile-env.toml"
+    toml_file.write_text(toml, encoding="utf-8")
+
+    result = load_config(toml_file)
+    profile = result.profiles["myapp"]
+
+    assert profile.env == {
+        "PGPASSWORD": "db-secret",
+        "PGHOST": "db.example.com",
+    }
+
+
+def test_profile_env_defaults_to_empty(tmp_path: Path) -> None:
+    """Profile.env defaults to an empty dict when not specified in TOML."""
+    toml = """\
+[repositories.r1]
+repository = "rest:https://backup.example.com/"
+password = "secret"
+
+[profiles.myapp]
+repository_ref = "r1"
+[profiles.myapp.backup]
+sources = ["/data"]
+"""
+    toml_file = tmp_path / "no-profile-env.toml"
+    toml_file.write_text(toml, encoding="utf-8")
+
+    result = load_config(toml_file)
+    profile = result.profiles["myapp"]
+
+    assert profile.env == {}

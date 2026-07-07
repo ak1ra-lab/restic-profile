@@ -120,6 +120,12 @@ unlock = {{ profile.unlock | ansible.builtin.bool | lower }}
 {% if profile.notify_ref is defined and (profile.notify_ref | default('')) != '' %}
 notify_ref = "{{ profile.notify_ref }}"
 {% endif %}
+{% if profile.env is defined and profile.env | length > 0 %}
+[profiles.{{ pname }}.env]
+{%   for _ek, _ev in profile.env.items() %}
+{{ _ek }} = "{{ _ev }}"
+{%   endfor %}
+{% endif %}
 
 {% if profile.backup is defined %}
 [profiles.{{ pname }}.backup]

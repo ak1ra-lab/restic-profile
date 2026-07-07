@@ -61,7 +61,7 @@ google_access_token = ""                 # short-lived OAuth2 token;
 # [repositories.rest.env]
 # HTTP_PROXY = "http://proxy:8080"
 # RESTIC_COMPRESSION = "max"
-# PGPASSWORD = "..."        # pass DB credentials to pg_dump/mysqldump hooks
+# RESTIC_PACK_SIZE = "64"
 
 # ---- Notifications (optional) ----
 # Supported: telegram, dingtalk, wechat.
@@ -94,6 +94,7 @@ key = "replace-me"      # webhook key from WeChat Work bot
 # --- Example A: backup only ---
 [profiles.home]
 repository_ref = "rest"         # must match a key in [repositories]
+notify_ref = ""                 # reference a [notify.*] channel, e.g. "telegram"
 tag = "home"                    # snapshot tag; defaults to profile name
 on_calendar = "hourly"          # systemd OnCalendar=; empty disables the timer
 randomized_delay_sec = "15min"  # systemd RandomizedDelaySec=
@@ -105,19 +106,11 @@ no_cache = false                # override global --no-cache
 retry_lock = ""                 # override global --retry-lock
 unlock = false                  # override global unlock
 
-notify_ref = ""                 # reference a [notify.*] channel, e.g. "telegram"
-
-[profiles.home.backup]
-sources = [
-    "/home/alice",
-    "/home/alice/Documents",
-]
-exclude_patterns = [
-    "*.tmp",
-    ".cache/",
-]
-exclude_file = ""               # path to an --exclude-file (one pattern per line)
-one_file_system = false         # add --one-file-system to restic backup
+# Optional: profile-level runtime env vars (injected after repository env;
+# useful for hook credentials: PGPASSWORD, MYSQL_PWD, etc.)
+# [profiles.home.env]
+# PGPASSWORD = "..."
+# MYSQL_PWD = "..."
 
 [profiles.home.hooks]
 shell = "/bin/sh"               # each command runs as: shell -c <command>
@@ -138,12 +131,29 @@ success = [
     # "/etc/restic-profile/hooks.d/my-success-script.sh",
 ]
 
+[profiles.home.backup]
+sources = [
+    "/home/alice",
+    "/home/alice/Documents",
+]
+exclude_patterns = [
+    "*.tmp",
+    ".cache/",
+]
+exclude_file = ""               # path to an --exclude-file (one pattern per line)
+one_file_system = false         # add --one-file-system to restic backup
+
 # --- Example B: backup + inline retention ---
 [profiles.server]
 repository_ref = "rest"
+notify_ref = "telegram"
 on_calendar = "daily"
 randomized_delay_sec = "30min"
-notify_ref = "telegram"
+
+[profiles.server.hooks]
+shell = "/bin/bash"
+before = ["systemctl stop myapp.service"]
+after = ["systemctl start myapp.service"]
 
 [profiles.server.backup]
 sources = ["/srv/myapp", "/etc/myapp"]
@@ -159,11 +169,6 @@ keep_yearly = 0
 prune = false               # add --prune to `restic forget`
 forget_current_host = true  # hard-coded to true for inline retention;
                             # only used by standalone retention profiles
-
-[profiles.server.hooks]
-shell = "/bin/bash"
-before = ["systemctl stop myapp.service"]
-after = ["systemctl start myapp.service"]
 
 # --- Example C: standalone retention (no backup block) ---
 # Use this on the repository host when backup clients write to a shared repo.
