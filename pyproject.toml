@@ -1,5 +1,5 @@
 [project]
-name = "restic-profile"
+name = "restic-profile-cli"
 dynamic = ["version"]
 description = "Profile-based restic wrapper with Ansible deployment support"
 authors = [{ name = "ak1ra", email = "git@ak1ra.xyz" }]

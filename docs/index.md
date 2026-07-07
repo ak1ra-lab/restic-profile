@@ -11,7 +11,7 @@ Profile-based [restic](https://restic.net/) wrapper — Python CLI + Ansible rol
 ### Standalone CLI (no Ansible, no root, no systemd)
 
 ```shell
-uv tool install restic-profile
+uv tool install restic-profile-cli
 ```
 
 Then write your config — start from the [TOML config template](restic-profile/toml-config.md) —
