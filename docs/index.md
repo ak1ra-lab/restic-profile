@@ -1,71 +1,68 @@
 # restic-profile
 
-`restic-profile` is a profile-based `restic` wrapper for Linux backup automation.
+Profile-based [restic](https://restic.net/) wrapper — Python CLI + Ansible roles.
 
-This repository also carries the `restic_rest_server` Ansible role so client
-profiles and server-side storage automation live together.
+- **restic-profile** CLI: reads a TOML config, runs `restic backup` / `forget` / `prune` with hooks and IM notifications.
+- **restic_profile** Ansible role: deploys the CLI, renders TOML config, manages one systemd timer per profile.
+- **restic_rest_server** Ansible role: deploys a [rest-server](https://github.com/restic/rest-server) instance for remote backup storage.
 
-The recommended deployment path is the Ansible role `roles/restic_profile`, which
-installs the CLI, renders TOML config, and manages one systemd service+timer
-pair per enabled profile.
+## Install
 
-## Configuration flow
-
-```text
-host_vars / group_vars
-  -> restic_profile_profiles
-  -> roles/restic_profile
-      |- /etc/restic-profile/restic-profile.toml
-      |- /etc/restic-profile/restic-profile-<repository-ref>.env
-      |- /etc/restic-profile/restic-profile-<name>.exclude
-      |- restic-profile-<name>.service
-      `- restic-profile-<name>.timer
-  -> restic-profile CLI
-  -> restic
-```
-
-The key split in the documentation is:
-
-- `examples.md` shows the Ansible input you write in `host_vars`.
-- `config.md` shows the TOML output that the CLI actually reads.
-- `profiles.md` is the lookup page for a specific `restic_profile_profiles` field.
-
-The CLI itself is stateless and delegates to `restic`:
-
-- `restic-profile PROFILE`
-- `restic-profile --check`
-- `restic-profile --list`
-
-When a profile contains both `backup` and `retention`, `restic-profile PROFILE`
-runs backup first and then inline retention. Retention-only profiles run
-standalone `forget`/`prune` through the same entrypoint.
-
-Credentials are passed to `restic` via environment variables only.
-
-## Start here
-
-- First deployment with the role: [restic-profile/examples.md](restic-profile/examples.md)
-- Looking up `restic_profile_profiles` fields: [restic-profile/profiles.md](restic-profile/profiles.md)
-- Inspecting generated TOML: [restic-profile/config.md](restic-profile/config.md)
-- Understanding CLI behavior: [restic-profile/cli.md](restic-profile/cli.md)
-- Role behavior, validation, and security notes: [restic-profile/ansible.md](restic-profile/ansible.md)
-- Backup server deployment: [restic-rest-server/index.md](restic-rest-server/index.md)
-- Backup server examples: [restic-rest-server/examples.md](restic-rest-server/examples.md)
-
-## Quick install
-
-`restic-profile` is published as its own package:
+### Standalone CLI (no Ansible, no root, no systemd)
 
 ```shell
 uv tool install restic-profile
-# or in this repository
-just sync
 ```
 
-The role installs into `/var/lib/restic-profile/venv` and installs `restic`
-from APT. It also exposes `/usr/local/bin/restic-profile` as a stable CLI entry
-point on the managed host and renders one
-`/etc/restic-profile/restic-profile-<repository-ref>.env` file per referenced
-repository for direct shell sourcing before raw `restic` commands. The role
-does not modify user shell startup files; see `docs/restic-profile/ansible.md`
-for the recommended workflow.
+Then write your config — start from the [TOML config template](restic-profile/toml-config.md) —
+and run interactively:
+
+```shell
+restic-profile -c /path/to/my.toml --check
+restic-profile -c /path/to/my.toml myprofile
+restic-profile -c /path/to/my.toml myprofile -n
+```
+
+No systemd timers are involved; you call the CLI yourself or wrap it in cron.
+
+### Ansible deployment
+
+This repo is an Ansible collection. Clone it under the standard namespace layout:
+
+```shell
+mkdir -p collections/ansible_collections/ak1ra_lab
+cd collections/ansible_collections/ak1ra_lab
+git clone https://github.com/ak1ra-lab/restic-profile.git restic_profile
+```
+
+The role depends on the **ak1ra_lab.general.pyproject_install** role. Install it
+alongside:
+
+```shell
+cd collections/ansible_collections/ak1ra_lab
+git clone https://github.com/ak1ra-lab/ansible-collection-general.git general
+```
+
+Or install dependencies via `ansible-galaxy`:
+
+```shell
+ansible-galaxy collection install -r requirements.yml
+```
+
+The bundled `ansible.cfg` needs the repo exactly 4 directory levels deep
+(`collections/ansible_collections/ak1ra_lab/restic_profile/ansible.cfg`). If
+your checkout path differs, adjust `collections_path` in `ansible.cfg`.
+
+Now pick an example from [restic-profile examples](restic-profile/examples.md)
+and fill in your host_vars.
+
+## Pages
+
+| You want to...                              | Start here                                            |
+| ------------------------------------------- | ----------------------------------------------------- |
+| Deploy backup profiles with Ansible         | [Ansible examples](restic-profile/examples.md)        |
+| Write a TOML config for use without Ansible | [TOML config template](restic-profile/toml-config.md) |
+| Understand CLI flags                        | [CLI reference](restic-profile/cli.md)                |
+| Deploy a backup server (rest-server)        | [restic-rest-server](restic-rest-server/index.md)     |
+
+See `roles/restic_profile/defaults/main.yaml` for all role variables and their defaults.

@@ -12,16 +12,12 @@ dev_addr = "0.0.0.0:8000"
 nav = [
     { "Home" = "index.md" },
     { "restic-profile" = [
-        { "Examples" = "restic-profile/examples.md" },
-        { "With Ansible" = "restic-profile/ansible.md" },
-        { "Config" = "restic-profile/config.md" },
-        { "CLI" = "restic-profile/cli.md" },
-        { "Profiles Reference" = "restic-profile/profiles.md" },
+        { "Ansible examples" = "restic-profile/examples.md" },
+        { "TOML config template" = "restic-profile/toml-config.md" },
+        { "CLI reference" = "restic-profile/cli.md" },
     ] },
     { "restic-rest-server" = [
         { "Overview" = "restic-rest-server/index.md" },
-        { "Examples" = "restic-rest-server/examples.md" },
-        { "With Ansible" = "restic-rest-server/ansible.md" },
     ] },
 ]
 

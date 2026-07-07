@@ -1,62 +1,90 @@
 # restic-rest-server
 
-`restic-rest-server` is the official HTTP backend for
-[restic](https://restic.net/). It exposes a repository over HTTP(S), allowing
-restic clients to back up to a central server using the `rest:` URL scheme.
+Ansible role to deploy [rest-server](https://github.com/restic/rest-server) — the
+REST backend for restic repositories. Manages binary installation, systemd
+service, and htpasswd-based authentication.
 
-The recommended deployment path in this repository is the
-`restic_rest_server` Ansible role. It manages the daemon, the htpasswd file,
-and the environment file consumed by the service.
+See `roles/restic_rest_server/defaults/main.yaml` for all variables.
 
-## Configuration flow
+## Minimal playbook
 
-```text
-host_vars / group_vars
-  -> restic_rest_server_* vars
-  -> roles/restic_rest_server
-      |- /etc/default/restic-rest-server
-      |- /etc/restic-rest-server/users.htpasswd
-      `- restic-rest-server.service
-  -> optional reverse proxy / TLS termination
-  -> restic clients (rest: URL) or standalone restic-profile on the same host
+```yaml
+---
+- name: deploy restic-rest-server
+  hosts: backup_servers
+  gather_facts: false
+  become: true
+  tasks:
+    - ansible.builtin.import_role:
+        name: ak1ra_lab.restic_profile.restic_rest_server
 ```
 
-## How it works
+## Example 1: basic append-only server
 
-```text
-restic client (backup host)
-  RESTIC_REPOSITORY="rest:https://backup.example.com/"
-  RESTIC_REST_USERNAME="alice"
-  RESTIC_REST_PASSWORD="secret"
-        |
-        |  HTTPS (HTTP Basic Auth)
-        v
-restic-rest-server (storage host)
-  --path        /srv/restic
-  --listen      :8000
-  --append-only
-  --private-repos
-  --htpasswd-file /etc/restic-rest-server/users.htpasswd
-        |
-        `- /srv/restic/
-              `- alice/
-                    `- myapp/
+```yaml
+restic_rest_server_listen: ":8000"
+restic_rest_server_backup_dir: /srv/restic
+restic_rest_server_append_only: true
+restic_rest_server_private_repos: true
+
+restic_rest_server_htpasswd_users:
+  - name: alice
+    password: "{{ vault_alice_password }}"
+  - name: bob
+    password: "{{ vault_bob_password }}"
 ```
 
-With `--append-only`, clients can create snapshots but cannot run `forget` or
-`prune`. A separate retention-only profile managed by the standalone
-`restic-profile` project on the same host can perform server-side retention by
-accessing the repository directly on the local filesystem.
+Backup clients connect to `https://backup.example.com:8000/alice/<repo-name>`.
 
-## Start here
+## Example 2: go_build on a Debian 12 host
 
-- Inventory and host examples: [examples.md](examples.md)
-- Role behavior, binary detection, and operational notes: [ansible.md](ansible.md)
+```yaml
+restic_rest_server_binary_install_source: go_build
+restic_rest_server_binary_install_path: /usr/local/bin/restic-rest-server
+restic_rest_server_listen: ":8000"
+restic_rest_server_backup_dir: /srv/restic
+```
 
-## Packaging note
+Use `go_build` when the distro package isn't available (e.g. Debian 12).
+On Debian 13+ the package is available via `apt`.
 
-`restic-rest-server` is packaged in Debian starting from Debian 13 (trixie).
-On earlier releases, set `restic_rest_server_binary_install_source: go_build`
-to build and distribute a static binary, or place an existing binary at the
-configured `restic_rest_server_binary_install_path`. The role detects both the
-APT-managed path and the configured local path automatically.
+## Retention on the repository host
+
+When `append_only: true`, clients can create snapshots but cannot run `forget` or
+`prune`. Deploy a retention-only profile with the `restic_profile` role on the
+same host, pointing at the local repository path:
+
+```yaml
+# On the backup server, in addition to restic_rest_server:
+restic_profile_repositories:
+  r1:
+    repository: "/srv/restic/alice/myapp"
+    password: "{{ vault_alice_restic_password }}"
+
+restic_profile_profiles:
+  alice-myapp-retention:
+    repository_ref: r1
+    tag: "myapp"
+    on_calendar: "daily"
+    retention:
+      forget_current_host: false
+      prune: true
+      keep_daily: 14
+      keep_weekly: 8
+      keep_monthly: 12
+```
+
+## Key variables
+
+| Variable                                   | Default                                    | Notes                            |
+| ------------------------------------------ | ------------------------------------------ | -------------------------------- |
+| `restic_rest_server_listen`                | `":8012"`                                  | Listen address                   |
+| `restic_rest_server_backup_dir`            | `"/srv/restic"`                            | Storage root                     |
+| `restic_rest_server_append_only`           | `true`                                     | Disallow forget/prune via REST   |
+| `restic_rest_server_private_repos`         | `true`                                     | Subdirectories are private repos |
+| `restic_rest_server_htpasswd_file`         | `"/etc/restic-rest-server/users.htpasswd"` |                                  |
+| `restic_rest_server_binary_install_source` | `"apt"`                                    | `apt` / `go_build` / `existing`  |
+| `restic_rest_server_htpasswd_crypt_scheme` | `"bcrypt"`                                 | Strongly recommended             |
+
+Htpasswd users require `python3-passlib` + `python3-bcrypt` on the managed node
+(installed automatically by the role).

@@ -1,124 +1,53 @@
-# restic-profile CLI reference
-
-## Command shapes
+# CLI reference
 
 ```text
-restic-profile [--config PATH] [--dry-run] PROFILE
-restic-profile --check [--config PATH]
-restic-profile --list [--config PATH]
-restic-profile --unlock [--config PATH] [--dry-run] PROFILE
+restic-profile [-c PATH] [-n [{all,notify}]] PROFILE
+restic-profile -C [-c PATH]          # --check
+restic-profile -l [-c PATH]          # --list
+restic-profile -U [-c PATH] [-n] PROFILE  # --unlock
 ```
 
-- `PROFILE` runs the configured workflow for one profile.
-- `--check` parses and validates the TOML config.
-- `--list` prints a profile summary including workflow type and schedule.
-- `--unlock` removes stale restic locks for the named profile's repository.
-- `--dry-run` only affects `PROFILE` execution; it logs commands without running them.
+| Flag                       | Alias        | Purpose                                                                                             |
+| -------------------------- | ------------ | --------------------------------------------------------------------------------------------------- |
+| `--config PATH`            | `-c`         | Config file (default: `/etc/restic-profile/restic-profile.toml`)                                    |
+| `--check`                  | `-C`         | Parse and validate the config, then exit                                                            |
+| `--list`                   | `-l`         | Print profile table (name, type, schedule, repository)                                              |
+| `--unlock PROFILE`         | `-U`         | Remove stale restic locks for the profile's repository                                              |
+| `--dry-run [{all,notify}]` | `-n`         | `all` (default): log without executing. `notify`: dry-run subprocesses but send a real notification |
+| `PROFILE`                  | (positional) | Profile name in the config to execute                                                               |
 
-## restic-profile PROFILE
+`--check`, `--list`, and `--unlock` are mutually exclusive. Combining a profile
+name with any of them is rejected.
 
 ```shell
+# Run a profile
 restic-profile myapp
-restic-profile myapp --dry-run
-restic-profile myapp --config /path/to/custom.toml
+restic-profile myapp -n                    # dry-run all
+restic-profile myapp -n notify             # dry-run + real notification
+restic-profile myapp -c /path/to/custom.toml
+
+# Validate config
+restic-profile -C
+restic-profile -C -c /path/to/custom.toml
+
+# List profiles
+restic-profile -l
+
+# Remove stale locks
+restic-profile -U myapp
+restic-profile -U myapp -n
 ```
 
-Execution depends on the profile shape:
-
-- Backup-only profile: run `restic backup`.
-- Retention-only profile: run `restic forget` and optional `--prune`, or standalone `restic prune` for prune-only retention.
-- Backup+retention profile: run backup first, then inline retention after a successful backup.
-
-Backup-capable profiles use this lifecycle:
-
-1. Run `prevalidate` hooks.
-2. For local repositories, ensure the path exists.
-3. Auto-init repository (`restic cat config` then optional `restic init`).
-4. Run `before` hooks.
-5. Run `restic backup --host <host> --tag <tag> ...`.
-6. If the profile also has retention config, run inline retention: `restic forget --host <host> --tag <tag> ...` with optional `--prune`, or standalone `restic prune` for prune-only retention.
-7. Run `after` hooks.
-8. Run `success` hooks on success, or `failure` hooks on error.
-9. On success, send IM notification to the configured notifier (DingTalk / Telegram / WeChat) with snapshot stats, diff against parent snapshot, repository stats, and top-N largest files.
-
-If `prevalidate` or `before` fails, backup and `after` are skipped; only `failure`
-hooks run.
-
-Retention-only profiles skip the backup hook lifecycle and execute standalone
-retention directly.
-
-## restic-profile --check
-
-Parse and validate TOML config.
-
-```shell
-restic-profile --check
-restic-profile --check --config /etc/restic-profile/restic-profile.toml
-```
-
-Checks:
-
-- Every profile has a valid `repository_ref` pointing to a configured top-level repository.
-- Every referenced repository has non-empty `repository` and `password`.
-- Every profile has at least one of `backup` or `retention` configured.
-- Every profile with a `backup` section has a non-empty `sources` list.
-- Every profile with a `retention` section has at least one actionable retention setting: one or more non-zero `keep_*` fields and/or `prune: true`.
-
-## restic-profile --list
-
-Print profile summary.
-
-```shell
-restic-profile --list
-# myapp        type=backup+retention  schedule=hourly  repository=rest:https://backup.example.com/
-# prune_myapp  type=retention         schedule=daily   repository=rest:https://backup.example.com/server
-```
-
-## restic-profile --unlock
-
-Remove stale repository locks left by interrupted restic processes.
-
-```shell
-restic-profile --unlock myapp
-restic-profile --unlock myapp --dry-run
-```
-
-Uses `restic unlock` (without `--remove-all`) so only locks older than 30 minutes are removed; active backups from concurrently running processes remain protected.
-
-## Shell Autocompletion
-
-`restic-profile` supports automatic tab-completion of flags and profile names via `argcomplete`.
-
-### One-time Setup
-
-Ensure you have `argcomplete` installed (it is installed automatically as a dependency of `restic-profile`).
-
-#### Bash
-
-To activate autocompletion dynamically in your current Bash session, run:
+## Shell completion
 
 ```bash
-eval "$(register-python-argcomplete restic-profile)"
-```
-
-To make this persistent, append the following line to your `~/.bashrc`:
-
-```bash
-# Enable autocompletion for restic-profile
+# bash — add to ~/.bashrc
 if command -v register-python-argcomplete >/dev/null 2>&1; then
     eval "$(register-python-argcomplete restic-profile)"
 fi
-```
 
-#### Zsh
-
-If you are using Zsh, you must enable `bashcompinit` compatibility first. Add the following to your `~/.zshrc`:
-
-```zsh
-# Enable bash completion compatibility
+# zsh — add to ~/.zshrc (bashcompinit required)
 autoload -U +X bashcompinit && bashcompinit
-
-# Enable autocompletion for restic-profile
 if command -v register-python-argcomplete >/dev/null 2>&1; then
     eval "$(register-python-argcomplete restic-profile)"
 fi
