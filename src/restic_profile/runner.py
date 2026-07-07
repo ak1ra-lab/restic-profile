@@ -9,6 +9,7 @@ import socket
 import subprocess
 from functools import lru_cache
 from pathlib import Path
+from typing import NoReturn
 
 from .config import Profile
 from .notify import try_notify_failure, try_notify_success
@@ -364,6 +365,7 @@ def _run(
 
 
 def run_hooks(
+    stage: str,
     commands: list[str],
     env: dict[str, str],
     shell_path: str = "/bin/sh",
@@ -383,13 +385,16 @@ def run_hooks(
     """
     for command in commands:
         if dry_run:
-            logger.info("DRY RUN: Would run hook: %s", command)
+            logger.info("DRY RUN: Would run %s hook: %s", stage, command)
             continue
-        logger.info("Running hook: %s", command)
+        logger.info("Running %s hook: %s", stage, command)
         result = subprocess.run([shell_path, "-c", command], env=env, check=False)
         if result.returncode != 0:
             logger.error(
-                "Hook command failed (exit %s): %s", result.returncode, command
+                "%s hook command failed (exit %s): %s",
+                stage.capitalize(),
+                result.returncode,
+                command,
             )
             return False
     return True
@@ -420,20 +425,46 @@ def run_backup(
     env = build_env(profile)
     restic_executable, global_args = _restic_command_parts(profile)
 
+    def _fail(msg: str, exc: Exception | None = None) -> NoReturn:
+        run_hooks("failure", hooks.failure, env, hooks.shell, dry_run=dry_run)
+        if profile.resolved_notifier is not None:
+            if dry_run:
+                logger.info(
+                    "DRY RUN: Would send failure notification via %s",
+                    profile.resolved_notifier.type,
+                )
+            else:
+                error_detail = ""
+                if isinstance(exc, _CommandError):
+                    error_detail = f"exit {exc.returncode}"
+                    if exc.stderr:
+                        error_detail += f"\n{exc.stderr}"
+                    elif exc.stdout:
+                        error_detail += f"\n{exc.stdout}"
+                elif exc is not None:
+                    error_detail = str(exc)
+                try_notify_failure(profile, error_detail.strip())
+        raise WorkflowError(msg) from exc
+
     # prevalidate: run before checking / mounting the backup location
-    if not run_hooks(hooks.prevalidate, env, hooks.shell, dry_run=dry_run):
-        run_hooks(hooks.failure, env, hooks.shell, dry_run=dry_run)
-        raise WorkflowError(f"Profile {profile.name!r}: prevalidate hook failed")
+    if not run_hooks(
+        "prevalidate", hooks.prevalidate, env, hooks.shell, dry_run=dry_run
+    ):
+        _fail(f"Profile {profile.name!r}: prevalidate hook failed")
 
     sources = _existing_backup_sources(profile)
     if not sources:
-        raise ValueError(
-            f"Profile {profile.name!r} has no existing sources, cannot run backup"
+        _fail(
+            f"Profile {profile.name!r} has no existing sources, cannot run backup",
+            ValueError("No existing sources"),
         )
 
     repo = profile.resolved_repository
     if not repo:
-        raise ValueError(f"Profile {profile.name!r} has no resolved repository")
+        _fail(
+            f"Profile {profile.name!r} has no resolved repository",
+            ValueError("No resolved repository"),
+        )
     repo_url = repo.repository
     if _is_local_repo(repo_url):
         repo_path = Path(repo_url)
@@ -464,15 +495,13 @@ def run_backup(
                     repo_url,
                 )
             else:
-                run_hooks(hooks.failure, env, hooks.shell, dry_run=dry_run)
-                raise WorkflowError(
-                    f"Profile {profile.name!r}: repository initialization failed"
+                _fail(
+                    f"Profile {profile.name!r}: repository initialization failed", exc
                 )
 
     # before: run after location checks, before the backup starts
-    if not run_hooks(hooks.before, env, hooks.shell, dry_run=dry_run):
-        run_hooks(hooks.failure, env, hooks.shell, dry_run=dry_run)
-        raise WorkflowError(f"Profile {profile.name!r}: before hook failed")
+    if not run_hooks("before", hooks.before, env, hooks.shell, dry_run=dry_run):
+        _fail(f"Profile {profile.name!r}: before hook failed")
 
     if profile.unlock:
         try:
@@ -515,9 +544,9 @@ def run_backup(
             logger.info("DRY RUN: Would run: %s", " ".join(backup_cmd))
         else:
             result = _run(backup_cmd, env, capture_output=True)
-            stderr_text = result.stderr
-            if isinstance(stderr_text, str):
-                if m := _BACKUP_SNAPSHOT_RE.search(stderr_text):
+            stdout_text = result.stdout
+            if isinstance(stdout_text, str):
+                if m := _BACKUP_SNAPSHOT_RE.search(stdout_text):
                     snapshot_id = m.group(1)
 
         if profile.retention:
@@ -533,7 +562,7 @@ def run_backup(
                 if dry_run:
                     logger.info("DRY RUN: Would run: %s", " ".join(forget_cmd))
                 else:
-                    _run(forget_cmd, env)
+                    _run(forget_cmd, env, capture_output=True)
             else:
                 prune_cmd = _build_prune_command(
                     profile,
@@ -544,28 +573,18 @@ def run_backup(
                     if dry_run:
                         logger.info("DRY RUN: Would run: %s", " ".join(prune_cmd))
                     else:
-                        _run(prune_cmd, env)
+                        _run(prune_cmd, env, capture_output=True)
     except _CommandError as exc:
         backup_failed = True
         backup_error = exc
 
     # after: always runs after the backup attempt (success or failure)
-    run_hooks(hooks.after, env, hooks.shell, dry_run=dry_run)
+    run_hooks("after", hooks.after, env, hooks.shell, dry_run=dry_run)
 
     if backup_failed:
-        run_hooks(hooks.failure, env, hooks.shell, dry_run=dry_run)
-        if profile.resolved_notifier is not None:
-            if dry_run:
-                logger.info(
-                    "DRY RUN: Would send failure notification via %s",
-                    profile.resolved_notifier.type,
-                )
-            else:
-                error_detail = f"exit {backup_error.returncode}" if backup_error else ""
-                try_notify_failure(profile, error_detail)
-        raise WorkflowError(f"Profile {profile.name!r}: backup command failed")
+        _fail(f"Profile {profile.name!r}: backup command failed", backup_error)
 
-    run_hooks(hooks.success, env, hooks.shell, dry_run=dry_run)
+    run_hooks("success", hooks.success, env, hooks.shell, dry_run=dry_run)
     if profile.resolved_notifier is not None:
         if dry_run and not force_notify:
             logger.info(
@@ -632,7 +651,7 @@ def run_retention(
         logger.info("DRY RUN: Would run: %s", " ".join(command))
     else:
         try:
-            _run(command, env)
+            _run(command, env, capture_output=True)
         except _CommandError as exc:
             raise WorkflowError(
                 f"Profile {profile.name!r}: retention command failed"
@@ -655,7 +674,7 @@ def run_unlock(profile: Profile, *, dry_run: bool = False) -> None:
     if dry_run:
         logger.info("DRY RUN: Would run: %s", " ".join(unlock_cmd))
     else:
-        _run(unlock_cmd, env)
+        _run(unlock_cmd, env, capture_output=True)
 
 
 def run_profile(

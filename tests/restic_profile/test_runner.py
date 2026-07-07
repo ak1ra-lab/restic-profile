@@ -595,7 +595,7 @@ def test_run_backup_raises_value_error_when_all_sources_missing(
     """run_backup() raises ValueError when every configured source path is missing."""
     backup_profile.backup.sources = [str(tmp_path / "missing")]
 
-    with pytest.raises(ValueError, match="no existing sources"):
+    with pytest.raises(WorkflowError, match="no existing sources"):
         run_backup(backup_profile, dry_run=True)
 
 
@@ -960,7 +960,7 @@ def test_run_hooks_empty_list_returns_true_without_subprocess_calls(
         subprocess, "run", lambda *a, **kw: calls.append(a) or MagicMock(returncode=0)
     )
 
-    result = run_hooks([], env)
+    result = run_hooks("test", [], env)
 
     assert result is True
     assert calls == []
@@ -979,7 +979,7 @@ def test_run_hooks_all_succeed_returns_true(
         subprocess, "run", lambda *a, **kw: calls.append(a) or MagicMock(returncode=0)
     )
 
-    result = run_hooks(["echo a", "echo b"], env, "/bin/sh")
+    result = run_hooks("test", ["echo a", "echo b"], env, "/bin/sh")
 
     assert result is True
     assert len(calls) == 2
@@ -997,7 +997,7 @@ def test_run_hooks_invokes_shell_with_dash_c(
         lambda *a, **kw: calls.append(a[0]) or MagicMock(returncode=0),
     )
 
-    run_hooks(["echo hello"], env, "/bin/bash")
+    run_hooks("test", ["echo hello"], env, "/bin/bash")
 
     assert calls[0] == ["/bin/bash", "-c", "echo hello"]
 
@@ -1014,7 +1014,7 @@ def test_run_hooks_uses_default_shell_when_omitted(
         lambda *a, **kw: calls.append(a[0]) or MagicMock(returncode=0),
     )
 
-    run_hooks(["echo hi"], env)
+    run_hooks("test", ["echo hi"], env)
 
     assert calls[0][0] == "/bin/sh"
 
@@ -1036,7 +1036,7 @@ def test_run_hooks_returns_false_on_first_failure_and_stops(
 
     monkeypatch.setattr(subprocess, "run", fake_run)
 
-    result = run_hooks(["fail cmd", "should not run"], env)
+    result = run_hooks("test", ["fail cmd", "should not run"], env)
 
     assert result is False
     assert len(calls) == 1
@@ -1055,7 +1055,7 @@ def test_run_hooks_dry_run_logs_without_executing(
         subprocess, "run", lambda *a, **kw: calls.append(a) or MagicMock(returncode=0)
     )
 
-    result = run_hooks(["echo x", "echo y"], env, dry_run=True)
+    result = run_hooks("test", ["echo x", "echo y"], env, dry_run=True)
 
     assert result is True
     assert calls == []
