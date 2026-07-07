@@ -67,7 +67,12 @@ def test_load_config_runtime_model_contains_profiles_only(
     """load_config() keeps global defaults as input-only and exposes profiles/repositories at runtime."""
     result = load_config(config_toml_file)
 
-    assert set(result.model_dump().keys()) == {"profiles", "repositories"}
+    assert set(result.model_dump().keys()) == {
+        "profiles",
+        "repositories",
+        "notify",
+        "template_dir",
+    }
 
 
 def test_load_config_empty_profiles_section(tmp_path: Path) -> None:
@@ -754,3 +759,240 @@ def test_hooks_config_supports_multiline_script() -> None:
     hooks = HooksConfig(before=[script])
 
     assert hooks.before[0] == script
+
+
+def test_load_config_with_notify_section(tmp_path: Path) -> None:
+    """load_config() parses [notify.*] entries and resolves notify_ref."""
+    from restic_profile.config import TelegramNotifyConfig
+
+    toml = """\
+[repositories.r1]
+repository = "rest:https://backup.example.com/"
+password = "secret"
+
+[notify.tg]
+type = "telegram"
+token = "123:abc"
+chat_id = 123456
+
+[profiles.myapp]
+repository_ref = "r1"
+notify_ref = "tg"
+notify_top_files_limit = 5
+[profiles.myapp.backup]
+sources = ["/data"]
+"""
+    toml_file = tmp_path / "notify.toml"
+    toml_file.write_text(toml, encoding="utf-8")
+
+    result = load_config(toml_file)
+
+    assert "tg" in result.notify
+    assert isinstance(result.notify["tg"], TelegramNotifyConfig)
+    assert result.notify["tg"].token == "123:abc"
+    assert result.notify["tg"].chat_id == 123456
+
+    profile = result.profiles["myapp"]
+    assert profile.notify_ref == "tg"
+    assert profile.notify_top_files_limit == 5
+    assert profile.resolved_notifier is not None
+    assert isinstance(profile.resolved_notifier, TelegramNotifyConfig)
+
+
+def test_load_config_notify_ref_defaults_to_zero(tmp_path: Path) -> None:
+    """notify_ref is empty by default, resolved_notifier stays None."""
+    toml = """\
+[repositories.r1]
+repository = "rest:https://backup.example.com/"
+password = "secret"
+
+[profiles.myapp]
+repository_ref = "r1"
+[profiles.myapp.backup]
+sources = ["/data"]
+"""
+    toml_file = tmp_path / "no-notify.toml"
+    toml_file.write_text(toml, encoding="utf-8")
+
+    result = load_config(toml_file)
+
+    profile = result.profiles["myapp"]
+    assert profile.notify_ref == ""
+    assert profile.notify_top_files_limit == 3
+    assert profile.resolved_notifier is None
+
+
+def test_load_config_notify_ref_missing_target_raises(tmp_path: Path) -> None:
+    """notify_ref pointing to a missing notify entry raises ValueError."""
+    toml = """\
+[repositories.r1]
+repository = "rest:https://backup.example.com/"
+password = "secret"
+
+[profiles.myapp]
+repository_ref = "r1"
+notify_ref = "nonexistent"
+[profiles.myapp.backup]
+sources = ["/data"]
+"""
+    toml_file = tmp_path / "bad-notify-ref.toml"
+    toml_file.write_text(toml, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="notifier 'nonexistent' not found"):
+        load_config(toml_file)
+
+
+def test_load_config_notify_invalid_type_raises(tmp_path: Path) -> None:
+    """An unknown notify type raises pydantic ValidationError."""
+    toml = """\
+[repositories.r1]
+repository = "rest:https://backup.example.com/"
+password = "secret"
+
+[notify.bad]
+type = "unknown_platform"
+
+[profiles.myapp]
+repository_ref = "r1"
+[profiles.myapp.backup]
+sources = ["/data"]
+"""
+    toml_file = tmp_path / "bad-type.toml"
+    toml_file.write_text(toml, encoding="utf-8")
+
+    with pytest.raises(ValidationError):
+        load_config(toml_file)
+
+
+def test_load_config_empty_notify_section(tmp_path: Path) -> None:
+    """An empty [notify] table produces an empty dict."""
+    toml = """\
+[repositories.r1]
+repository = "rest:https://backup.example.com/"
+password = "secret"
+
+[profiles.myapp]
+repository_ref = "r1"
+[profiles.myapp.backup]
+sources = ["/data"]
+"""
+    toml_file = tmp_path / "no-notify.toml"
+    toml_file.write_text(toml, encoding="utf-8")
+
+    result = load_config(toml_file)
+    assert result.notify == {}
+
+
+def test_load_config_notify_multiple_channels(tmp_path: Path) -> None:
+    """Multiple notify channels are parsed correctly."""
+    toml = """\
+[repositories.r1]
+repository = "rest:https://backup.example.com/"
+password = "secret"
+
+[notify.tg]
+type = "telegram"
+token = "tg-token"
+chat_id = -100
+
+[notify.dd]
+type = "dingtalk"
+access_token = "dd-token"
+
+[profiles.a]
+repository_ref = "r1"
+notify_ref = "dd"
+[profiles.a.backup]
+sources = ["/data"]
+
+[profiles.b]
+repository_ref = "r1"
+notify_ref = "tg"
+[profiles.b.backup]
+sources = ["/data"]
+"""
+    toml_file = tmp_path / "multi.toml"
+    toml_file.write_text(toml, encoding="utf-8")
+
+    result = load_config(toml_file)
+    assert len(result.notify) == 2
+    assert "tg" in result.notify
+    assert "dd" in result.notify
+
+    assert result.profiles["a"].resolved_notifier is not None
+    assert result.profiles["b"].resolved_notifier is not None
+
+
+def test_load_config_telegram_chat_id_int(tmp_path: Path) -> None:
+    """chat_id as an integer is accepted."""
+    toml = """\
+[repositories.r1]
+repository = "rest:https://backup.example.com/"
+password = "secret"
+
+[notify.tg]
+type = "telegram"
+token = "tg-token"
+chat_id = -1001234567890
+
+[profiles.myapp]
+repository_ref = "r1"
+[profiles.myapp.backup]
+sources = ["/data"]
+"""
+    toml_file = tmp_path / "int-chat-id.toml"
+    toml_file.write_text(toml, encoding="utf-8")
+
+    result = load_config(toml_file)
+    assert result.notify["tg"].chat_id == -1001234567890
+
+
+def test_repository_env_parsed_from_toml(tmp_path: Path) -> None:
+    """Repository.env is parsed as a dict[str, str] from a nested TOML table."""
+    toml = """\
+[repositories.r1]
+repository = "rest:https://backup.example.com/"
+password = "secret"
+
+[repositories.r1.env]
+HTTP_PROXY = "http://proxy:7890"
+HTTPS_PROXY = "http://proxy:7890"
+RESTIC_COMPRESSION = "max"
+
+[profiles.myapp]
+repository_ref = "r1"
+[profiles.myapp.backup]
+sources = ["/data"]
+"""
+    toml_file = tmp_path / "repo-env.toml"
+    toml_file.write_text(toml, encoding="utf-8")
+
+    result = load_config(toml_file)
+    repo = result.repositories["r1"]
+
+    assert repo.env == {
+        "HTTP_PROXY": "http://proxy:7890",
+        "HTTPS_PROXY": "http://proxy:7890",
+        "RESTIC_COMPRESSION": "max",
+    }
+
+
+def test_repository_env_defaults_to_empty(tmp_path: Path) -> None:
+    """Repository.env defaults to an empty dict when not specified in TOML."""
+    toml = """\
+[repositories.r1]
+repository = "rest:https://backup.example.com/"
+password = "secret"
+
+[profiles.myapp]
+repository_ref = "r1"
+[profiles.myapp.backup]
+sources = ["/data"]
+"""
+    toml_file = tmp_path / "no-env.toml"
+    toml_file.write_text(toml, encoding="utf-8")
+
+    result = load_config(toml_file)
+    repo = result.repositories["r1"]
+
+    assert repo.env == {}

@@ -85,6 +85,18 @@ def build_env(profile: Profile) -> dict[str, str]:
         elif repo.google_application_credentials:
             env["GOOGLE_APPLICATION_CREDENTIALS"] = repo.google_application_credentials
 
+    if repo.env:
+        for k, v in repo.env.items():
+            if k in env:
+                logger.debug(
+                    "Repository %r env %r=%r overrides existing value %r",
+                    repo.name,
+                    k,
+                    v,
+                    env[k],
+                )
+            env[k] = v
+
     return env
 
 

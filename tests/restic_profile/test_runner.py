@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import pwd
 import subprocess
@@ -174,6 +175,42 @@ def test_build_env_gcs_omitted_when_project_id_empty(backup_profile: Profile) ->
     assert "GOOGLE_PROJECT_ID" not in env
     assert "GOOGLE_APPLICATION_CREDENTIALS" not in env
     assert "GOOGLE_ACCESS_TOKEN" not in env
+
+
+def test_build_env_injects_repo_env_vars(backup_profile: Profile) -> None:
+    """build_env() injects repository-level env vars into the subprocess environment."""
+    backup_profile.resolved_repository.env = {
+        "HTTP_PROXY": "http://proxy:7890",
+        "RESTIC_COMPRESSION": "max",
+    }
+    env = build_env(backup_profile)
+
+    assert env["HTTP_PROXY"] == "http://proxy:7890"
+    assert env["RESTIC_COMPRESSION"] == "max"
+    assert env["RESTIC_REPOSITORY"] == "rest:https://backup.example.com/"
+
+
+def test_build_env_empty_repo_env_noop(backup_profile: Profile) -> None:
+    """build_env() works when repository.env is an empty dict (default)."""
+    backup_profile.resolved_repository.env = {}
+    env = build_env(backup_profile)
+
+    assert env["RESTIC_REPOSITORY"] == "rest:https://backup.example.com/"
+
+
+def test_build_env_repo_env_overrides_existing_value(
+    backup_profile: Profile, caplog: pytest.LogCaptureFixture
+) -> None:
+    """build_env() allows repo.env to override existing env values with a debug log."""
+    backup_profile.resolved_repository.env = {
+        "RESTIC_REPOSITORY": "rest:https://override.example.com/",
+    }
+    with caplog.at_level(logging.DEBUG, logger="restic_profile.runner"):
+        env = build_env(backup_profile)
+
+    assert env["RESTIC_REPOSITORY"] == "rest:https://override.example.com/"
+    assert "Repository" in caplog.text
+    assert "overrides existing value" in caplog.text
 
 
 # build_global_args

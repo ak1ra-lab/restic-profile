@@ -52,6 +52,8 @@ class Repository(BaseModel):
     google_application_credentials: str = ""
     google_access_token: str = ""
 
+    env: dict[str, str] = Field(default_factory=dict)
+
     @field_validator("repository")
     @classmethod
     def validate_repository(cls, v: str) -> str:

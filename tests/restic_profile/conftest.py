@@ -174,7 +174,12 @@ def _dict_to_toml(config: dict) -> str:
             for r_name, r_cfg in value.items():
                 lines.append(f"\n[repositories.{r_name}]")
                 for k, v in r_cfg.items():
-                    lines.append(_toml_kv(k, v))
+                    if isinstance(v, dict):
+                        lines.append(f"\n[repositories.{r_name}.{k}]")
+                        for sub_k, sub_v in v.items():
+                            lines.append(_toml_kv(sub_k, sub_v))
+                    else:
+                        lines.append(_toml_kv(k, v))
         elif section == "profiles":
             for p_name, p_cfg in value.items():
                 lines.append(f"\n[profiles.{p_name}]")
