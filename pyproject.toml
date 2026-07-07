@@ -38,7 +38,7 @@ build-backend = "hatchling.build"
 source = "vcs"
 
 [tool.hatch.version.raw-options]
-fallback_version = "0.1.0"
+fallback_version = "0.2.0"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/restic_profile"]

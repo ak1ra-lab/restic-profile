@@ -56,6 +56,7 @@ resolution.
 ## Testing Guidelines
 
 - Tests live in `tests/` and mirror the `src/` package layout.
+- All changes MUST pass `just lint`, `just typecheck`, and `just test` before committing.
 - Run: `just test` or `uv run pytest -v tests/`.
 - Coverage: `just coverage`.
 - Ansible linting is separate: `ansible-lint`.

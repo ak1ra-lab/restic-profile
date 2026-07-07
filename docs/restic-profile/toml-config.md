@@ -98,7 +98,6 @@ notify_ref = ""                 # reference a [notify.*] channel, e.g. "telegram
 tag = "home"                    # snapshot tag; defaults to profile name
 on_calendar = "hourly"          # systemd OnCalendar=; empty disables the timer
 randomized_delay_sec = "15min"  # systemd RandomizedDelaySec=
-persistent = true               # skip catch-up runs after downtime when false
 
 # Per-profile overrides (inherit from [global] when unset):
 restic_binary = ""              # empty = use global
