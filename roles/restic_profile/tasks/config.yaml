@@ -49,6 +49,46 @@
     - _profile_item.value.backup.exclude_file_content | default('') | length > 0
   no_log: true
 
+- name: construct expected .exclude file paths
+  vars:
+    restic_profile_exclude_names_json: >-
+      {% set names = [] %}
+      {% for pname, pval in restic_profile_profiles.items() %}
+      {%   if pval.enabled | default(true) | ansible.builtin.bool
+             and pval.backup is defined
+             and pval.backup.exclude_file_content | default('') | length > 0 %}
+      {%     set _ = names.append(pname) %}
+      {%   endif %}
+      {% endfor %}
+      {{ names | to_json }}
+    restic_profile_exclude_names_data: >-
+      {{ restic_profile_exclude_names_json | from_json }}
+  ansible.builtin.set_fact:
+    restic_profile_exclude_file_paths: >-
+      {{
+        restic_profile_exclude_names_data
+        | map('ansible.builtin.regex_replace', '^(.*)$', restic_profile_config_dir ~ '/restic-profile-\\1.exclude')
+        | list
+      }}
+  no_log: true
+
+- name: find managed .exclude files in config directory
+  become: true
+  ansible.builtin.find:
+    paths: "{{ restic_profile_config_dir }}"
+    patterns: "restic-profile-*.exclude"
+    file_type: file
+  register: restic_profile_found_exclude_files
+
+- name: remove stale .exclude files
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ restic_profile_found_exclude_files.files }}"
+  when:
+    - item.path not in (restic_profile_exclude_file_paths | default([]))
+
 - name: construct repository list for referenced .env files
   vars:
     restic_profile_env_repositories_json: >-
