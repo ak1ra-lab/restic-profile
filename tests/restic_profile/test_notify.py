@@ -390,7 +390,7 @@ def test_query_snapshot_diff_nonzero_return():
             global_args=[],
         )
 
-    assert result == {}
+    assert result is None
 
 
 def test_query_snapshot_by_id_returns_single():
@@ -438,7 +438,7 @@ def test_query_snapshot_nonzero_return():
             global_args=[],
         )
 
-    assert result == {}
+    assert result is None
 
 
 def test_query_repo_stats_returns_data():
@@ -466,7 +466,7 @@ def test_query_repo_stats_nonzero_return():
             global_args=[],
         )
 
-    assert result == {}
+    assert result is None
 
 
 def test_try_notify_success_no_notifier():

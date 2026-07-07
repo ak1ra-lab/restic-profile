@@ -8,7 +8,7 @@ import subprocess
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, TypedDict
 
 import jinja2
 from chaos_utils.notify.base import BaseNotifier
@@ -19,6 +19,56 @@ if TYPE_CHECKING:
     from .config import Profile
 
 logger = logging.getLogger(__name__)
+
+
+class ResticSnapshotSummary(TypedDict, total=False):
+    data_added: int
+    backup_start: str
+    backup_end: str
+
+
+class ResticSnapshot(TypedDict, total=False):
+    id: str
+    short_id: str
+    time: str
+    tags: list[str]
+    paths: list[str]
+    parent: str
+    summary: ResticSnapshotSummary
+
+
+class ResticFileNode(TypedDict, total=False):
+    type: str
+    name: str
+    size: int
+
+
+class ResticDiffAddedRemoved(TypedDict, total=False):
+    files: int
+    dirs: int
+    bytes: int
+
+
+class ResticDiffStatistics(TypedDict, total=False):
+    changed_files: int
+    added: ResticDiffAddedRemoved
+    removed: ResticDiffAddedRemoved
+
+
+class ResticDiffChange(TypedDict, total=False):
+    message_type: str
+    modifier: str
+    path: str
+
+
+class ResticDiffResult(TypedDict, total=False):
+    changes: list[ResticDiffChange]
+    statistics: ResticDiffStatistics
+
+
+class ResticRepoStats(TypedDict, total=False):
+    snapshots_count: int
+    total_size: int
 
 
 def _human_bytes(n: float | None) -> str:
@@ -80,7 +130,7 @@ def _query_snapshot(
     snapshot_id: str | None = None,
     tag: str | None = None,
     host: str | None = None,
-) -> dict[str, Any]:
+) -> ResticSnapshot | None:
     cmd = [restic_executable, *global_args, "--json", "snapshots"]
     if snapshot_id:
         cmd.append(snapshot_id)
@@ -106,13 +156,13 @@ def _query_snapshot(
             result.returncode,
             (result.stderr or "").rstrip()[:200],
         )
-        return {}
+        return None
     try:
         snapshots = json.loads(result.stdout)
     except json.JSONDecodeError:
         logger.warning("Failed to parse restic snapshots JSON")
-        return {}
-    return snapshots[-1] if snapshots else {}
+        return None
+    return snapshots[-1] if snapshots else None
 
 
 def _query_largest_files(
@@ -122,7 +172,7 @@ def _query_largest_files(
     restic_executable: str,
     global_args: list[str],
     limit: int,
-) -> list[dict[str, Any]]:
+) -> list[ResticFileNode]:
     if limit <= 0:
         return []
     result = subprocess.run(
@@ -148,7 +198,7 @@ def _query_largest_files(
             (result.stderr or "").rstrip()[:200],
         )
         return []
-    files: list[dict[str, Any]] = []
+    files: list[ResticFileNode] = []
     for line in result.stdout.strip().splitlines():
         if not line:
             continue
@@ -168,7 +218,7 @@ def _query_snapshot_diff(
     env: dict[str, str],
     restic_executable: str,
     global_args: list[str],
-) -> dict[str, Any]:
+) -> ResticDiffResult | None:
     result = subprocess.run(
         [
             restic_executable,
@@ -191,9 +241,9 @@ def _query_snapshot_diff(
             result.returncode,
             (result.stderr or "").rstrip()[:200],
         )
-        return {}
-    changes: list[dict[str, Any]] = []
-    statistics: dict[str, Any] = {}
+        return None
+    changes: list[ResticDiffChange] = []
+    statistics: ResticDiffStatistics = {}
     for line in result.stdout.strip().splitlines():
         if not line:
             continue
@@ -213,7 +263,7 @@ def _query_repo_stats(
     env: dict[str, str],
     restic_executable: str,
     global_args: list[str],
-) -> dict[str, Any]:
+) -> ResticRepoStats | None:
     result = subprocess.run(
         [restic_executable, *global_args, "--json", "stats"],
         env=env,
@@ -227,35 +277,35 @@ def _query_repo_stats(
             result.returncode,
             (result.stderr or "").rstrip()[:200],
         )
-        return {}
+        return None
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError:
         logger.warning("Failed to parse restic stats JSON for repo")
-        return {}
+        return None
 
 
 def _build_success_facts(
-    snapshot: dict[str, Any],
-    largest_files: list[dict[str, Any]],
+    snapshot: ResticSnapshot,
+    largest_files: list[ResticFileNode],
     host: str,
     profile_name: str,
     *,
-    diff_data: dict[str, Any] | None = None,
-    repo_stats: dict[str, Any] | None = None,
+    diff_data: ResticDiffResult | None = None,
+    repo_stats: ResticRepoStats | None = None,
 ) -> dict[str, object]:
     summary = snapshot.get("summary", {})
     facts: dict[str, object] = {
         "host": host,
         "profile": profile_name,
         "short_id": snapshot.get("short_id", "N/A"),
-        "time": _format_ts(snapshot.get("time", "")),
+        "time": _format_ts(str(snapshot.get("time", ""))),
         "tags": snapshot.get("tags", []),
         "paths": snapshot.get("paths", []),
         "data_added": _human_bytes(summary.get("data_added")),
         "duration": _format_duration(
-            summary.get("backup_start", ""),
-            summary.get("backup_end", ""),
+            str(summary.get("backup_start", "")),
+            str(summary.get("backup_end", "")),
         ),
         "largest_files": [
             (
@@ -399,7 +449,7 @@ def try_notify_success(
     )
 
     parent_id = snap.get("parent")
-    diff_data: dict[str, Any] | None = None
+    diff_data: ResticDiffResult | None = None
     if parent_id:
         diff_data = _query_snapshot_diff(
             parent_id,

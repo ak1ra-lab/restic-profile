@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from chaos_utils.notify.dingtalk import DingTalkBot
 from chaos_utils.notify.telegram import TelegramBot
@@ -284,7 +284,7 @@ def load_config(path: Path) -> ResticProfileConfig:
         dict[str, NotifierConfig]
     )
     notify_data: dict[str, NotifierConfig] = {}
-    raw_notify: dict[str, Any] = data.get("notify", {})  # type: ignore[assignment]
+    raw_notify: dict[str, object] = data.get("notify", {})  # type: ignore[assignment]
     if raw_notify:
         notify_data = notify_adapter.validate_python(raw_notify)
 
