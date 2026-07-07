@@ -51,25 +51,18 @@
 
 - name: construct expected .exclude file paths
   vars:
-    restic_profile_exclude_names_json: >-
-      {% set names = [] %}
+    restic_profile_exclude_file_paths_json: >-
+      {% set paths = [] %}
       {% for pname, pval in restic_profile_profiles.items() %}
       {%   if pval.enabled | default(true) | ansible.builtin.bool
              and pval.backup is defined
              and pval.backup.exclude_file_content | default('') | length > 0 %}
-      {%     set _ = names.append(pname) %}
+      {%     set _ = paths.append(restic_profile_config_dir ~ '/restic-profile-' ~ pname ~ '.exclude') %}
       {%   endif %}
       {% endfor %}
-      {{ names | to_json }}
-    restic_profile_exclude_names_data: >-
-      {{ restic_profile_exclude_names_json | from_json }}
+      {{ paths | to_json }}
   ansible.builtin.set_fact:
-    restic_profile_exclude_file_paths: >-
-      {{
-        restic_profile_exclude_names_data
-        | map('ansible.builtin.regex_replace', '^(.*)$', restic_profile_config_dir ~ '/restic-profile-\\1.exclude')
-        | list
-      }}
+    restic_profile_exclude_file_paths: "{{ restic_profile_exclude_file_paths_json | from_json }}"
   no_log: true
 
 - name: find managed .exclude files in config directory
@@ -109,15 +102,15 @@
       {{ env_repositories | to_json }}
     restic_profile_env_repositories_data: >-
       {{ restic_profile_env_repositories_json | from_json }}
+    restic_profile_env_file_paths_json: >-
+      {% set paths = [] %}
+      {% for r in restic_profile_env_repositories_data %}
+      {%   set _ = paths.append(restic_profile_config_dir ~ '/restic-profile-' ~ r.key ~ '.env') %}
+      {% endfor %}
+      {{ paths | to_json }}
   ansible.builtin.set_fact:
     restic_profile_env_repositories: "{{ restic_profile_env_repositories_data }}"
-    restic_profile_env_file_paths: >-
-      {{
-        restic_profile_env_repositories_data
-        | map(attribute='key')
-        | map('ansible.builtin.regex_replace', '^(.*)$', restic_profile_config_dir ~ '/restic-profile-\\1.env')
-        | list
-      }}
+    restic_profile_env_file_paths: "{{ restic_profile_env_file_paths_json | from_json }}"
   no_log: true
 
 - name: find managed repository .env files
