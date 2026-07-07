@@ -7,6 +7,7 @@ import re
 import shutil
 import socket
 import subprocess
+import sys
 from functools import lru_cache
 from pathlib import Path
 from typing import NoReturn
@@ -540,14 +541,16 @@ def run_backup(
     snapshot_id: str | None = None
     backup_error: _CommandError | None = None
     try:
+        capture = not sys.stdout.isatty() if hasattr(sys.stdout, "isatty") else True
         if dry_run:
             logger.info("DRY RUN: Would run: %s", " ".join(backup_cmd))
         else:
-            result = _run(backup_cmd, env, capture_output=True)
-            stdout_text = result.stdout
-            if isinstance(stdout_text, str):
-                if m := _BACKUP_SNAPSHOT_RE.search(stdout_text):
-                    snapshot_id = m.group(1)
+            result = _run(backup_cmd, env, capture_output=capture)
+            if capture:
+                stdout_text = result.stdout
+                if isinstance(stdout_text, str):
+                    if m := _BACKUP_SNAPSHOT_RE.search(stdout_text):
+                        snapshot_id = m.group(1)
 
         if profile.retention:
             forget_cmd = _build_forget_command(
@@ -562,7 +565,7 @@ def run_backup(
                 if dry_run:
                     logger.info("DRY RUN: Would run: %s", " ".join(forget_cmd))
                 else:
-                    _run(forget_cmd, env, capture_output=True)
+                    _run(forget_cmd, env, capture_output=capture)
             else:
                 prune_cmd = _build_prune_command(
                     profile,
@@ -573,7 +576,7 @@ def run_backup(
                     if dry_run:
                         logger.info("DRY RUN: Would run: %s", " ".join(prune_cmd))
                     else:
-                        _run(prune_cmd, env, capture_output=True)
+                        _run(prune_cmd, env, capture_output=capture)
     except _CommandError as exc:
         backup_failed = True
         backup_error = exc
@@ -647,11 +650,12 @@ def run_retention(
                 profile.name,
             )
 
+    capture = not sys.stdout.isatty() if hasattr(sys.stdout, "isatty") else True
     if dry_run:
         logger.info("DRY RUN: Would run: %s", " ".join(command))
     else:
         try:
-            _run(command, env, capture_output=True)
+            _run(command, env, capture_output=capture)
         except _CommandError as exc:
             raise WorkflowError(
                 f"Profile {profile.name!r}: retention command failed"
@@ -671,10 +675,11 @@ def run_unlock(profile: Profile, *, dry_run: bool = False) -> None:
     env = build_env(profile)
     unlock_cmd = _build_unlock_command(profile)
 
+    capture = not sys.stdout.isatty() if hasattr(sys.stdout, "isatty") else True
     if dry_run:
         logger.info("DRY RUN: Would run: %s", " ".join(unlock_cmd))
     else:
-        _run(unlock_cmd, env, capture_output=True)
+        _run(unlock_cmd, env, capture_output=capture)
 
 
 def run_profile(
