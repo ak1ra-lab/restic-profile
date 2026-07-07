@@ -52,6 +52,9 @@ restic_profile_notify_configs:
     type: telegram
     token: "{{ vault_telegram_bot_token }}"
     chat_id: -1001234567890
+    env:
+      HTTPS_PROXY: "http://proxy.example.com:8080"
+      NO_PROXY: "localhost,127.0.0.1,.local"
 
 restic_profile_repositories:
   r1:
@@ -123,7 +126,7 @@ lets it manage snapshots from multiple backup clients sharing the same tag.
 
 ---
 
-## 4. S3-compatible backend
+## 4. S3-compatible backend with PostgreSQL
 
 ```yaml
 restic_profile_repositories:
@@ -133,6 +136,11 @@ restic_profile_repositories:
     aws_default_region: "us-east-1"
     aws_access_key_id: "{{ vault_s3_access_key }}"
     aws_secret_access_key: "{{ vault_s3_secret_key }}"
+    env:
+      PGHOST: "{{ vault_postgres_host }}"
+      PGPORT: "{{ vault_postgres_port | default('5432') }}"
+      PGUSER: "{{ vault_postgres_user }}"
+      PGPASSWORD: "{{ vault_postgres_password }}"
 
 restic_profile_profiles:
   postgres:
@@ -146,10 +154,120 @@ restic_profile_profiles:
       keep_last: 7
       keep_daily: 7
       keep_weekly: 4
+    hooks:
+      before:
+        - "mkdir -p /var/backups/postgresql"
+        - "pg_dumpall -U postgres > /var/backups/postgresql/all.sql"
+      success:
+        - "rm -f /var/backups/postgresql/all.sql"
 ```
 
 The S3 endpoint is embedded in the `repository` URL (`s3:https://host/bucket`).
 For GCS, use `gs:bucket-name:/prefix` and set `google_project_id`.
+
+Use `pg_dumpall` for a full cluster dump (roles + all databases) or
+`pg_dump <dbname>` to export individual databases. Never back up PostgreSQL
+data directories directly.
+
+---
+
+## 5. MySQL backup
+
+```yaml
+restic_profile_repositories:
+  r1:
+    repository: "rest:https://backup.example.com:8000/apps/mysql"
+    password: "{{ vault_mysql_restic_password }}"
+    rest_username: "mysql"
+    rest_password: "{{ vault_rest_server_mysql_password }}"
+    env:
+      MYSQL_HOST: "{{ vault_mysql_host }}"
+      MYSQL_TCP_PORT: "{{ vault_mysql_port | default('3306') }}"
+      MYSQL_PWD: "{{ vault_mysql_root_password }}"
+
+restic_profile_profiles:
+  mysql:
+    repository_ref: r1
+    on_calendar: "daily"
+    randomized_delay_sec: "10min"
+    backup:
+      sources:
+        - /var/backups/mysql
+    retention:
+      keep_daily: 7
+    hooks:
+      before:
+        - "mkdir -p /var/backups/mysql"
+        - "mysqldump --all-databases --single-transaction -u root > /var/backups/mysql/all.sql"
+      success:
+        - "rm -f /var/backups/mysql/all.sql"
+```
+
+`--single-transaction` ensures a consistent snapshot for InnoDB tables without
+blocking writes. Use `--lock-tables` for MyISAM. Never back up
+`/var/lib/mysql` directly.
+
+---
+
+## 6. SQLite backup
+
+```yaml
+restic_profile_repositories:
+  r1:
+    repository: "/srv/restic/apps/sqlite"
+    password: "{{ vault_sqlite_restic_password }}"
+
+restic_profile_profiles:
+  sqlite:
+    repository_ref: r1
+    on_calendar: "daily"
+    backup:
+      sources:
+        - /var/backups/sqlite
+    retention:
+      keep_daily: 7
+    hooks:
+      before:
+        - "mkdir -p /var/backups/sqlite"
+        - "sqlite3 /srv/myapp/data.db '.backup /var/backups/sqlite/data.db'"
+      success:
+        - "rm -f /var/backups/sqlite/data.db"
+```
+
+SQLite's `.backup` command creates a consistent snapshot using the online
+backup API. Avoid copying the database file directly while it's in use.
+
+---
+
+## 7. GitLab backups
+
+```yaml
+restic_profile_repositories:
+  r1:
+    repository: "rest:https://backup.example.com:8000/apps/gitlab"
+    password: "{{ vault_gitlab_restic_password }}"
+
+restic_profile_profiles:
+  gitlab:
+    repository_ref: r1
+    on_calendar: "daily"
+    randomized_delay_sec: "15min"
+    backup:
+      sources:
+        - /var/opt/gitlab/backups
+    retention:
+      keep_daily: 7
+      keep_weekly: 4
+    hooks:
+      before:
+        - "/usr/bin/gitlab-rake gitlab:backup:create"
+```
+
+`gitlab:backup:create` writes timestamped tarballs to
+`/var/opt/gitlab/backups`. GitLab's built-in
+`gitlab_rails['backup_keep_time']` (default `604800` — 7 days in
+`/etc/gitlab/gitlab.rb`) auto-prunes old local archives, so no manual
+cleanup is needed. Set a smaller value if disk space is tight.
 
 ---
 

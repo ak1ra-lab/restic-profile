@@ -22,7 +22,7 @@ See `roles/restic_rest_server/defaults/main.yaml` for all variables.
 ## Example 1: basic append-only server
 
 ```yaml
-restic_rest_server_listen: ":8000"
+restic_rest_server_listen: ":8012"
 restic_rest_server_backup_dir: /srv/restic
 restic_rest_server_append_only: true
 restic_rest_server_private_repos: true
@@ -34,14 +34,14 @@ restic_rest_server_htpasswd_users:
     password: "{{ vault_bob_password }}"
 ```
 
-Backup clients connect to `https://backup.example.com:8000/alice/<repo-name>`.
+Backup clients connect to `https://backup.example.com:8012/alice/<repo-name>`.
 
 ## Example 2: go_build on a Debian 12 host
 
 ```yaml
 restic_rest_server_binary_install_source: go_build
 restic_rest_server_binary_install_path: /usr/local/bin/restic-rest-server
-restic_rest_server_listen: ":8000"
+restic_rest_server_listen: ":8012"
 restic_rest_server_backup_dir: /srv/restic
 ```
 

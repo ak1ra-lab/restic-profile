@@ -61,6 +61,7 @@ google_access_token = ""                 # short-lived OAuth2 token;
 # [repositories.rest.env]
 # HTTP_PROXY = "http://proxy:8080"
 # RESTIC_COMPRESSION = "max"
+# PGPASSWORD = "..."        # pass DB credentials to pg_dump/mysqldump hooks
 
 # ---- Notifications (optional) ----
 # Supported: telegram, dingtalk, wechat.

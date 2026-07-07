@@ -52,3 +52,16 @@ if command -v register-python-argcomplete >/dev/null 2>&1; then
     eval "$(register-python-argcomplete restic-profile)"
 fi
 ```
+
+Or use `activate-global-python-argcomplete` for system-wide completion:
+
+```bash
+# per-user install
+activate-global-python-argcomplete --user
+
+# system-wide install
+sudo activate-global-python-argcomplete
+```
+
+This writes a completion script into a global location so no `.bashrc`/`.zshrc`
+snippet is needed.
