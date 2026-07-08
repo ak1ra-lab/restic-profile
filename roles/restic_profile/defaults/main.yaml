@@ -1,4 +1,7 @@
 ---
+# str: deployment state; set "absent" to stop timers and remove all managed files
+restic_profile_state: present
+
 # dict: repository credentials and URLs.
 #   Each key is a unique repository reference name (resolved via profile's repository_ref).
 # Required fields per repository:
@@ -22,10 +25,27 @@
 #                                                      to systemd service files, effective only when restic runs
 restic_profile_repositories: {}
 
+# dict: notify channel definitions. Each key is a unique notifier name
+#   (resolved via a profile's notify_ref).
+# Supported types and their required fields:
+#   telegram  →                       token, chat_id (optional: timeout, send_kwargs, env.*, top_files_limit)
+#   dingtalk  →                       access_token   (optional: secret, env.*, top_files_limit)
+#   wechat    →                       key            (optional: env.*, top_files_limit)
+#
+# Optional per-notifier fields:
+#   top_files_limit                   int   3        max largest files and diff-changed files in success
+#                                                      notification; set 0 to disable both
+#   env                               dict  {}       environment variables injected at send time
+#                                                      (e.g. HTTP_PROXY, HTTPS_PROXY — only affects
+#                                                      the notification HTTP call, never restic)
+#   send_kwargs                       dict  {}       telegram only: extra kwargs forwarded to
+#                                                      send_rich_message (e.g. disable_notification)
+restic_profile_notify_configs: {}
+
 # dict: profile definitions. Each key becomes the profile name, which is used as
 #   the TOML section key ([profiles.<name>]) and as the systemd unit suffix.
 # Required fields per profile:
-#   repository_ref                    str   reference to a repository in restic_profile_repositories
+#   repository_ref                    str            reference to a repository in restic_profile_repositories
 #
 # Optional nested fields per profile:
 #   notify_ref                        str   ""       reference to a notifier in restic_profile_notify_configs;
@@ -38,7 +58,7 @@ restic_profile_repositories: {}
 #   on_calendar                       str   ""       OnCalendar value for the profile timer. Leave empty to disable the timer.
 #   randomized_delay_sec              str   ""       RandomizedDelaySec value for the profile timer
 #   persistent                        bool  true     Persistent= value for the profile timer; set to false to
-#                                                          skip catch-up runs after unplanned downtime
+#                                                      skip catch-up runs after unplanned downtime
 #
 #   restic_binary                     str   <global> override the global restic binary for this profile
 #   no_cache                          bool  <global> override the global --no-cache toggle for this profile
@@ -50,25 +70,13 @@ restic_profile_repositories: {}
 #   io_scheduling_class               str   <global> IOSchedulingClass= value for the generated service unit
 #   io_scheduling_priority            int   <global> IOSchedulingPriority= value for the generated service unit
 #
-#   env                               dict  {}       runtime environment variables injected at subprocess level;
-#                                                      applied after repository env, so profile env can override
-#                                                      repository env (e.g. PGPASSWORD, MYSQL_PWD for backup hooks)
-#
-#   hooks                             dict  hooks config (rendered under [profiles.<name>.hooks])
-#     shell                           str   "/bin/sh"
-#     prevalidate                     list  []       inline commands before repository checks / auto-init
-#     before                          list  []       inline commands before backup
-#     after                           list  []       inline commands after the backup attempt
-#     failure                         list  []       inline commands when prevalidate/before/backup fails
-#     success                         list  []       inline commands when the full backup flow succeeds
-#
-#   backup                            dict  backup configurations (optional):
+#   backup                            dict           backup configurations (optional):
 #     sources                         list  []       source paths
 #     exclude_patterns                list  []       each entry becomes one --exclude
 #     exclude_file_content            str   ""       rendered to /etc/restic-profile/restic-profile-<name>.exclude; passed as --exclude-file
 #     one_file_system                 bool  false    add --one-file-system to restic backup
 #
-#   retention                         dict  retention action configurations (optional):
+#   retention                         dict           retention action configurations (optional):
 #     keep_last                       int   0        keep last N snapshots
 #     keep_hourly                     int   0        keep last N hourly snapshots
 #     keep_daily                      int   0        keep last N daily snapshots
@@ -79,11 +87,18 @@ restic_profile_repositories: {}
 #                                                      otherwise add --prune to restic forget
 #     forget_current_host             bool  true     add --host <current host> to restic forget by default;
 #                                                      set false for cross-host retention jobs
+#   hooks                             dict           hooks config (rendered under [profiles.<name>.hooks])
+#     shell                           str   "/bin/sh"
+#     prevalidate                     list  []       inline commands before repository checks / auto-init
+#     before                          list  []       inline commands before backup
+#     after                           list  []       inline commands after the backup attempt
+#     failure                         list  []       inline commands when prevalidate/before/backup fails
+#     success                         list  []       inline commands when the full backup flow succeeds
 #
+#   env                               dict  {}       runtime environment variables injected at subprocess level;
+#                                                      applied after repository env, so profile env can override
+#                                                      repository env (e.g. PGPASSWORD, MYSQL_PWD for backup hooks)
 restic_profile_profiles: {}
-
-# str: deployment state; set "absent" to stop timers and remove all managed files
-restic_profile_state: present
 
 # str: global restic executable.
 #      Leave empty to resolve `restic` from PATH (the runner also falls back to
@@ -127,7 +142,7 @@ restic_profile_systemd_io_scheduling_priority: ""
 # str: install source for the restic-profile Python package — "local" | "pypi" | "testpypi"
 #      "local" builds the wheel on the control node and uploads it to the managed host.
 #      "pypi" installs the latest published release from the public PyPI index.
-restic_profile_pip_install_source: local
+restic_profile_pip_install_source: pypi
 
 # str: source for the restic binary — "apt" | "go_build" | "existing"
 #      "apt" installs the distro package on the managed host.
@@ -152,23 +167,6 @@ restic_profile_restic_go_build_static: true
 
 # str: linker flags passed when go_build builds restic
 restic_profile_restic_go_build_ldflags: "-s -w"
-
-# dict: notify channel definitions. Each key is a unique notifier name
-#   (resolved via a profile's notify_ref).
-# Supported types and their required fields:
-#   telegram  → token, chat_id  (optional: timeout, send_kwargs, env.*, top_files_limit)
-#   dingtalk  → access_token    (optional: secret, env.*, top_files_limit)
-#   wechat    → key             (optional: env.*, top_files_limit)
-#
-# Optional per-notifier fields:
-#   top_files_limit  int   3     max largest files and diff-changed files in success
-#                                 notification; set 0 to disable both
-#   env              dict  {}    environment variables injected at send time
-#                                 (e.g. HTTP_PROXY, HTTPS_PROXY — only affects
-#                                 the notification HTTP call, never restic)
-#   send_kwargs      dict  {}    telegram only: extra kwargs forwarded to
-#                                 send_rich_message (e.g. disable_notification)
-restic_profile_notify_configs: {}
 
 # str: optional directory for custom Jinja2 notify report templates.
 #      When set, restic-profile searches this directory for notify_success.md.j2
