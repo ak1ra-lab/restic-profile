@@ -47,14 +47,15 @@
 
 - name: deploy exclude files for target profiles
   ansible.builtin.copy:
-    content: "{{ item.profile.backup.exclude_file_content }}"
-    dest: "{{ item.path }}"
+    content: "{{ _plan_exclude_item.profile.backup.exclude_file_content }}"
+    dest: "{{ _plan_exclude_item.path }}"
     owner: "{{ _target.file_owner }}"
     group: "{{ _target.file_group }}"
     mode: "{{ _target.file_mode_secret }}"
   loop: "{{ _restic_profile_plan.exclude_files }}"
   loop_control:
-    label: "{{ item.profile_name }}.exclude"
+    loop_var: _plan_exclude_item
+    label: "{{ _plan_exclude_item.profile_name }}.exclude"
   no_log: true
 
 - name: find managed exclude files for target
@@ -90,14 +91,14 @@
 - name: deploy env files for target repositories
   ansible.builtin.template:
     src: etc/restic-profile/restic-profile.env.j2
-    dest: "{{ item.path }}"
+    dest: "{{ _plan_env_item.path }}"
     owner: "{{ _target.file_owner }}"
     group: "{{ _target.file_group }}"
     mode: "{{ _target.file_mode_secret }}"
   loop: "{{ _restic_profile_plan.env_files }}"
   loop_control:
-    loop_var: _repository_item
-    label: "{{ _repository_item.key }}.env"
+    loop_var: _plan_env_item
+    label: "{{ _plan_env_item.key }}.env"
   vars:
     restic_profile_config_dir: "{{ _target.config_dir }}"
   no_log: true
