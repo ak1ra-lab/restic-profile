@@ -45,14 +45,15 @@
 - name: deploy per-profile exclude file from exclude_file_content
   become: true
   ansible.builtin.copy:
-    content: "{{ item.profile.backup.exclude_file_content }}"
-    dest: "{{ item.path }}"
+    content: "{{ _plan_exclude_item.profile.backup.exclude_file_content }}"
+    dest: "{{ _plan_exclude_item.path }}"
     owner: root
     group: root
     mode: "0640"
   loop: "{{ _restic_profile_plan.exclude_files }}"
   loop_control:
-    label: "{{ item.profile_name }}.exclude"
+    loop_var: _plan_exclude_item
+    label: "{{ _plan_exclude_item.profile_name }}.exclude"
   no_log: true
 
 - name: find managed .exclude files in config directory
@@ -66,11 +67,13 @@
 - name: remove stale .exclude files
   become: true
   ansible.builtin.file:
-    path: "{{ item.path }}"
+    path: "{{ _found_exclude.path }}"
     state: absent
   loop: "{{ _restic_profile_found_exclude_files.files }}"
+  loop_control:
+    loop_var: _found_exclude
   when:
-    - item.path not in (_restic_profile_plan.expected_exclude_paths)
+    - _found_exclude.path not in (_restic_profile_plan.expected_exclude_paths)
 
 - name: find managed repository .env files
   become: true
@@ -83,24 +86,26 @@
 - name: remove stale repository .env files
   become: true
   ansible.builtin.file:
-    path: "{{ item.path }}"
+    path: "{{ _found_env.path }}"
     state: absent
   loop: "{{ _restic_profile_found_env_files.files }}"
+  loop_control:
+    loop_var: _found_env
   when:
-    - item.path not in (_restic_profile_plan.expected_env_paths)
+    - _found_env.path not in (_restic_profile_plan.expected_env_paths)
 
 - name: deploy per-repository .env file for referenced repositories
   become: true
   ansible.builtin.template:
     src: etc/restic-profile/restic-profile.env.j2
-    dest: "{{ item.path }}"
+    dest: "{{ _plan_env_item.path }}"
     owner: root
     group: root
     mode: "0640"
   loop: "{{ _restic_profile_plan.env_files }}"
   loop_control:
-    loop_var: _repository_item
-    label: "{{ _repository_item.key }}.env"
+    loop_var: _plan_env_item
+    label: "{{ _plan_env_item.key }}.env"
   no_log: true
 
 - name: ensure notify templates directory exists

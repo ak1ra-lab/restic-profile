@@ -1,7 +1,7 @@
 {# jinja2: lstrip_blocks: True, trim_blocks: True #}
-{% set _profile_name = item.profile_name %}
-{% set _profile = item.profile %}
-{% set _unit_name = item.unit_name %}
+{% set _profile_name = _plan_unit_item.profile_name %}
+{% set _profile = _plan_unit_item.profile %}
+{% set _unit_name = _plan_unit_item.unit_name %}
 {% set _cpu_quota = _profile.cpu_quota if _profile.cpu_quota is defined else restic_profile_systemd_cpu_quota | default('') %}
 {% set _nice = _profile.nice if _profile.nice is defined else restic_profile_systemd_nice | default('') %}
 {% set _io_class = _profile.io_scheduling_class if _profile.io_scheduling_class is defined else restic_profile_systemd_io_scheduling_class | default('') %}

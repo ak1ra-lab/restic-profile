@@ -11,7 +11,7 @@
 - name: stop and disable all managed timers
   become: true
   ansible.builtin.systemd_service:
-    name: "{{ item | ansible.builtin.basename }}"
+    name: "{{ _found_unit | ansible.builtin.basename }}"
     state: stopped
     enabled: false
     daemon_reload: false
@@ -22,14 +22,18 @@
       | select('ansible.builtin.search', '\\.timer$')
       | list
     }}
+  loop_control:
+    loop_var: _found_unit
   failed_when: false
 
 - name: remove all managed systemd unit files
   become: true
   ansible.builtin.file:
-    path: "{{ item.path }}"
+    path: "{{ _found_unit.path }}"
     state: absent
   loop: "{{ _restic_profile_found_units.files }}"
+  loop_control:
+    loop_var: _found_unit
   notify: systemctl daemon-reload
 
 - name: find all restic-profile managed exclude files
@@ -42,9 +46,11 @@
 - name: remove all managed exclude files
   become: true
   ansible.builtin.file:
-    path: "{{ item.path }}"
+    path: "{{ _found_exclude.path }}"
     state: absent
   loop: "{{ _restic_profile_found_excludes.files }}"
+  loop_control:
+    loop_var: _found_exclude
 
 - name: find all restic-profile managed .env files
   become: true
@@ -56,9 +62,11 @@
 - name: remove all managed .env files
   become: true
   ansible.builtin.file:
-    path: "{{ item.path }}"
+    path: "{{ _found_env.path }}"
     state: absent
   loop: "{{ _restic_profile_found_env.files }}"
+  loop_control:
+    loop_var: _found_env
 
 - name: remove restic-profile TOML config
   become: true

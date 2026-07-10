@@ -29,7 +29,7 @@
 - name: stop and disable orphaned systemd timers
   become: true
   ansible.builtin.systemd_service:
-    name: "{{ item | ansible.builtin.basename }}"
+    name: "{{ _found_unit | ansible.builtin.basename }}"
     state: stopped
     enabled: false
   loop: >-
@@ -39,19 +39,23 @@
       | select('ansible.builtin.search', '\\.timer$')
       | list
     }}
+  loop_control:
+    loop_var: _found_unit
   when: >-
-    (item | ansible.builtin.basename | ansible.builtin.regex_replace('\\.timer$', ''))
+    (_found_unit | ansible.builtin.basename | ansible.builtin.regex_replace('\\.timer$', ''))
     not in (_restic_profile_plan.expected_unit_names)
   failed_when: false
 
 - name: remove orphaned systemd unit files
   become: true
   ansible.builtin.file:
-    path: "{{ item.path }}"
+    path: "{{ _found_unit.path }}"
     state: absent
   loop: "{{ _restic_profile_existing_units.files }}"
+  loop_control:
+    loop_var: _found_unit
   when: >-
-    (item.path | ansible.builtin.basename | ansible.builtin.regex_replace('\\.(service|timer)$', ''))
+    (_found_unit.path | ansible.builtin.basename | ansible.builtin.regex_replace('\\.(service|timer)$', ''))
     not in (_restic_profile_plan.expected_unit_names)
   notify: systemctl daemon-reload
 
@@ -59,13 +63,14 @@
   become: true
   ansible.builtin.template:
     src: etc/systemd/system/restic-profile.service.j2
-    dest: "/etc/systemd/system/{{ item.unit_name }}.service"
+    dest: "/etc/systemd/system/{{ _plan_unit_item.unit_name }}.service"
     owner: root
     group: root
     mode: "0644"
   loop: "{{ _restic_profile_plan.service_units }}"
   loop_control:
-    label: "{{ item.unit_name }}.service"
+    loop_var: _plan_unit_item
+    label: "{{ _plan_unit_item.unit_name }}.service"
   notify: systemctl daemon-reload
   no_log: true
 
@@ -85,24 +90,28 @@
 - name: stop and disable timers for profiles without on_calendar
   become: true
   ansible.builtin.systemd_service:
-    name: "{{ item.unit_name }}.timer"
+    name: "{{ _plan_unit_item.unit_name }}.timer"
     state: stopped
     enabled: false
   loop: "{{ _restic_profile_plan.service_units }}"
+  loop_control:
+    loop_var: _plan_unit_item
   when: >-
-    not item.has_timer
+    not _plan_unit_item.has_timer
     and (
-      (_restic_profile_timer_state.state[item.unit_name ~ '.timer'].active_state | default('')) == 'active'
-      or (_restic_profile_timer_state.state[item.unit_name ~ '.timer'].unit_file_state | default('')) == 'enabled')
+      (_restic_profile_timer_state.state[_plan_unit_item.unit_name ~ '.timer'].active_state | default('')) == 'active'
+      or (_restic_profile_timer_state.state[_plan_unit_item.unit_name ~ '.timer'].unit_file_state | default('')) == 'enabled')
   no_log: true
 
 - name: remove timer files for profiles without on_calendar
   become: true
   ansible.builtin.file:
-    path: "/etc/systemd/system/{{ item.unit_name }}.timer"
+    path: "/etc/systemd/system/{{ _plan_unit_item.unit_name }}.timer"
     state: absent
   loop: "{{ _restic_profile_plan.service_units }}"
-  when: not item.has_timer
+  loop_control:
+    loop_var: _plan_unit_item
+  when: not _plan_unit_item.has_timer
   notify: systemctl daemon-reload
   no_log: true
 
@@ -110,24 +119,27 @@
   become: true
   ansible.builtin.template:
     src: etc/systemd/system/restic-profile.timer.j2
-    dest: "/etc/systemd/system/{{ item.unit_name }}.timer"
+    dest: "/etc/systemd/system/{{ _plan_unit_item.unit_name }}.timer"
     owner: root
     group: root
     mode: "0644"
   loop: "{{ _restic_profile_plan.service_units }}"
   loop_control:
-    label: "{{ item.unit_name }}.timer"
-  when: item.has_timer
+    loop_var: _plan_unit_item
+    label: "{{ _plan_unit_item.unit_name }}.timer"
+  when: _plan_unit_item.has_timer
   notify: systemctl daemon-reload
   no_log: true
 
 - name: start and enable systemd timers with on_calendar configured
   become: true
   ansible.builtin.systemd_service:
-    name: "{{ item.unit_name }}.timer"
+    name: "{{ _plan_unit_item.unit_name }}.timer"
     state: started
     enabled: true
     daemon_reload: true
   loop: "{{ _restic_profile_plan.service_units }}"
-  when: item.has_timer
+  loop_control:
+    loop_var: _plan_unit_item
+  when: _plan_unit_item.has_timer
   no_log: true
