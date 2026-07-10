@@ -11,12 +11,12 @@ sync *ARGS:
 
 # Lint and format source code
 lint:
-    uv run ruff check --fix src/ tests/
-    uv run ruff format src/ tests/
+    uv run ruff check --fix src/ tests/ plugins/
+    uv run ruff format src/ tests/ plugins/
 
 # Run static type checks with Astral ty
 typecheck:
-    uv run ty check src/
+    uv run ty check src/ plugins/
 
 # Run tests
 test *ARGS:

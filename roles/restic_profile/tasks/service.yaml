@@ -4,23 +4,18 @@
 # Naming convention (defined in vars/main.yaml):
 #   Profile units: restic-profile-<name>.{service,timer}
 
-- name: Construct flat list of service units to deploy
-  vars:
-    restic_profile_service_units_json: >-
-      {% set units = [] %}
-      {% for pname, p in restic_profile_profiles.items() %}
-      {%   if p.enabled | default(true) | ansible.builtin.bool %}
-      {%     set _ = units.append({
-                 'profile_name': pname,
-                 'profile': p,
-                 'unit_name': restic_profile_unit_prefix ~ pname,
-                 'timer_enabled': p.timer_enabled | default(true) | ansible.builtin.bool
-               }) %}
-      {%   endif %}
-      {% endfor %}
-      {{ units | to_json }}
+- name: compute deployment plan
   ansible.builtin.set_fact:
-    restic_profile_service_units: "{{ restic_profile_service_units_json | from_json }}"
+    _restic_profile_plan: >-
+      {{
+        restic_profile_profiles
+        | ak1ra_lab.restic_profile.deployment_plan(
+            restic_profile_repositories,
+            restic_profile_config_dir,
+            restic_profile_unit_prefix
+          )
+      }}
+  no_log: true
 
 - name: find managed systemd unit files on disk
   become: true
@@ -44,10 +39,9 @@
       | select('ansible.builtin.search', '\\.timer$')
       | list
     }}
-  when:
-    - >-
-      (item | ansible.builtin.basename | ansible.builtin.regex_replace('\\.timer$', ''))
-      not in (restic_profile_service_units | default([]) | map(attribute='unit_name') | list)
+  when: >-
+    (item | ansible.builtin.basename | ansible.builtin.regex_replace('\\.timer$', ''))
+    not in (_restic_profile_plan.expected_unit_names)
   failed_when: false
 
 - name: remove orphaned systemd unit files
@@ -56,10 +50,9 @@
     path: "{{ item.path }}"
     state: absent
   loop: "{{ _restic_profile_existing_units.files }}"
-  when:
-    - >-
-      (item.path | ansible.builtin.basename | ansible.builtin.regex_replace('\\.(service|timer)$', ''))
-      not in (restic_profile_service_units | default([]) | map(attribute='unit_name') | list)
+  when: >-
+    (item.path | ansible.builtin.basename | ansible.builtin.regex_replace('\\.(service|timer)$', ''))
+    not in (_restic_profile_plan.expected_unit_names)
   notify: systemctl daemon-reload
 
 - name: deploy systemd service unit for each enabled profile
@@ -70,49 +63,50 @@
     owner: root
     group: root
     mode: "0644"
-  loop: "{{ restic_profile_service_units | default([]) }}"
+  loop: "{{ _restic_profile_plan.service_units }}"
+  loop_control:
+    label: "{{ item.unit_name }}.service"
   notify: systemctl daemon-reload
   no_log: true
 
-- name: check current timer unit state for each profile # noqa: command-instead-of-module
-  ansible.builtin.command:
-    cmd: "systemctl show --property=ActiveState --property=UnitFileState {{ item.unit_name }}.timer"
-  register: _restic_profile_timer_check
-  changed_when: false
-  failed_when: false
-  loop: "{{ restic_profile_service_units | default([]) }}"
+- name: check current timer unit state for each profile
+  become: true
+  ak1ra_lab.restic_profile.systemd_timer_state:
+    units: >-
+      {{
+        _restic_profile_plan.service_units
+        | map(attribute='unit_name')
+        | map('ansible.builtin.regex_replace', '$', '.timer')
+        | list
+      }}
+  register: _restic_profile_timer_state
   no_log: true
 
-- name: stop and disable unused or disabled systemd timers
+- name: stop and disable timers for profiles without on_calendar
   become: true
   ansible.builtin.systemd_service:
     name: "{{ item.unit_name }}.timer"
     state: stopped
     enabled: false
-  loop: "{{ restic_profile_service_units | default([]) }}"
-  loop_control:
-    index_var: _profile_index
-  when:
-    - not (item.timer_enabled and (item.profile.on_calendar | default('') | string | trim | length > 0))
-    - >-
-      'ActiveState=active' in (
-        _restic_profile_timer_check.results[_profile_index].stdout_lines | default([]))
-      or 'UnitFileState=enabled' in (
-        _restic_profile_timer_check.results[_profile_index].stdout_lines | default([]))
+  loop: "{{ _restic_profile_plan.service_units }}"
+  when: >-
+    not item.has_timer
+    and (
+      (_restic_profile_timer_state.state[item.unit_name ~ '.timer'].active_state | default('')) == 'active'
+      or (_restic_profile_timer_state.state[item.unit_name ~ '.timer'].unit_file_state | default('')) == 'enabled')
   no_log: true
 
-- name: remove systemd timer files for profiles without on_calendar configured
+- name: remove timer files for profiles without on_calendar
   become: true
   ansible.builtin.file:
     path: "/etc/systemd/system/{{ item.unit_name }}.timer"
     state: absent
-  loop: "{{ restic_profile_service_units | default([]) }}"
-  when:
-    - not (item.profile.on_calendar | default('') | string | trim | length > 0)
+  loop: "{{ _restic_profile_plan.service_units }}"
+  when: not item.has_timer
   notify: systemctl daemon-reload
   no_log: true
 
-- name: deploy systemd timer unit for each enabled profile with on_calendar configured
+- name: deploy systemd timer unit for profiles with on_calendar configured
   become: true
   ansible.builtin.template:
     src: etc/systemd/system/restic-profile.timer.j2
@@ -120,10 +114,10 @@
     owner: root
     group: root
     mode: "0644"
-  loop: "{{ restic_profile_service_units | default([]) }}"
-  when:
-    - item.timer_enabled
-    - item.profile.on_calendar | default('') | string | trim | length > 0
+  loop: "{{ _restic_profile_plan.service_units }}"
+  loop_control:
+    label: "{{ item.unit_name }}.timer"
+  when: item.has_timer
   notify: systemctl daemon-reload
   no_log: true
 
@@ -134,8 +128,6 @@
     state: started
     enabled: true
     daemon_reload: true
-  loop: "{{ restic_profile_service_units | default([]) }}"
-  when:
-    - item.timer_enabled
-    - item.profile.on_calendar | default('') | string | trim | length > 0
+  loop: "{{ _restic_profile_plan.service_units }}"
+  when: item.has_timer
   no_log: true

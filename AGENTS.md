@@ -9,7 +9,7 @@ setup, usage, and the development workflow.
 ## Environment & Tooling - CRITICAL
 
 - Environment manager: **uv**. Sync with `uv sync --group dev`.
-- Lint & format: **ruff**. Run `just lint` (or `uv run ruff check --fix src/ tests/` then `uv run ruff format src/ tests/`).
+- Lint & format: **ruff**. Run `just lint` (or `uv run ruff check --fix src/ tests/ plugins/` then `uv run ruff format src/ tests/ plugins/`).
 - Type check: **ty** (`astral-sh/ty`). Run `just typecheck`.
 - Test runner: **pytest** (`uv run pytest -v tests/` or `just test`).
 - Ansible lint: `ansible-lint` (global install, see `README.md`).

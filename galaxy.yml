@@ -24,6 +24,7 @@ manifest:
   directives:
     - graft docs
     - graft playbooks
+    - graft plugins
     - graft roles
     - graft src
     - graft tests
