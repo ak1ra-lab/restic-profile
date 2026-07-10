@@ -1,77 +1,15 @@
 ---
-- name: find all restic-profile managed systemd unit files
-  become: true
-  ansible.builtin.find:
-    paths: /etc/systemd/system
-    patterns:
-      - "restic-profile-*.service"
-      - "restic-profile-*.timer"
-  register: _restic_profile_found_units
-
-- name: stop and disable all managed timers
-  become: true
-  ansible.builtin.systemd_service:
-    name: "{{ _found_unit | ansible.builtin.basename }}"
-    state: stopped
-    enabled: false
-    daemon_reload: false
-  loop: >-
-    {{
-      _restic_profile_found_units.files
-      | map(attribute='path')
-      | select('ansible.builtin.search', '\\.timer$')
-      | list
-    }}
+- name: remove per-target artifacts
+  ansible.builtin.include_tasks: _remove_target.yaml
+  loop: "{{ _restic_profile_removal_targets | default(_restic_profile_targets | default([])) }}"
   loop_control:
-    loop_var: _found_unit
-  failed_when: false
+    loop_var: _target
+    label: "{{ _target.key }}"
 
-- name: remove all managed systemd unit files
+- name: remove deployment registry
   become: true
   ansible.builtin.file:
-    path: "{{ _found_unit.path }}"
-    state: absent
-  loop: "{{ _restic_profile_found_units.files }}"
-  loop_control:
-    loop_var: _found_unit
-  notify: systemctl daemon-reload
-
-- name: find all restic-profile managed exclude files
-  become: true
-  ansible.builtin.find:
-    paths: "{{ restic_profile_config_dir }}"
-    patterns: "restic-profile-*.exclude"
-  register: _restic_profile_found_excludes
-
-- name: remove all managed exclude files
-  become: true
-  ansible.builtin.file:
-    path: "{{ _found_exclude.path }}"
-    state: absent
-  loop: "{{ _restic_profile_found_excludes.files }}"
-  loop_control:
-    loop_var: _found_exclude
-
-- name: find all restic-profile managed .env files
-  become: true
-  ansible.builtin.find:
-    paths: "{{ restic_profile_config_dir }}"
-    patterns: "restic-profile-*.env"
-  register: _restic_profile_found_env
-
-- name: remove all managed .env files
-  become: true
-  ansible.builtin.file:
-    path: "{{ _found_env.path }}"
-    state: absent
-  loop: "{{ _restic_profile_found_env.files }}"
-  loop_control:
-    loop_var: _found_env
-
-- name: remove restic-profile TOML config
-  become: true
-  ansible.builtin.file:
-    path: "{{ restic_profile_config_file }}"
+    path: "{{ restic_profile_registry_file }}"
     state: absent
 
 - name: remove restic-profile CLI symlink
@@ -84,12 +22,6 @@
   become: true
   ansible.builtin.file:
     path: "{{ restic_profile_scope_helper_path }}"
-    state: absent
-
-- name: remove managed hook directory
-  become: true
-  ansible.builtin.file:
-    path: "{{ restic_profile_hooks_dir }}"
     state: absent
 
 - name: remove restic-profile virtual environment

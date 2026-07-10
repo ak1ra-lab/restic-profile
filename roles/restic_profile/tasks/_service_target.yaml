@@ -1,0 +1,158 @@
+---
+# Per-target systemd unit deployment.
+# Called from service.yaml with loop var _target.
+# Assumes playbook-level become: true (runs as root).
+# Systemctl --user tasks use become_user to act as the target user;
+# ansible.builtin.systemd_service handles XDG_RUNTIME_DIR automatically.
+
+- name: enable systemd lingering for user-scope target
+  when: _target.is_user_scope | ansible.builtin.bool
+  become: true
+  ansible.builtin.command:
+    cmd: "loginctl enable-linger {{ _target.user }}"
+    creates: "{{ ['/var/lib/systemd/linger', _target.user] | ansible.builtin.path_join }}"
+
+- name: compute deployment plan for target
+  ansible.builtin.set_fact:
+    _restic_profile_plan: >-
+      {{
+        restic_profile_profiles
+        | ak1ra_lab.restic_profile.deployment_plan(
+            restic_profile_repositories,
+            _target.config_dir,
+            restic_profile_unit_prefix,
+            _target.profile_names
+          )
+      }}
+  no_log: true
+
+- name: find managed unit files on disk for target
+  ansible.builtin.find:
+    paths: "{{ _target.unit_dir }}"
+    patterns:
+      - "{{ restic_profile_unit_prefix }}*.service"
+      - "{{ restic_profile_unit_prefix }}*.timer"
+  register: _restic_profile_target_existing_units
+
+- name: stop and disable orphaned timers for target
+  become: true
+  become_user: "{{ _target.user }}"
+  ansible.builtin.systemd_service:
+    name: "{{ item | ansible.builtin.basename }}"
+    scope: "{{ _target.scope_param }}"
+    state: stopped
+    enabled: false
+  loop: >-
+    {{
+      _restic_profile_target_existing_units.files
+      | map(attribute='path')
+      | select('ansible.builtin.search', '\\.timer$')
+      | list
+    }}
+  when: >-
+    (item | ansible.builtin.basename | ansible.builtin.regex_replace('\\.timer$', ''))
+    not in (_restic_profile_plan.expected_unit_names)
+  failed_when: false
+
+- name: remove orphaned unit files for target
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ _restic_profile_target_existing_units.files }}"
+  when: >-
+    (item.path | ansible.builtin.basename | ansible.builtin.regex_replace('\\.(service|timer)$', ''))
+    not in (_restic_profile_plan.expected_unit_names)
+
+- name: ensure unit directory exists for target
+  ansible.builtin.file:
+    path: "{{ _target.unit_dir }}"
+    state: directory
+    owner: "{{ _target.file_owner }}"
+    group: "{{ _target.file_group }}"
+    mode: "0755"
+
+- name: deploy systemd service units for target
+  ansible.builtin.template:
+    src: etc/systemd/system/restic-profile.service.j2
+    dest: "{{ [_target.unit_dir, item.unit_name ~ '.service'] | ansible.builtin.path_join }}"
+    owner: "{{ _target.file_owner }}"
+    group: "{{ _target.file_group }}"
+    mode: "0644"
+  loop: "{{ _restic_profile_plan.service_units }}"
+  loop_control:
+    label: "{{ item.unit_name }}.service"
+  vars:
+    restic_profile_config_file: "{{ _target.config_file }}"
+    _restic_profile_install_target: "{{ _target.install_target }}"
+
+- name: check timer state for target profiles
+  become: true
+  become_user: "{{ _target.user }}"
+  ak1ra_lab.restic_profile.systemd_timer_state:
+    units: >-
+      {{
+        _restic_profile_plan.service_units
+        | map(attribute='unit_name')
+        | map('ansible.builtin.regex_replace', '$', '.timer')
+        | list
+      }}
+    scope: "{{ _target.scope_param }}"
+    runtime_uid: "{{ _target.uid | string }}"
+  register: _restic_profile_target_timer_state
+  no_log: true
+
+- name: stop and disable unused timers for target
+  become: true
+  become_user: "{{ _target.user }}"
+  ansible.builtin.systemd_service:
+    name: "{{ item.unit_name }}.timer"
+    scope: "{{ _target.scope_param }}"
+    state: stopped
+    enabled: false
+  loop: "{{ _restic_profile_plan.service_units }}"
+  when: >-
+    not item.has_timer
+    and (
+      (_restic_profile_target_timer_state.state[item.unit_name ~ '.timer'].active_state | default('')) == 'active'
+      or (_restic_profile_target_timer_state.state[item.unit_name ~ '.timer'].unit_file_state | default('')) == 'enabled')
+  no_log: true
+
+- name: remove timer files for profiles without on_calendar for target
+  ansible.builtin.file:
+    path: "{{ [_target.unit_dir, item.unit_name ~ '.timer'] | ansible.builtin.path_join }}"
+    state: absent
+  loop: "{{ _restic_profile_plan.service_units }}"
+  when: not item.has_timer
+  no_log: true
+
+- name: deploy systemd timer units for target
+  ansible.builtin.template:
+    src: etc/systemd/system/restic-profile.timer.j2
+    dest: "{{ [_target.unit_dir, item.unit_name ~ '.timer'] | ansible.builtin.path_join }}"
+    owner: "{{ _target.file_owner }}"
+    group: "{{ _target.file_group }}"
+    mode: "0644"
+  loop: "{{ _restic_profile_plan.service_units }}"
+  loop_control:
+    label: "{{ item.unit_name }}.timer"
+  when: item.has_timer
+
+- name: start and enable timers for target
+  become: true
+  become_user: "{{ _target.user }}"
+  ansible.builtin.systemd_service:
+    name: "{{ item.unit_name }}.timer"
+    scope: "{{ _target.scope_param }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  loop: "{{ _restic_profile_plan.service_units }}"
+  when: item.has_timer
+  no_log: true
+
+- name: systemctl daemon-reload for target
+  become: true
+  become_user: "{{ _target.user }}"
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    scope: "{{ _target.scope_param }}"

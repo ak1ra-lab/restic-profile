@@ -1,0 +1,21 @@
+---
+# Record the targets deployed by this run so the next run can detect and clean
+# up targets that a profile no longer maps to. Contains no secrets (paths,
+# users, uids, scope only), so it is world-readable.
+- name: ensure restic-profile state directory exists
+  become: true
+  ansible.builtin.file:
+    path: "{{ restic_profile_state_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: persist deployed targets registry
+  become: true
+  ansible.builtin.copy:
+    content: "{{ _restic_profile_targets | ansible.builtin.to_json(indent=2) }}\n"
+    dest: "{{ restic_profile_registry_file }}"
+    owner: root
+    group: root
+    mode: "0644"

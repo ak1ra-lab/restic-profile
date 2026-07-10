@@ -44,4 +44,4 @@ StandardError=journal
 SyslogIdentifier={{ _unit_name }}
 
 [Install]
-WantedBy=multi-user.target
+WantedBy={{ _restic_profile_install_target | default('multi-user.target') }}

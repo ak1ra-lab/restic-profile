@@ -92,6 +92,7 @@ key = "{{ ncfg.key }}"
 {% endfor %}
 # --- Profiles ---
 {% for pname, profile in restic_profile_profiles.items() %}
+{% if _target_profile_names is not defined or pname in _target_profile_names %}
 {% set _profile_enabled = profile.enabled | default(true) | ansible.builtin.bool %}
 {% if _profile_enabled %}
 [profiles.{{ pname }}]
@@ -196,6 +197,7 @@ shell = "{{ _hooks_shell }}"
 ]
 {% endif %}
 {% endfor %}
+{% endif %}
 {% endif %}
 {% endif %}
 

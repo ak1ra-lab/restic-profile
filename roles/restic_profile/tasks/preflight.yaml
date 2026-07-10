@@ -52,10 +52,12 @@
       - _profile_item.value.repository_ref | default('') | string | length > 0
       - _profile_item.value.repository_ref | default('') in restic_profile_repositories
       - _profile_item.value.backup is defined or _profile_item.value.retention is defined
+      - _profile_item.value.systemd_scope | default('system') in ['system', 'user']
     fail_msg: >-
       Profile {{ _profile_item.key | default('<empty>') }}: enabled profiles must
       be dicts (mapping) with a non-empty 'repository_ref' that points to
-      restic_profile_repositories and at least one of 'backup' or 'retention'.
+      restic_profile_repositories, at least one of 'backup' or 'retention',
+      and a valid systemd_scope ('system' or 'user').
   loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
   loop_control:
     loop_var: _profile_item
@@ -146,3 +148,73 @@
     loop_var: _pitem_nf
     label: "{{ _pitem_nf.key | default('<empty>') }}"
   no_log: true
+
+- name: get passwd entries for user-scope target users
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ _user_scope_user }}"
+  loop: >-
+    {{
+      restic_profile_profiles
+      | ak1ra_lab.restic_profile.user_scope_users(restic_profile_user)
+    }}
+  loop_control:
+    loop_var: _user_scope_user
+
+- name: compute deployment targets
+  ansible.builtin.set_fact:
+    _restic_profile_targets: >-
+      {{
+        restic_profile_profiles
+        | ak1ra_lab.restic_profile.deployment_targets(
+            restic_profile_user,
+            ansible_facts.getent_passwd | default({}),
+            restic_profile_state_dir
+          )
+      }}
+
+- name: stat previous deployment registry
+  ansible.builtin.stat:
+    path: "{{ restic_profile_registry_file }}"
+  register: _restic_profile_registry_stat
+
+- name: read previous deployment registry
+  when: _restic_profile_registry_stat.stat.exists
+  ansible.builtin.slurp:
+    src: "{{ restic_profile_registry_file }}"
+  register: _restic_profile_registry_slurp
+
+- name: parse previously deployed targets
+  ansible.builtin.set_fact:
+    _restic_profile_registered_targets: >-
+      {{
+        (_restic_profile_registry_slurp.content | ansible.builtin.b64decode | ansible.builtin.from_json)
+        if (_restic_profile_registry_stat.stat.exists | default(false))
+        else []
+      }}
+
+- name: detect leftover system-scope units without a registry entry
+  when: >-
+    'system:root' not in (_restic_profile_targets | map(attribute='key') | list)
+  ansible.builtin.find:
+    paths: /etc/systemd/system
+    patterns:
+      - "restic-profile-*.service"
+      - "restic-profile-*.timer"
+  register: _restic_profile_system_leftover
+
+- name: compute orphaned deployment targets
+  ansible.builtin.set_fact:
+    _restic_profile_orphan_targets: >-
+      {{
+        _restic_profile_targets
+        | ak1ra_lab.restic_profile.orphan_targets(
+            _restic_profile_registered_targets,
+            _restic_profile_system_leftover.matched | default(0),
+            restic_profile_state_dir
+          )
+      }}
+
+- name: compute full removal target set
+  ansible.builtin.set_fact:
+    _restic_profile_removal_targets: "{{ _restic_profile_targets + _restic_profile_orphan_targets }}"

@@ -1,0 +1,11 @@
+---
+# Remove artifacts for deployment targets that no longer exist.
+# Populated by preflight from the deployment registry (plus any leftover
+# system-scope units without a registry entry). Runs during state: present so
+# that migrating a profile across scope/user tears down the previous target.
+- name: remove artifacts for orphaned deployment targets
+  ansible.builtin.include_tasks: _remove_target.yaml
+  loop: "{{ _restic_profile_orphan_targets | default([]) }}"
+  loop_control:
+    loop_var: _target
+    label: "{{ _target.key }}"

@@ -13,6 +13,11 @@ restic_profile_hooks_dir: "{{ restic_profile_config_dir }}/hooks.d"
 # str: restic-profile state directory (FHS state dir)
 restic_profile_state_dir: /var/lib/restic-profile
 
+# Registry of deployment targets from the last successful run. Used to detect
+# and clean up targets that a profile no longer maps to (e.g. after switching a
+# profile from system to user scope, or moving it to a different systemd_user).
+restic_profile_registry_file: "{{ restic_profile_state_dir }}/deployed_targets.json"
+
 # str: restic-profile dedicated venv directory (isolated, safe to delete)
 restic_profile_venv_dir: "{{ restic_profile_state_dir }}/venv"
 

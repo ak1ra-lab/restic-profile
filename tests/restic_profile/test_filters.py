@@ -296,3 +296,217 @@ def test_plan_all_profiles_disabled(filters: Any, repositories: dict) -> None:
     plan = filters.deployment_plan(profiles, repositories, CONFIG_DIR, UNIT_PREFIX)
     assert plan["service_units"] == []
     assert plan["env_files"] == []
+
+
+# ===========================================================================
+# deployment_targets + orphan_targets + user_scope_users
+# ===========================================================================
+
+SYSTEM_STATE_DIR = "/var/lib/restic-profile"
+
+
+@pytest.fixture
+def scope_profiles() -> dict[str, Any]:
+    """Profiles spanning system scope, user scope, and disabled."""
+    return {
+        "sysapp": {
+            "repository_ref": "r1",
+            "enabled": True,
+            "on_calendar": "daily",
+            "backup": {"sources": ["/srv/app"]},
+        },
+        "disabled_app": {
+            "repository_ref": "r1",
+            "enabled": False,
+            "systemd_scope": "user",
+            "systemd_user": "alice",
+        },
+        "userapp": {
+            "repository_ref": "r2",
+            "enabled": True,
+            "systemd_scope": "user",
+            "systemd_user": "alice",
+            "on_calendar": "hourly",
+            "backup": {"sources": ["/home/alice/data"]},
+        },
+        "userapp2": {
+            "repository_ref": "r1",
+            "enabled": True,
+            "systemd_scope": "user",
+            "systemd_user": "alice",
+            "on_calendar": "",
+            "timer_enabled": False,
+        },
+        "userbob": {
+            "repository_ref": "r2",
+            "enabled": True,
+            "systemd_scope": "user",
+            "systemd_user": "bob",
+            "on_calendar": "weekly",
+        },
+    }
+
+
+@pytest.fixture
+def passwd() -> dict[str, list[str]]:
+    return {
+        "alice": ["alice", "1001", "1001", "Alice", "/home/alice", "/bin/bash"],
+        "bob": ["bob", "1002", "1002", "Bob", "/home/bob", "/bin/bash"],
+    }
+
+
+# --- user_scope_users ---
+
+
+def test_user_scope_users_unique_ordered(filters: Any, scope_profiles: dict) -> None:
+    assert filters.user_scope_users(scope_profiles, "ansible") == ["alice", "bob"]
+
+
+def test_user_scope_users_excludes_disabled(filters: Any, scope_profiles: dict) -> None:
+    profiles = {
+        "p": {
+            "repository_ref": "r1",
+            "enabled": False,
+            "systemd_scope": "user",
+            "systemd_user": "alice",
+        }
+    }
+    assert filters.user_scope_users(profiles, "ansible") == []
+
+
+def test_user_scope_users_empty_when_no_user_scope(filters: Any) -> None:
+    assert filters.user_scope_users({"p": {"enabled": True}}, "ansible") == []
+
+
+# --- deployment_targets: system scope ---
+
+
+def test_targets_system_scope_paths(
+    filters: Any, scope_profiles: dict, passwd: dict
+) -> None:
+    targets = filters.deployment_targets(
+        scope_profiles, "ansible", passwd, SYSTEM_STATE_DIR
+    )
+    sys_root = [t for t in targets if t["key"] == "system:root"]
+    assert len(sys_root) == 1
+    t = sys_root[0]
+    assert t["scope"] == "system"
+    assert t["is_user_scope"] is False
+    assert t["home"] == ""
+    assert t["uid"] == ""
+    assert t["config_dir"] == "/etc/restic-profile"
+    assert t["config_file"] == "/etc/restic-profile/restic-profile.toml"
+    assert t["hooks_dir"] == "/etc/restic-profile/hooks.d"
+    assert t["state_dir"] == SYSTEM_STATE_DIR
+    assert t["unit_dir"] == "/etc/systemd/system"
+    assert t["install_target"] == "multi-user.target"
+    assert t["file_owner"] == "root"
+    assert t["file_group"] == "root"
+    assert t["file_mode_secret"] == "0640"
+    assert t["scope_param"] == "system"
+    assert "sysapp" in t["profile_names"]
+
+
+# --- deployment_targets: user scope ---
+
+
+def test_targets_user_scope_xdg_paths(
+    filters: Any, scope_profiles: dict, passwd: dict
+) -> None:
+    targets = filters.deployment_targets(
+        scope_profiles, "ansible", passwd, SYSTEM_STATE_DIR
+    )
+    alice = [t for t in targets if t["key"] == "user:alice"][0]
+    assert alice["is_user_scope"] is True
+    assert alice["home"] == "/home/alice"
+    assert alice["uid"] == 1001
+    assert alice["config_dir"] == "/home/alice/.config/restic-profile"
+    assert alice["config_file"] == (
+        "/home/alice/.config/restic-profile/restic-profile.toml"
+    )
+    assert alice["hooks_dir"] == "/home/alice/.config/restic-profile/hooks.d"
+    assert alice["state_dir"] == "/home/alice/.local/share/restic-profile"
+    assert alice["unit_dir"] == "/home/alice/.config/systemd/user"
+    assert alice["install_target"] == "default.target"
+    assert alice["file_owner"] == "alice"
+    assert alice["file_group"] == "alice"
+    assert alice["file_mode_secret"] == "0600"
+    assert alice["scope_param"] == "user"
+    assert sorted(alice["profile_names"]) == ["userapp", "userapp2"]
+
+
+def test_targets_groups_by_scope_user(
+    filters: Any, scope_profiles: dict, passwd: dict
+) -> None:
+    targets = filters.deployment_targets(
+        scope_profiles, "ansible", passwd, SYSTEM_STATE_DIR
+    )
+    keys = [t["key"] for t in targets]
+    assert "system:root" in keys
+    assert "user:alice" in keys
+    assert "user:bob" in keys
+
+
+def test_targets_missing_user_raises(filters: Any, scope_profiles: dict) -> None:
+    with pytest.raises(filters.AnsibleFilterError, match="not found"):
+        filters.deployment_targets(scope_profiles, "ansible", {}, SYSTEM_STATE_DIR)
+
+
+def test_targets_default_user_for_user_scope(filters: Any, passwd: dict) -> None:
+    profiles = {
+        "p": {
+            "repository_ref": "r1",
+            "enabled": True,
+            "systemd_scope": "user",
+        }
+    }
+    targets = filters.deployment_targets(profiles, "alice", passwd, SYSTEM_STATE_DIR)
+    assert targets[0]["user"] == "alice"
+    assert targets[0]["home"] == "/home/alice"
+
+
+def test_targets_empty_profiles(filters: Any) -> None:
+    assert filters.deployment_targets({}, "ansible", {}, SYSTEM_STATE_DIR) == []
+
+
+# --- orphan_targets ---
+
+
+def test_orphans_basic(filters: Any) -> None:
+    current = [{"key": "system:root"}, {"key": "user:alice"}]
+    registered = [
+        {"key": "system:root"},
+        {"key": "user:bob"},
+    ]
+    orphans = filters.orphan_targets(current, registered, 0, SYSTEM_STATE_DIR)
+    assert [o["key"] for o in orphans] == ["user:bob"]
+
+
+def test_orphans_system_root_fallback(filters: Any) -> None:
+    current = [{"key": "user:alice"}]
+    registered = [{"key": "user:bob"}]
+    orphans = filters.orphan_targets(current, registered, 2, SYSTEM_STATE_DIR)
+    keys = [o["key"] for o in orphans]
+    assert "system:root" in keys
+    sys_root = [o for o in orphans if o["key"] == "system:root"][0]
+    assert sys_root["unit_dir"] == "/etc/systemd/system"
+    assert sys_root["profile_names"] == []
+
+
+def test_orphans_no_fallback_when_system_root_current(filters: Any) -> None:
+    orphans = filters.orphan_targets([{"key": "system:root"}], [], 5, SYSTEM_STATE_DIR)
+    assert orphans == []
+
+
+def test_orphans_dedup(filters: Any) -> None:
+    orphans = filters.orphan_targets(
+        [],
+        [{"key": "user:alice"}, {"key": "user:alice"}],
+        0,
+        SYSTEM_STATE_DIR,
+    )
+    assert len(orphans) == 1
+
+
+def test_orphans_empty(filters: Any) -> None:
+    assert filters.orphan_targets([], [], 0, SYSTEM_STATE_DIR) == []

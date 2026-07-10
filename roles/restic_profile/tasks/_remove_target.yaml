@@ -1,0 +1,77 @@
+---
+# Per-target artifact removal.
+# Called from remove.yaml / cleanup_orphans.yaml with loop var _target.
+# Assumes playbook-level become: true (runs as root).
+
+- name: find managed unit files for target
+  ansible.builtin.find:
+    paths: "{{ _target.unit_dir }}"
+    patterns:
+      - "restic-profile-*.service"
+      - "restic-profile-*.timer"
+  register: _restic_profile_target_found_units
+
+- name: stop and disable all managed timers for target
+  become: true
+  become_user: "{{ _target.user }}"
+  ansible.builtin.systemd_service:
+    name: "{{ item | ansible.builtin.basename }}"
+    scope: "{{ _target.scope_param }}"
+    state: stopped
+    enabled: false
+    daemon_reload: false
+  loop: >-
+    {{
+      _restic_profile_target_found_units.files
+      | map(attribute='path')
+      | select('ansible.builtin.search', '\\.timer$')
+      | list
+    }}
+  failed_when: false
+
+- name: remove all managed unit files for target
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ _restic_profile_target_found_units.files }}"
+
+- name: find all managed exclude files for target
+  ansible.builtin.find:
+    paths: "{{ _target.config_dir }}"
+    patterns: "restic-profile-*.exclude"
+  register: _restic_profile_target_found_excludes
+
+- name: remove all managed exclude files for target
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ _restic_profile_target_found_excludes.files }}"
+
+- name: find all managed env files for target
+  ansible.builtin.find:
+    paths: "{{ _target.config_dir }}"
+    patterns: "restic-profile-*.env"
+  register: _restic_profile_target_found_env
+
+- name: remove all managed env files for target
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ _restic_profile_target_found_env.files }}"
+
+- name: remove TOML config for target
+  ansible.builtin.file:
+    path: "{{ _target.config_file }}"
+    state: absent
+
+- name: remove hooks directory for target
+  ansible.builtin.file:
+    path: "{{ _target.hooks_dir }}"
+    state: absent
+
+- name: systemctl daemon-reload for target
+  become: true
+  become_user: "{{ _target.user }}"
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    scope: "{{ _target.scope_param }}"

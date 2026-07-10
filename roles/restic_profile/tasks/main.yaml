@@ -1,6 +1,9 @@
 ---
 - name: run preflight checks
   ansible.builtin.import_tasks: preflight.yaml
+
+- name: remove orphaned deployment targets
+  ansible.builtin.import_tasks: cleanup_orphans.yaml
   when: restic_profile_state == 'present'
 
 - name: install restic and restic-profile CLI
@@ -13,6 +16,10 @@
 
 - name: manage restic-profile systemd units
   ansible.builtin.import_tasks: service.yaml
+  when: restic_profile_state == 'present'
+
+- name: persist deployment registry
+  ansible.builtin.import_tasks: persist_registry.yaml
   when: restic_profile_state == 'present'
 
 - name: remove restic-profile

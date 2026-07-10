@@ -2,6 +2,13 @@
 # str: deployment state; set "absent" to stop timers and remove all managed files
 restic_profile_state: present
 
+# str: default target user for profiles with systemd_scope == "user".
+#      Defaults to ansible_facts.user_id. Overridden per-profile by systemd_user.
+#      When a user-scope profile targets a different user than the connection
+#      user, the role uses become+become_user for file operations and
+#      systemctl --user.
+restic_profile_user: "{{ ansible_facts.user_id }}"
+
 # dict: repository credentials and URLs.
 #   Each key is a unique repository reference name (resolved via profile's repository_ref).
 # Required fields per repository:
@@ -54,6 +61,11 @@ restic_profile_notify_configs: {}
 #   enabled                           bool  true     skip deploying this profile when false
 #   timer_enabled                     bool  true     deploy units but stop/disable the timer when false
 #   tag                               str   <name>   snapshot tag; defaults to the profile name
+#
+#   systemd_scope                     str   "system" "system" (root, FHS paths) or "user" (XDG paths);
+#                                                      determines where config and systemd units live
+#   systemd_user                      str   <global> target username for user-scope profiles;
+#                                                      defaults to restic_profile_user when systemd_scope == "user"
 #
 #   on_calendar                       str   ""       OnCalendar value for the profile timer. Leave empty to disable the timer.
 #   randomized_delay_sec              str   ""       RandomizedDelaySec value for the profile timer

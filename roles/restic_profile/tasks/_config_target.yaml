@@ -1,0 +1,143 @@
+---
+# Per-target config deployment.
+# Called from config.yaml with loop var _target.
+# Assumes playbook-level become: true (runs as root).
+
+- name: compute deployment plan for target
+  ansible.builtin.set_fact:
+    _restic_profile_plan: >-
+      {{
+        restic_profile_profiles
+        | ak1ra_lab.restic_profile.deployment_plan(
+            restic_profile_repositories,
+            _target.config_dir,
+            restic_profile_unit_prefix,
+            _target.profile_names
+          )
+      }}
+  no_log: true
+
+- name: ensure directories for target
+  ansible.builtin.file:
+    path: "{{ _target_dir }}"
+    state: directory
+    owner: "{{ _target.file_owner }}"
+    group: "{{ _target.file_group }}"
+    mode: "0755"
+  loop:
+    - "{{ _target.config_dir }}"
+    - "{{ _target.hooks_dir }}"
+    - "{{ _target.state_dir }}"
+  loop_control:
+    loop_var: _target_dir
+
+- name: deploy hook files for target profiles
+  when: restic_profile_profiles[_profile_name].enabled | default(true) | ansible.builtin.bool
+  ansible.builtin.include_tasks: hooks.yaml
+  loop: "{{ _target.profile_names }}"
+  loop_control:
+    loop_var: _profile_name
+    label: "{{ _profile_name }}"
+  vars:
+    restic_profile_hook_profile_name: "{{ _profile_name }}"
+    restic_profile_hook_profile: "{{ restic_profile_profiles[_profile_name] }}"
+    restic_profile_hooks_dir: "{{ _target.hooks_dir }}"
+    _restic_profile_file_owner: "{{ _target.file_owner }}"
+    _restic_profile_file_group: "{{ _target.file_group }}"
+
+- name: deploy exclude files for target profiles
+  ansible.builtin.copy:
+    content: "{{ item.profile.backup.exclude_file_content }}"
+    dest: "{{ item.path }}"
+    owner: "{{ _target.file_owner }}"
+    group: "{{ _target.file_group }}"
+    mode: "{{ _target.file_mode_secret }}"
+  loop: "{{ _restic_profile_plan.exclude_files }}"
+  loop_control:
+    label: "{{ item.profile_name }}.exclude"
+  no_log: true
+
+- name: find managed exclude files for target
+  ansible.builtin.find:
+    paths: "{{ _target.config_dir }}"
+    patterns: "restic-profile-*.exclude"
+    file_type: file
+  register: _restic_profile_target_excludes
+
+- name: remove stale exclude files for target
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ _restic_profile_target_excludes.files }}"
+  when:
+    - item.path not in (_restic_profile_plan.expected_exclude_paths)
+
+- name: find managed env files for target
+  ansible.builtin.find:
+    paths: "{{ _target.config_dir }}"
+    patterns: "restic-profile-*.env"
+    file_type: file
+  register: _restic_profile_target_env_files
+
+- name: remove stale env files for target
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ _restic_profile_target_env_files.files }}"
+  when:
+    - item.path not in (_restic_profile_plan.expected_env_paths)
+
+- name: deploy env files for target repositories
+  ansible.builtin.template:
+    src: etc/restic-profile/restic-profile.env.j2
+    dest: "{{ item.path }}"
+    owner: "{{ _target.file_owner }}"
+    group: "{{ _target.file_group }}"
+    mode: "{{ _target.file_mode_secret }}"
+  loop: "{{ _restic_profile_plan.env_files }}"
+  loop_control:
+    loop_var: _repository_item
+    label: "{{ _repository_item.key }}.env"
+  vars:
+    restic_profile_config_dir: "{{ _target.config_dir }}"
+  no_log: true
+
+- name: ensure notify templates directory for target
+  ansible.builtin.file:
+    path: "{{ restic_profile_notify_template_dir }}"
+    state: directory
+    owner: "{{ _target.file_owner }}"
+    group: "{{ _target.file_group }}"
+    mode: "0755"
+  when:
+    - restic_profile_notify_template_dir | default('') | length > 0
+    - restic_profile_notify_templates | default({}) | length > 0
+
+- name: deploy notify report templates for target
+  ansible.builtin.copy:
+    content: "{{ _template_item.value }}"
+    dest: "{{ [restic_profile_notify_template_dir, _template_item.key] | ansible.builtin.path_join }}"
+    owner: "{{ _target.file_owner }}"
+    group: "{{ _target.file_group }}"
+    mode: "0644"
+  loop: "{{ restic_profile_notify_templates | ansible.builtin.dict2items }}"
+  loop_control:
+    loop_var: _template_item
+    label: "{{ _template_item.key }}"
+  when:
+    - restic_profile_notify_template_dir | default('') | length > 0
+    - restic_profile_notify_templates | default({}) | length > 0
+  no_log: true
+
+- name: deploy restic-profile.toml for target
+  ansible.builtin.template:
+    src: etc/restic-profile/restic-profile.toml.j2
+    dest: "{{ _target.config_file }}"
+    owner: "{{ _target.file_owner }}"
+    group: "{{ _target.file_group }}"
+    mode: "{{ _target.file_mode_secret }}"
+  vars:
+    _target_profile_names: "{{ _target.profile_names }}"
+    restic_profile_config_dir: "{{ _target.config_dir }}"
+    restic_profile_hooks_dir: "{{ _target.hooks_dir }}"
+  no_log: true
