@@ -359,7 +359,7 @@ def passwd() -> dict[str, list[str]]:
 
 
 def test_user_scope_users_unique_ordered(filters: Any, scope_profiles: dict) -> None:
-    assert filters.user_scope_users(scope_profiles, "ansible") == ["alice", "bob"]
+    assert filters.user_scope_users(scope_profiles) == ["alice", "bob"]
 
 
 def test_user_scope_users_excludes_disabled(filters: Any, scope_profiles: dict) -> None:
@@ -371,11 +371,23 @@ def test_user_scope_users_excludes_disabled(filters: Any, scope_profiles: dict) 
             "systemd_user": "alice",
         }
     }
-    assert filters.user_scope_users(profiles, "ansible") == []
+    assert filters.user_scope_users(profiles) == []
 
 
 def test_user_scope_users_empty_when_no_user_scope(filters: Any) -> None:
-    assert filters.user_scope_users({"p": {"enabled": True}}, "ansible") == []
+    assert filters.user_scope_users({"p": {"enabled": True}}) == []
+
+
+def test_user_scope_users_missing_systemd_user_raises(filters: Any) -> None:
+    profiles = {
+        "p": {
+            "repository_ref": "r1",
+            "enabled": True,
+            "systemd_scope": "user",
+        }
+    }
+    with pytest.raises(filters.AnsibleFilterError, match="systemd_user"):
+        filters.user_scope_users(profiles)
 
 
 # --- deployment_targets: system scope ---
@@ -384,9 +396,7 @@ def test_user_scope_users_empty_when_no_user_scope(filters: Any) -> None:
 def test_targets_system_scope_paths(
     filters: Any, scope_profiles: dict, passwd: dict
 ) -> None:
-    targets = filters.deployment_targets(
-        scope_profiles, "ansible", passwd, SYSTEM_STATE_DIR
-    )
+    targets = filters.deployment_targets(scope_profiles, passwd)
     sys_root = [t for t in targets if t["key"] == "system:root"]
     assert len(sys_root) == 1
     t = sys_root[0]
@@ -413,9 +423,7 @@ def test_targets_system_scope_paths(
 def test_targets_user_scope_xdg_paths(
     filters: Any, scope_profiles: dict, passwd: dict
 ) -> None:
-    targets = filters.deployment_targets(
-        scope_profiles, "ansible", passwd, SYSTEM_STATE_DIR
-    )
+    targets = filters.deployment_targets(scope_profiles, passwd)
     alice = [t for t in targets if t["key"] == "user:alice"][0]
     assert alice["is_user_scope"] is True
     assert alice["home"] == "/home/alice"
@@ -438,9 +446,7 @@ def test_targets_user_scope_xdg_paths(
 def test_targets_groups_by_scope_user(
     filters: Any, scope_profiles: dict, passwd: dict
 ) -> None:
-    targets = filters.deployment_targets(
-        scope_profiles, "ansible", passwd, SYSTEM_STATE_DIR
-    )
+    targets = filters.deployment_targets(scope_profiles, passwd)
     keys = [t["key"] for t in targets]
     assert "system:root" in keys
     assert "user:alice" in keys
@@ -449,10 +455,10 @@ def test_targets_groups_by_scope_user(
 
 def test_targets_missing_user_raises(filters: Any, scope_profiles: dict) -> None:
     with pytest.raises(filters.AnsibleFilterError, match="not found"):
-        filters.deployment_targets(scope_profiles, "ansible", {}, SYSTEM_STATE_DIR)
+        filters.deployment_targets(scope_profiles, {})
 
 
-def test_targets_default_user_for_user_scope(filters: Any, passwd: dict) -> None:
+def test_targets_missing_systemd_user_raises(filters: Any, passwd: dict) -> None:
     profiles = {
         "p": {
             "repository_ref": "r1",
@@ -460,13 +466,12 @@ def test_targets_default_user_for_user_scope(filters: Any, passwd: dict) -> None
             "systemd_scope": "user",
         }
     }
-    targets = filters.deployment_targets(profiles, "alice", passwd, SYSTEM_STATE_DIR)
-    assert targets[0]["user"] == "alice"
-    assert targets[0]["home"] == "/home/alice"
+    with pytest.raises(filters.AnsibleFilterError, match="systemd_user"):
+        filters.deployment_targets(profiles, passwd)
 
 
 def test_targets_empty_profiles(filters: Any) -> None:
-    assert filters.deployment_targets({}, "ansible", {}, SYSTEM_STATE_DIR) == []
+    assert filters.deployment_targets({}, {}) == []
 
 
 # --- orphan_targets ---
@@ -478,14 +483,14 @@ def test_orphans_basic(filters: Any) -> None:
         {"key": "system:root"},
         {"key": "user:bob"},
     ]
-    orphans = filters.orphan_targets(current, registered, 0, SYSTEM_STATE_DIR)
+    orphans = filters.orphan_targets(current, registered, 0)
     assert [o["key"] for o in orphans] == ["user:bob"]
 
 
 def test_orphans_system_root_fallback(filters: Any) -> None:
     current = [{"key": "user:alice"}]
     registered = [{"key": "user:bob"}]
-    orphans = filters.orphan_targets(current, registered, 2, SYSTEM_STATE_DIR)
+    orphans = filters.orphan_targets(current, registered, 2)
     keys = [o["key"] for o in orphans]
     assert "system:root" in keys
     sys_root = [o for o in orphans if o["key"] == "system:root"][0]
@@ -494,7 +499,7 @@ def test_orphans_system_root_fallback(filters: Any) -> None:
 
 
 def test_orphans_no_fallback_when_system_root_current(filters: Any) -> None:
-    orphans = filters.orphan_targets([{"key": "system:root"}], [], 5, SYSTEM_STATE_DIR)
+    orphans = filters.orphan_targets([{"key": "system:root"}], [], 5)
     assert orphans == []
 
 
@@ -503,10 +508,9 @@ def test_orphans_dedup(filters: Any) -> None:
         [],
         [{"key": "user:alice"}, {"key": "user:alice"}],
         0,
-        SYSTEM_STATE_DIR,
     )
     assert len(orphans) == 1
 
 
 def test_orphans_empty(filters: Any) -> None:
-    assert filters.orphan_targets([], [], 0, SYSTEM_STATE_DIR) == []
+    assert filters.orphan_targets([], [], 0) == []

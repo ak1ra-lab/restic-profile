@@ -53,11 +53,15 @@
       - _profile_item.value.repository_ref | default('') in restic_profile_repositories
       - _profile_item.value.backup is defined or _profile_item.value.retention is defined
       - _profile_item.value.systemd_scope | default('system') in ['system', 'user']
+      - >-
+        _profile_item.value.systemd_scope | default('system') == 'system'
+        or (_profile_item.value.systemd_user | default('') | string | trim | length > 0)
     fail_msg: >-
       Profile {{ _profile_item.key | default('<empty>') }}: enabled profiles must
       be dicts (mapping) with a non-empty 'repository_ref' that points to
       restic_profile_repositories, at least one of 'backup' or 'retention',
-      and a valid systemd_scope ('system' or 'user').
+      a valid systemd_scope ('system' or 'user'), and — when scope is 'user' —
+      a non-empty systemd_user.
   loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
   loop_control:
     loop_var: _profile_item
@@ -156,7 +160,7 @@
   loop: >-
     {{
       restic_profile_profiles
-      | ak1ra_lab.restic_profile.user_scope_users(restic_profile_user)
+      | ak1ra_lab.restic_profile.user_scope_users
     }}
   loop_control:
     loop_var: _user_scope_user
@@ -167,9 +171,7 @@
       {{
         restic_profile_profiles
         | ak1ra_lab.restic_profile.deployment_targets(
-            restic_profile_user,
-            ansible_facts.getent_passwd | default({}),
-            restic_profile_state_dir
+            ansible_facts.getent_passwd | default({})
           )
       }}
 
@@ -210,8 +212,7 @@
         _restic_profile_targets
         | ak1ra_lab.restic_profile.orphan_targets(
             _restic_profile_registered_targets,
-            _restic_profile_system_leftover.matched | default(0),
-            restic_profile_state_dir
+            _restic_profile_system_leftover.matched | default(0)
           )
       }}
 

@@ -164,6 +164,7 @@ def deployment_plan(
 # ---------------------------------------------------------------------------
 
 _SYSTEM_CONFIG_DIR = "/etc/restic-profile"
+_SYSTEM_STATE_DIR = "/var/lib/restic-profile"
 _SYSTEM_UNIT_DIR = "/etc/systemd/system"
 _SYSTEM_INSTALL_TARGET = "multi-user.target"
 _USER_INSTALL_TARGET = "default.target"
@@ -180,7 +181,6 @@ def _build_target(
     profile_names: list[str],
     home: str,
     uid: int | str,
-    system_state_dir: str,
 ) -> dict[str, Any]:
     """Construct a deployment-target descriptor with all filesystem paths.
 
@@ -198,7 +198,7 @@ def _build_target(
         file_mode_secret = "0600"
     else:
         config_dir = _SYSTEM_CONFIG_DIR
-        state_dir = system_state_dir
+        state_dir = _SYSTEM_STATE_DIR
         unit_dir = _SYSTEM_UNIT_DIR
         install_target = _SYSTEM_INSTALL_TARGET
         file_owner = "root"
@@ -228,16 +228,24 @@ def _build_target(
 
 def _group_profiles_by_target(
     profiles: dict[str, Any],
-    default_user: str,
 ) -> list[dict[str, Any]]:
-    """Group enabled profiles into raw ``{scope, user, profile_names}`` buckets."""
+    """Group enabled profiles into raw ``{scope, user, profile_names}`` buckets.
+
+    User-scope profiles must set ``systemd_user`` explicitly; a missing or
+    empty value raises ``AnsibleFilterError``.
+    """
     buckets: dict[str, dict[str, Any]] = {}
     for pname, profile in profiles.items():
         if not _truthy(profile.get("enabled"), default=True):
             continue
         scope = str(profile.get("systemd_scope", "system"))
         if scope == "user":
-            user = str(profile.get("systemd_user", default_user))
+            user = str(profile.get("systemd_user", "")).strip()
+            if not user:
+                raise AnsibleFilterError(
+                    "Profile '{0}' has systemd_scope='user' but does not set"
+                    " systemd_user.".format(pname)
+                )
         else:
             user = str(profile.get("systemd_user", "root"))
         key = f"{scope}:{user}"
@@ -249,14 +257,14 @@ def _group_profiles_by_target(
     return list(buckets.values())
 
 
-def user_scope_users(profiles: dict[str, Any], default_user: str) -> list[str]:
+def user_scope_users(profiles: dict[str, Any]) -> list[str]:
     """Return unique user-scope usernames that need ``getent passwd`` lookups.
 
     Preserves first-seen order so the getent loop is deterministic.
     """
     seen: set[str] = set()
     users: list[str] = []
-    for raw in _group_profiles_by_target(profiles, default_user):
+    for raw in _group_profiles_by_target(profiles):
         if raw["scope"] == "user" and raw["user"] not in seen:
             seen.add(raw["user"])
             users.append(raw["user"])
@@ -265,29 +273,22 @@ def user_scope_users(profiles: dict[str, Any], default_user: str) -> list[str]:
 
 def deployment_targets(
     profiles: dict[str, Any],
-    default_user: str,
     user_passwd: dict[str, Any] | None,
-    system_state_dir: str,
 ) -> list[dict[str, Any]]:
     """Group enabled profiles into deployment targets with full path metadata.
 
     Each target is a ``(scope, user)`` pair.  System-scope profiles all go to
-    the ``system:root`` target.  User-scope profiles go to ``user:<username>``.
+    the ``system:root`` target.  User-scope profiles go to ``user:<username>``
+    and must set ``systemd_user`` explicitly.
 
     Parameters
     ----------
     profiles:
         The ``restic_profile_profiles`` dict.
-    default_user:
-        Fallback username for user-scope profiles that don't specify
-        ``systemd_user`` (typically ``restic_profile_user``).
     user_passwd:
         ``getent passwd`` result (``ansible_facts.getent_passwd``).
         Used to resolve ``home`` and ``uid`` for user-scope targets.
         A missing entry raises ``AnsibleFilterError``.
-    system_state_dir:
-        State directory for system-scope targets
-        (typically ``restic_profile_state_dir``).
 
     Returns
     -------
@@ -299,7 +300,7 @@ def deployment_targets(
     """
     passwd = user_passwd or {}
     targets: list[dict[str, Any]] = []
-    for raw in _group_profiles_by_target(profiles, default_user):
+    for raw in _group_profiles_by_target(profiles):
         scope = raw["scope"]
         user = raw["user"]
         if scope == "user":
@@ -321,7 +322,6 @@ def deployment_targets(
                 profile_names=raw["profile_names"],
                 home=home,
                 uid=uid,
-                system_state_dir=system_state_dir,
             )
         )
     return targets
@@ -331,7 +331,6 @@ def orphan_targets(
     current_targets: list[dict[str, Any]],
     registered_targets: list[dict[str, Any]],
     system_leftover_count: int,
-    system_state_dir: str,
 ) -> list[dict[str, Any]]:
     """Compute deployment targets that should be torn down.
 
@@ -350,9 +349,6 @@ def orphan_targets(
     system_leftover_count:
         Number of leftover system-scope unit files found on disk
         (``find.matched`` count under ``/etc/systemd/system``).
-    system_state_dir:
-        State directory for system-scope targets — needed to construct
-        the synthetic ``system:root`` fallback.
     """
     current_keys = {t["key"] for t in current_targets}
     candidates: list[dict[str, Any]] = list(registered_targets or [])
@@ -364,7 +360,6 @@ def orphan_targets(
                 profile_names=[],
                 home="",
                 uid="",
-                system_state_dir=system_state_dir,
             )
         )
 
