@@ -67,11 +67,13 @@
 
 - name: remove stale exclude files for target
   ansible.builtin.file:
-    path: "{{ item.path }}"
+    path: "{{ _found_exclude.path }}"
     state: absent
   loop: "{{ _restic_profile_target_excludes.files }}"
+  loop_control:
+    loop_var: _found_exclude
   when:
-    - item.path not in (_restic_profile_plan.expected_exclude_paths)
+    - _found_exclude.path not in (_restic_profile_plan.expected_exclude_paths)
 
 - name: find managed env files for target
   ansible.builtin.find:
@@ -82,11 +84,13 @@
 
 - name: remove stale env files for target
   ansible.builtin.file:
-    path: "{{ item.path }}"
+    path: "{{ _found_env.path }}"
     state: absent
   loop: "{{ _restic_profile_target_env_files.files }}"
+  loop_control:
+    loop_var: _found_env
   when:
-    - item.path not in (_restic_profile_plan.expected_env_paths)
+    - _found_env.path not in (_restic_profile_plan.expected_env_paths)
 
 - name: deploy env files for target repositories
   ansible.builtin.template:

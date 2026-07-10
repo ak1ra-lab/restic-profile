@@ -15,7 +15,7 @@
   become: true
   become_user: "{{ _target.user }}"
   ansible.builtin.systemd_service:
-    name: "{{ item | ansible.builtin.basename }}"
+    name: "{{ _found_unit | ansible.builtin.basename }}"
     scope: "{{ _target.scope_param }}"
     state: stopped
     enabled: false
@@ -27,13 +27,17 @@
       | select('ansible.builtin.search', '\\.timer$')
       | list
     }}
+  loop_control:
+    loop_var: _found_unit
   failed_when: false
 
 - name: remove all managed unit files for target
   ansible.builtin.file:
-    path: "{{ item.path }}"
+    path: "{{ _found_unit.path }}"
     state: absent
   loop: "{{ _restic_profile_target_found_units.files }}"
+  loop_control:
+    loop_var: _found_unit
 
 - name: find all managed exclude files for target
   ansible.builtin.find:
@@ -43,9 +47,11 @@
 
 - name: remove all managed exclude files for target
   ansible.builtin.file:
-    path: "{{ item.path }}"
+    path: "{{ _found_exclude.path }}"
     state: absent
   loop: "{{ _restic_profile_target_found_excludes.files }}"
+  loop_control:
+    loop_var: _found_exclude
 
 - name: find all managed env files for target
   ansible.builtin.find:
@@ -55,9 +61,11 @@
 
 - name: remove all managed env files for target
   ansible.builtin.file:
-    path: "{{ item.path }}"
+    path: "{{ _found_env.path }}"
     state: absent
   loop: "{{ _restic_profile_target_found_env.files }}"
+  loop_control:
+    loop_var: _found_env
 
 - name: remove TOML config for target
   ansible.builtin.file:

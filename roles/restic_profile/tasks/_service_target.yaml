@@ -38,7 +38,7 @@
   become: true
   become_user: "{{ _target.user }}"
   ansible.builtin.systemd_service:
-    name: "{{ item | ansible.builtin.basename }}"
+    name: "{{ _found_unit | ansible.builtin.basename }}"
     scope: "{{ _target.scope_param }}"
     state: stopped
     enabled: false
@@ -49,18 +49,22 @@
       | select('ansible.builtin.search', '\\.timer$')
       | list
     }}
+  loop_control:
+    loop_var: _found_unit
   when: >-
-    (item | ansible.builtin.basename | ansible.builtin.regex_replace('\\.timer$', ''))
+    (_found_unit | ansible.builtin.basename | ansible.builtin.regex_replace('\\.timer$', ''))
     not in (_restic_profile_plan.expected_unit_names)
   failed_when: false
 
 - name: remove orphaned unit files for target
   ansible.builtin.file:
-    path: "{{ item.path }}"
+    path: "{{ _found_unit.path }}"
     state: absent
   loop: "{{ _restic_profile_target_existing_units.files }}"
+  loop_control:
+    loop_var: _found_unit
   when: >-
-    (item.path | ansible.builtin.basename | ansible.builtin.regex_replace('\\.(service|timer)$', ''))
+    (_found_unit.path | ansible.builtin.basename | ansible.builtin.regex_replace('\\.(service|timer)$', ''))
     not in (_restic_profile_plan.expected_unit_names)
 
 - name: ensure unit directory exists for target
