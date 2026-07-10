@@ -131,7 +131,11 @@ def deployment_plan(
             if isinstance(content, str) and content:
                 exclude_path = _join(config_dir, f"restic-profile-{pname}.exclude")
                 plan["exclude_files"].append(
-                    {"profile_name": pname, "path": exclude_path}
+                    {
+                        "profile_name": pname,
+                        "profile": profile,
+                        "path": exclude_path,
+                    }
                 )
                 plan["expected_exclude_paths"].append(exclude_path)
 

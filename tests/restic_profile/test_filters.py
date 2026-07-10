@@ -154,6 +154,7 @@ def test_plan_exclude_files_only_for_profiles_with_content(
     assert plan["exclude_files"][0]["path"] == (
         "/etc/restic-profile/restic-profile-myapp.exclude"
     )
+    assert plan["exclude_files"][0]["profile"] is profiles["myapp"]
 
 
 def test_plan_exclude_files_skips_empty_content(
