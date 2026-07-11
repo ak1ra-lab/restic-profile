@@ -247,7 +247,7 @@ def _group_profiles_by_target(
                     " systemd_user.".format(pname)
                 )
         else:
-            user = str(profile.get("systemd_user", "root"))
+            user = "root"
         key = f"{scope}:{user}"
         bucket: dict[str, Any] | None = buckets.get(key)
         if bucket is None:

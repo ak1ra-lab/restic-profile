@@ -458,6 +458,22 @@ def test_targets_missing_user_raises(filters: Any, scope_profiles: dict) -> None
         filters.deployment_targets(scope_profiles, {})
 
 
+def test_targets_system_scope_ignores_systemd_user(filters: Any, passwd: dict) -> None:
+    """systemd_user on a system-scope profile is ignored; key is always system:root."""
+    profiles = {
+        "s": {
+            "repository_ref": "r1",
+            "enabled": True,
+            "systemd_scope": "system",
+            "systemd_user": "bob",
+        }
+    }
+    targets = filters.deployment_targets(profiles, passwd)
+    assert len(targets) == 1
+    assert targets[0]["key"] == "system:root"
+    assert targets[0]["user"] == "root"
+
+
 def test_targets_missing_systemd_user_raises(filters: Any, passwd: dict) -> None:
     profiles = {
         "p": {
