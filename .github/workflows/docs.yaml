@@ -9,7 +9,7 @@ on:
     paths:
       - "docs/**"
       - "README.md"
-      - "zensical.toml"
+      - "mkdocs.yml"
       - ".github/workflows/docs.yaml"
 
 permissions:
@@ -39,7 +39,7 @@ jobs:
         run: uv sync --locked --group docs
 
       - name: Build documentation
-        run: uv run zensical build
+        run: NO_MKDOCS_2_WARNING=1 uv run mkdocs build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4

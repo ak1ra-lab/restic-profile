@@ -1,0 +1,58 @@
+site_name: restic-profile
+site_description: "Profile-based restic automation in Python and Ansible"
+site_url: "https://ak1ra-lab.github.io/restic-profile/"
+site_author: ak1ra
+copyright: "Copyright &copy; 2026 ak1ra"
+repo_url: "https://github.com/ak1ra-lab/restic-profile"
+repo_name: "ak1ra-lab/restic-profile"
+docs_dir: docs
+site_dir: site
+
+nav:
+  - Home: index.md
+  - restic-profile:
+    - Ansible examples: restic-profile/examples.md
+    - TOML config template: restic-profile/toml-config.md
+    - CLI reference: restic-profile/cli.md
+  - restic-rest-server:
+    - Overview: restic-rest-server/index.md
+
+theme:
+  name: material
+  language: en
+  features:
+    - content.code.copy
+    - navigation.footer
+    - navigation.sections
+    - navigation.top
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.superfences
+  - md_in_html
+  - toc:
+      permalink: true
+
+plugins:
+  - i18n:
+      docs_structure: folder
+      reconfigure_material: true
+      languages:
+        - locale: en
+          name: English
+          default: true
+          build: true
+        - locale: zh-CN
+          name: 简体中文
+          build: true
+          theme:
+            language: zh
+          nav_translations:
+            Home: 首页
+            restic-profile: restic-profile
+            "Ansible examples": "Ansible 示例"
+            "TOML config template": "TOML 配置模板"
+            "CLI reference": "CLI 参考"
+            restic-rest-server: restic-rest-server
+            Overview: 概览

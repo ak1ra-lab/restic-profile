@@ -34,4 +34,4 @@ manifest:
     - recursive-exclude playbooks/templates *
     - recursive-exclude roles/*/molecule *
     - global-exclude *~ *.py[cod] __pycache__ *.bak *.swp *.tmp *.retry
-    - include requirements.yaml LICENSE README.md pyproject.toml uv.lock zensical.toml
+    - include requirements.yaml LICENSE README.md pyproject.toml uv.lock mkdocs.yml

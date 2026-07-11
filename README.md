@@ -63,4 +63,4 @@ ansible-lint
 
 ## Documentation
 
-The published documentation site lives at <https://ak1ra-lab.github.io/restic-profile/>, and local docs configuration is stored in `zensical.toml`.
+The published documentation site lives at <https://ak1ra-lab.github.io/restic-profile/>, and local docs configuration is stored in `mkdocs.yml`.

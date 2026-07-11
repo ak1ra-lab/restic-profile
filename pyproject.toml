@@ -46,7 +46,7 @@ packages = ["src/restic_profile"]
 [dependency-groups]
 tests = ["pytest>=9.1.1", "pytest-cov>=7.1.0"]
 lint = ["ruff>=0.15.20", "ty>=0.0.56"]
-docs = ["zensical>=0.0.46", "mkdocstrings-python>=2.0.5"]
+docs = ["mkdocs-material>=9.6", "mkdocs-static-i18n>=1.2"]
 dev = [
     { include-group = "tests" },
     { include-group = "lint" },

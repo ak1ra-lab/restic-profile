@@ -14,7 +14,7 @@ setup, usage, and the development workflow.
 - Test runner: **pytest** (`uv run pytest -v tests/` or `just test`).
 - Ansible lint: `ansible-lint` (global install, see `README.md`).
 - Build: `uv build -v` (or `just build`).
-- Docs: `uv run zensical build` (or `just docs-build`).
+- Docs: `uv run mkdocs build` (or `just docs-build`).
 
 You MUST NOT use `pip`, `poetry`, `pipenv`, `mypy`, `black`, `flake8`, `isort`,
 or `mkdocs` directly. All Python tooling flows through **uv** and **ruff**/**ty**.
