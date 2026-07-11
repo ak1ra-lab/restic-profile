@@ -1,40 +1,40 @@
 # restic-profile
 
-**English** | [简体中文](README.zh-CN.md)
+[English](README.md) | **简体中文**
 
 [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ak1ra-lab/restic-profile/.github%2Fworkflows%2Fpublish-to-pypi.yaml)](https://github.com/ak1ra-lab/restic-profile/actions/workflows/publish-to-pypi.yaml)
 [![PyPI - Version](https://img.shields.io/pypi/v/restic-profile-cli)](https://pypi.org/project/restic-profile-cli/)
 [![PyPI - Version](https://img.shields.io/pypi/v/restic-profile-cli?label=test-pypi&pypiBaseUrl=https%3A%2F%2Ftest.pypi.org)](https://test.pypi.org/project/restic-profile-cli/)
 [![Docs](https://img.shields.io/badge/docs-online-0a7ea4)](https://ak1ra-lab.github.io/restic-profile/)
 
-Profile-based restic wrapper with Ansible deployment support.
+# restic-profile
 
-Repository for the `restic-profile` Python CLI plus Ansible roles for
-`restic-profile` and `restic-rest-server` deployments.
+基于配置文件的 restic 自动化工具，支持 Ansible 部署。
 
-## Installation
+包含 `restic-profile` Python CLI 以及用于 `restic-profile` 和 `restic-rest-server` 部署的 Ansible 角色。
+
+## 安装
 
 ```shell
 uv sync --group dev
 ```
 
-## Optional Ansible Tooling
+## 可选的 Ansible 工具链
 
-For Ansible role work, install the toolchain once at user level:
+如需使用 Ansible 角色，可在用户级别安装工具链一次：
 
 ```shell
 uv tool install ansible-dev-tools --with ansible \
 	--with-executables-from ansible-builder,ansible-core,ansible-creator,ansible-dev-environment,ansible-lint,ansible-navigator,ansible-sign,molecule
 ```
 
-Routine Ansible validation currently uses `ansible-lint`. Molecule scenarios remain in the repository as dormant assets and are not part of the supported validation loop.
+日常 Ansible 验证目前使用 `ansible-lint`。Molecule 场景保留在仓库中作为闲置资产，不属于支持的验证流程。
 
-If you use `roles/go_build` or the playbooks under `playbooks/go_build/`, the
-control node also needs a working `go` toolchain in `PATH`.
+如果你使用 `roles/go_build` 或 `playbooks/go_build/` 下的 playbook，控制节点还需要在 `PATH` 中有可用的 `go` 工具链。
 
-## Repository Development Workflow
+## 仓库开发流程
 
-Clone collections into the `ansible_collections/ak1ra_lab/` namespace layout:
+将 collections 克隆到 `ansible_collections/ak1ra_lab/` 命名空间布局：
 
 ```shell
 mkdir -p ~/code/github.com/ansible/collections/ansible_collections/ak1ra_lab
@@ -44,16 +44,15 @@ git clone https://github.com/ak1ra-lab/restic-profile.git \
 	~/code/github.com/ansible/collections/ansible_collections/ak1ra_lab/restic_profile
 ```
 
-## Usage
+## 用法
 
 ```shell
 uv run restic-profile --help
 ```
 
-For Ansible-managed backup servers, see the `restic_rest_server` role and the
-documentation under `docs/restic-rest-server/`.
+对于 Ansible 管理的备份服务器，请参见 `restic_rest_server` 角色和 `docs/restic-rest-server/` 下的文档。
 
-## Development
+## 开发
 
 ```shell
 just lint
@@ -63,6 +62,6 @@ just docs-build
 ansible-lint
 ```
 
-## Documentation
+## 文档
 
-The published documentation site lives at <https://ak1ra-lab.github.io/restic-profile/>, and local docs configuration is stored in `mkdocs.yml`.
+已发布的文档站点位于 <https://ak1ra-lab.github.io/restic-profile/>，本地文档配置存储在 `mkdocs.yml` 中。

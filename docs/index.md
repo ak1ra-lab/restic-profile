@@ -63,6 +63,6 @@ and fill in your host_vars.
 | Deploy backup profiles with Ansible         | [Ansible examples](restic-profile/examples.md)        |
 | Write a TOML config for use without Ansible | [TOML config template](restic-profile/toml-config.md) |
 | Understand CLI flags                        | [CLI reference](restic-profile/cli.md)                |
-| Deploy a backup server (rest-server)        | [restic-rest-server](restic-rest-server/index.md)     |
+| Deploy a backup server (rest-server)        | [restic-rest-server](restic-rest-server.md)     |
 
 See `roles/restic_profile/defaults/main.yaml` for all role variables and their defaults.

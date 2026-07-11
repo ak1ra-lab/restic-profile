@@ -10,12 +10,10 @@ site_dir: site
 
 nav:
   - Home: index.md
-  - restic-profile:
-    - Ansible examples: restic-profile/examples.md
-    - TOML config template: restic-profile/toml-config.md
-    - CLI reference: restic-profile/cli.md
-  - restic-rest-server:
-    - Overview: restic-rest-server/index.md
+  - Ansible examples: restic-profile/examples.md
+  - TOML config template: restic-profile/toml-config.md
+  - CLI reference: restic-profile/cli.md
+  - restic-rest-server: restic-rest-server.md
 
 theme:
   name: material
@@ -36,23 +34,21 @@ markdown_extensions:
 
 plugins:
   - i18n:
-      docs_structure: folder
+      docs_structure: suffix
       reconfigure_material: true
       languages:
         - locale: en
           name: English
           default: true
           build: true
-        - locale: zh-CN
+        - locale: zh
           name: 简体中文
           build: true
           theme:
             language: zh
           nav_translations:
             Home: 首页
-            restic-profile: restic-profile
             "Ansible examples": "Ansible 示例"
             "TOML config template": "TOML 配置模板"
             "CLI reference": "CLI 参考"
-            restic-rest-server: restic-rest-server
-            Overview: 概览
+            "restic-rest-server": "restic-rest-server"
