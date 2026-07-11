@@ -83,3 +83,4 @@
   ansible.builtin.systemd_service:
     daemon_reload: true
     scope: "{{ _target.scope_param }}"
+  failed_when: false
