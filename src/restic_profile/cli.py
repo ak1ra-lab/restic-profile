@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -15,6 +16,27 @@ from .runner import WorkflowError, run_profile, run_unlock
 logger = setup_logger(__name__)
 
 DEFAULT_CONFIG = Path("/etc/restic-profile/restic-profile.toml")
+
+
+def _resolve_config_path() -> Path:
+    """Return the default config path using XDG search-path precedence.
+
+    1. ``RESTIC_PROFILE_CONFIG`` env var (explicit override, no existence check).
+    2. ``$XDG_CONFIG_HOME/restic-profile/restic-profile.toml`` (falls back
+       to ``~/.config`` when ``XDG_CONFIG_HOME`` is unset; only used when
+       the file exists).
+    3. ``/etc/restic-profile/restic-profile.toml`` (always the final fallback).
+    """
+    env_config = os.environ.get("RESTIC_PROFILE_CONFIG")
+    if env_config:
+        return Path(env_config)
+
+    xdg_config_home = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+    user_config = Path(xdg_config_home) / "restic-profile" / "restic-profile.toml"
+    if user_config.exists():
+        return user_config
+
+    return DEFAULT_CONFIG
 
 
 def _load_config_or_exit(config_path: Path):
@@ -149,9 +171,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "-c",
         "--config",
         type=Path,
-        default=DEFAULT_CONFIG,
+        default=None,
         metavar="PATH",
-        help="Path to TOML config file (default: %(default)s)",
+        help="Path to TOML config file"
+        " (searches $XDG_CONFIG_HOME then /etc/restic-profile if not set)",
     )
     parser.add_argument(
         "-n",
@@ -173,6 +196,9 @@ def main(argv: list[str] | None = None) -> None:
     parser = _build_parser()
     argcomplete.autocomplete(parser)
     args = parser.parse_args(argv)
+
+    if args.config is None:
+        args.config = _resolve_config_path()
 
     if args.profile_name and (args.list or args.check or args.unlock):
         parser.error(
