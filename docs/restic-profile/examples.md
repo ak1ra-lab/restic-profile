@@ -271,6 +271,46 @@ cleanup is needed. Set a smaller value if disk space is tight.
 
 ---
 
+## 8. User-scope backup for an unprivileged user
+
+```yaml
+restic_profile_repositories:
+  r1:
+    repository: "rest:https://backup.example.com:8000/alice/laptop"
+    password: "{{ vault_alice_restic_password }}"
+    rest_username: "alice"
+    rest_password: "{{ vault_rest_server_alice_password }}"
+
+restic_profile_profiles:
+  alice-home:
+    repository_ref: r1
+    systemd_scope: user
+    systemd_user: alice
+    on_calendar: "daily"
+    randomized_delay_sec: "30min"
+    backup:
+      sources:
+        - /home/alice
+        - /home/alice/Documents
+      exclude_patterns:
+        - "*.tmp"
+        - ".cache/"
+    retention:
+      keep_daily: 14
+```
+
+User-scope profiles require `systemd_scope: user` and an explicit
+`systemd_user`.  The role deploys config under
+`~/.config/restic-profile/`, units under `~/.config/systemd/user/`, and
+state under `~/.local/share/restic-profile/`.  Timers start and stop
+with the user's session without requiring `root` privileges.
+
+The `restic-profile` CLI automatically resolves config from
+`~/.config/restic-profile/restic-profile.toml` when available
+(controlled by `$XDG_CONFIG_HOME` and `$RESTIC_PROFILE_CONFIG`).
+
+---
+
 ## Global role variables
 
 These affect every profile unless a profile overrides its copy.

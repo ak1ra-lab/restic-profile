@@ -1,7 +1,8 @@
 ```toml
 # restic-profile.toml — well-commented starting config
 #
-# Copy this file to /etc/restic-profile/restic-profile.toml, fill in your
+# Copy this file to /etc/restic-profile/restic-profile.toml (system scope)
+# or ~/.config/restic-profile/restic-profile.toml (user scope), fill in your
 # credentials and paths, then run:
 #   restic-profile --check           # validate the config
 #   restic-profile --list            # list all profiles

@@ -9,7 +9,7 @@ restic-profile -U [-c PATH] [-n] PROFILE  # --unlock
 
 | Flag                       | Alias        | Purpose                                                                                             |
 | -------------------------- | ------------ | --------------------------------------------------------------------------------------------------- |
-| `--config PATH`            | `-c`         | Config file (default: `/etc/restic-profile/restic-profile.toml`)                                    |
+| `--config PATH`            | `-c`         | Config file.  When omitted, searches ``$RESTIC_PROFILE_CONFIG``, then ``$XDG_CONFIG_HOME/restic-profile/restic-profile.toml``, then ``/etc/restic-profile/restic-profile.toml`` |
 | `--check`                  | `-C`         | Parse and validate the config, then exit                                                            |
 | `--list`                   | `-l`         | Print profile table (name, type, schedule, repository)                                              |
 | `--unlock PROFILE`         | `-U`         | Remove stale restic locks for the profile's repository                                              |
