@@ -1,10 +1,10 @@
 # CLI reference
 
 ```text
-restic-profile [-c PATH] [-n [{all,notify}]] PROFILE
-restic-profile -C [-c PATH]          # --check
-restic-profile -l [-c PATH]          # --list
-restic-profile -U [-c PATH] [-n] PROFILE  # --unlock
+restic-profile [--config PATH] [--dry-run [{all,notify}]] PROFILE
+restic-profile --check [--config PATH]
+restic-profile --list [--config PATH]
+restic-profile --unlock [--config PATH] [--dry-run] PROFILE
 ```
 
 | Flag                       | Alias        | Purpose                                                                                             |
@@ -22,20 +22,20 @@ name with any of them is rejected.
 ```shell
 # Run a profile
 restic-profile myapp
-restic-profile myapp -n                    # dry-run all
-restic-profile myapp -n notify             # dry-run + real notification
-restic-profile myapp -c /path/to/custom.toml
+restic-profile myapp --dry-run                 # dry-run all
+restic-profile myapp --dry-run notify          # dry-run + real notification
+restic-profile myapp --config /path/to/custom.toml
 
 # Validate config
-restic-profile -C
-restic-profile -C -c /path/to/custom.toml
+restic-profile --check
+restic-profile --check --config /path/to/custom.toml
 
 # List profiles
-restic-profile -l
+restic-profile --list
 
 # Remove stale locks
-restic-profile -U myapp
-restic-profile -U myapp -n
+restic-profile --unlock myapp
+restic-profile --unlock myapp --dry-run
 ```
 
 ## Shell completion

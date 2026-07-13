@@ -1,10 +1,10 @@
 # CLI 参考
 
 ```text
-restic-profile [-c PATH] [-n [{all,notify}]] PROFILE
-restic-profile -C [-c PATH]          # --check
-restic-profile -l [-c PATH]          # --list
-restic-profile -U [-c PATH] [-n] PROFILE  # --unlock
+restic-profile [--config PATH] [--dry-run [{all,notify}]] PROFILE
+restic-profile --check [--config PATH]
+restic-profile --list [--config PATH]
+restic-profile --unlock [--config PATH] [--dry-run] PROFILE
 ```
 
 | 参数                       | 别名        | 说明                                                                                             |
@@ -21,20 +21,20 @@ restic-profile -U [-c PATH] [-n] PROFILE  # --unlock
 ```shell
 # 运行配置文件
 restic-profile myapp
-restic-profile myapp -n                    # 空运行所有
-restic-profile myapp -n notify             # 空运行 + 真实通知
-restic-profile myapp -c /path/to/custom.toml
+restic-profile myapp --dry-run                 # 空运行所有
+restic-profile myapp --dry-run notify          # 空运行 + 真实通知
+restic-profile myapp --config /path/to/custom.toml
 
 # 验证配置
-restic-profile -C
-restic-profile -C -c /path/to/custom.toml
+restic-profile --check
+restic-profile --check --config /path/to/custom.toml
 
 # 列出配置文件
-restic-profile -l
+restic-profile --list
 
 # 解除过期锁
-restic-profile -U myapp
-restic-profile -U myapp -n
+restic-profile --unlock myapp
+restic-profile --unlock myapp --dry-run
 ```
 
 ## Shell 补全
