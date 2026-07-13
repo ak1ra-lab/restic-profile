@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-07-13
+
+### Added
+
+- Per-profile systemd user-scope support via `systemd_scope: user` and
+  `systemd_user` fields — deploys config to `~/.config/restic-profile/`
+  and systemd units to `~/.config/systemd/user/` with automatic
+  `loginctl enable-linger` and `XDG_RUNTIME_DIR` handling
+- CLI config resolution via XDG search path — when `--config` is omitted,
+  searches `~/.config/restic-profile/restic-profile.toml` then falls back
+  to `/etc/restic-profile/restic-profile.toml`
+
 ## [0.2.1] - 2026-07-07
 
 ### Fixed
