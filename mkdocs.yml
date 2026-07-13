@@ -14,6 +14,7 @@ nav:
   - TOML config template: restic-profile/toml-config.md
   - CLI reference: restic-profile/cli.md
   - restic-rest-server: restic-rest-server.md
+  - Ansible toolchain: ansible-toolchain.md
 
 theme:
   name: material
@@ -52,3 +53,4 @@ plugins:
             "TOML config template": "TOML 配置模板"
             "CLI reference": "CLI 参考"
             "restic-rest-server": "restic-rest-server"
+            "Ansible toolchain": "Ansible 工具链"

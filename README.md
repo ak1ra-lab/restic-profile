@@ -7,62 +7,57 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/restic-profile-cli?label=test-pypi&pypiBaseUrl=https%3A%2F%2Ftest.pypi.org)](https://test.pypi.org/project/restic-profile-cli/)
 [![Docs](https://img.shields.io/badge/docs-online-0a7ea4)](https://ak1ra-lab.github.io/restic-profile/)
 
-Profile-based restic wrapper with Ansible deployment support.
+Profile-based restic wrapper, deployed with Ansible.
 
-Repository for the `restic-profile` Python CLI plus Ansible roles for
-`restic-profile` and `restic-rest-server` deployments.
+This repository is an Ansible collection (`ak1ra_lab.restic_profile`) that
+installs and configures the `restic-profile` CLI on local or remote hosts:
 
-## Installation
+- **restic-profile** CLI — reads a TOML config and runs `restic backup` /
+  `forget` / `prune` with hooks and IM notifications.
+- **restic_profile** role — deploys the CLI, renders the TOML config, and
+  manages one systemd timer per profile (including user-level `systemd_scope: user`).
+- **restic_rest_server** role — deploys a [rest-server][rs] instance for remote
+  backup storage.
 
-```shell
-uv sync --group dev
-```
+## Deploy with Ansible
 
-## Optional Ansible Tooling
-
-For Ansible role work, install the toolchain once at user level:
-
-```shell
-uv tool install ansible-dev-tools --with ansible \
-	--with-executables-from ansible-builder,ansible-core,ansible-creator,ansible-dev-environment,ansible-lint,ansible-navigator,ansible-sign,molecule
-```
-
-Routine Ansible validation currently uses `ansible-lint`. Molecule scenarios remain in the repository as dormant assets and are not part of the supported validation loop.
-
-If you use `roles/go_build` or the playbooks under `playbooks/go_build/`, the
-control node also needs a working `go` toolchain in `PATH`.
-
-## Repository Development Workflow
-
-Clone collections into the `ansible_collections/ak1ra_lab/` namespace layout:
+You need Ansible on the control node — see [Ansible toolchain](docs/ansible-toolchain.md)
+for a uv-based setup. Clone the repo and install this collection with its
+dependencies into the project-local tree:
 
 ```shell
-mkdir -p ~/code/github.com/ansible/collections/ansible_collections/ak1ra_lab
-git clone https://github.com/ak1ra-lab/ansible-collection-general.git \
-	~/code/github.com/ansible/collections/ansible_collections/ak1ra_lab/general
-git clone https://github.com/ak1ra-lab/restic-profile.git \
-	~/code/github.com/ansible/collections/ansible_collections/ak1ra_lab/restic_profile
+git clone https://github.com/ak1ra-lab/restic-profile.git
+cd restic-profile
+ansible-galaxy collection install -r requirements.yaml -p ./.ansible/collections
+ansible-galaxy collection install --force --collections-path .ansible/collections .
 ```
 
-## Usage
-
-```shell
-uv run restic-profile --help
-```
-
-For Ansible-managed backup servers, see the `restic_rest_server` role and the
-documentation under `docs/restic-rest-server/`.
+Then pick an example from [Ansible examples](docs/restic-profile/examples.md),
+fill in your host_vars, and run the playbook. Building restic from source
+(`restic_profile_restic_install_source: go_build`) also needs a `go` toolchain on
+the control node.
 
 ## Development
 
+Only needed to work on `src/restic_profile` or the roles and plugins:
+
 ```shell
+uv sync --group dev
 just lint
 just typecheck
 just test
-just docs-build
 ansible-lint
 ```
 
+To develop `ak1ra_lab.general` alongside this repo, clone
+[ansible-collection-general][acg] next to this checkout and run
+`just ansible-collection-install` — it installs this collection plus your local
+`../ansible-collection-general` (skipping `ansible.posix`/`community.general`,
+which come from your user-level Ansible).
+
 ## Documentation
 
-The published documentation site lives at <https://ak1ra-lab.github.io/restic-profile/>, and local docs configuration is stored in `mkdocs.yml`.
+<https://ak1ra-lab.github.io/restic-profile/> — configuration lives in `mkdocs.yml`.
+
+[rs]: https://github.com/restic/rest-server
+[acg]: https://github.com/ak1ra-lab/ansible-collection-general
