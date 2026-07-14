@@ -24,15 +24,15 @@ restic_rest_server_htpasswd_users: []
 # - name: "alice"
 #   password: "very-secure-password"
 
-# htpasswd crypt scheme — bcrypt is strongly recommended by rest-server.
+# htpasswd crypt scheme - bcrypt is strongly recommended by rest-server.
 restic_rest_server_htpasswd_crypt_scheme: bcrypt
 
-# Local filesystem path to the backup storage root — passed to rest-server as --path.
+# Local filesystem path to the backup storage root - passed to rest-server as --path.
 # Keep this value in sync with the prune profile's repository base path when
 # both roles run on the same host.
 restic_rest_server_backup_dir: /srv/restic
 
-# str: source for the restic-rest-server binary — "apt" | "go_build" | "existing"
+# str: source for the restic-rest-server binary - "apt" | "go_build" | "existing"
 #      "apt" installs the distro package on the managed host.
 #      "go_build" builds a static binary on the control node and copies it to the managed host.
 #      "existing" leaves binary management to the operator.

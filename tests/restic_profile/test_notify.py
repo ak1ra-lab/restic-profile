@@ -1,4 +1,4 @@
-"""Tests for restic_profile.notify — notification formatting and dispatch."""
+"""Tests for restic_profile.notify - notification formatting and dispatch."""
 
 from __future__ import annotations
 

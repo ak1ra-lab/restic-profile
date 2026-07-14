@@ -1,6 +1,6 @@
 # restic-rest-server
 
-Ansible role to deploy [rest-server](https://github.com/restic/rest-server) — the
+Ansible role to deploy [rest-server](https://github.com/restic/rest-server) - the
 REST backend for restic repositories. Manages binary installation, systemd
 service, and htpasswd-based authentication.
 

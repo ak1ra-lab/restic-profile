@@ -7,14 +7,14 @@ restic-profile --list [--config PATH]
 restic-profile --unlock [--config PATH] [--dry-run] PROFILE
 ```
 
-| Flag                       | Alias        | Purpose                                                                                             |
-| -------------------------- | ------------ | --------------------------------------------------------------------------------------------------- |
-| `--config PATH`            | `-c`         | Config file.  When omitted, searches ``$RESTIC_PROFILE_CONFIG``, then ``$XDG_CONFIG_HOME/restic-profile/restic-profile.toml``, then ``/etc/restic-profile/restic-profile.toml`` |
-| `--check`                  | `-C`         | Parse and validate the config, then exit                                                            |
-| `--list`                   | `-l`         | Print profile table (name, type, schedule, repository)                                              |
-| `--unlock PROFILE`         | `-U`         | Remove stale restic locks for the profile's repository                                              |
-| `--dry-run [{all,notify}]` | `-n`         | `all` (default): log without executing. `notify`: dry-run subprocesses but send a real notification |
-| `PROFILE`                  | (positional) | Profile name in the config to execute                                                               |
+| Flag                       | Alias        | Purpose                                                                                                                                                                  |
+| -------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--config PATH`            | `-c`         | Config file. When omitted, searches `$RESTIC_PROFILE_CONFIG`, then `$XDG_CONFIG_HOME/restic-profile/restic-profile.toml`, then `/etc/restic-profile/restic-profile.toml` |
+| `--check`                  | `-C`         | Parse and validate the config, then exit                                                                                                                                 |
+| `--list`                   | `-l`         | Print profile table (name, type, schedule, repository)                                                                                                                   |
+| `--unlock PROFILE`         | `-U`         | Remove stale restic locks for the profile's repository                                                                                                                   |
+| `--dry-run [{all,notify}]` | `-n`         | `all` (default): log without executing. `notify`: dry-run subprocesses but send a real notification                                                                      |
+| `PROFILE`                  | (positional) | Profile name in the config to execute                                                                                                                                    |
 
 `--check`, `--list`, and `--unlock` are mutually exclusive. Combining a profile
 name with any of them is rejected.
@@ -41,12 +41,12 @@ restic-profile --unlock myapp --dry-run
 ## Shell completion
 
 ```bash
-# bash — add to ~/.bashrc
+# bash - add to ~/.bashrc
 if command -v register-python-argcomplete >/dev/null 2>&1; then
     eval "$(register-python-argcomplete restic-profile)"
 fi
 
-# zsh — add to ~/.zshrc (bashcompinit required)
+# zsh - add to ~/.zshrc (bashcompinit required)
 autoload -U +X bashcompinit && bashcompinit
 if command -v register-python-argcomplete >/dev/null 2>&1; then
     eval "$(register-python-argcomplete restic-profile)"

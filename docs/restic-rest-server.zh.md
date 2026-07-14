@@ -1,6 +1,6 @@
 # restic-rest-server
 
-用于部署 [rest-server](https://github.com/restic/rest-server) 的 Ansible 角色 —— restic 仓库的 REST 后端。管理二进制安装、systemd 服务和基于 htpasswd 的认证。
+用于部署 [rest-server](https://github.com/restic/rest-server) 的 Ansible 角色 - restic 仓库的 REST 后端。管理二进制安装、systemd 服务和基于 htpasswd 的认证。
 
 参见 `roles/restic_rest_server/defaults/main.yaml` 了解所有变量。
 
@@ -72,14 +72,14 @@ restic_profile_profiles:
 
 ## 关键变量
 
-| 变量                                   | 默认值                                    | 备注                            |
-| ------------------------------------------ | ------------------------------------------ | -------------------------------- |
-| `restic_rest_server_listen`                | `":8012"`                                  | 监听地址                   |
-| `restic_rest_server_backup_dir`            | `"/srv/restic"`                            | 存储根目录                     |
-| `restic_rest_server_append_only`           | `true`                                     | 禁止通过 REST 执行 forget/prune   |
-| `restic_rest_server_private_repos`         | `true`                                     | 子目录为私有仓库 |
-| `restic_rest_server_htpasswd_file`         | `"/etc/restic-rest-server/users.htpasswd"` |                                  |
-| `restic_rest_server_binary_install_source` | `"apt"`                                    | `apt` / `go_build` / `existing`  |
-| `restic_rest_server_htpasswd_crypt_scheme` | `"bcrypt"`                                 | 强烈推荐             |
+| 变量                                       | 默认值                                     | 备注                            |
+| ------------------------------------------ | ------------------------------------------ | ------------------------------- |
+| `restic_rest_server_listen`                | `":8012"`                                  | 监听地址                        |
+| `restic_rest_server_backup_dir`            | `"/srv/restic"`                            | 存储根目录                      |
+| `restic_rest_server_append_only`           | `true`                                     | 禁止通过 REST 执行 forget/prune |
+| `restic_rest_server_private_repos`         | `true`                                     | 子目录为私有仓库                |
+| `restic_rest_server_htpasswd_file`         | `"/etc/restic-rest-server/users.htpasswd"` |                                 |
+| `restic_rest_server_binary_install_source` | `"apt"`                                    | `apt` / `go_build` / `existing` |
+| `restic_rest_server_htpasswd_crypt_scheme` | `"bcrypt"`                                 | 强烈推荐                        |
 
 Htpasswd 用户需要目标节点上安装 `python3-passlib` + `python3-bcrypt`（角色会自动安装）。

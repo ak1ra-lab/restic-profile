@@ -40,5 +40,5 @@
         mode: "0755"
         content: |
           #!/bin/sh
-          # restic stub for molecule testing — always exits 0
+          # restic stub for molecule testing - always exits 0
           exit 0

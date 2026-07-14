@@ -34,7 +34,7 @@ def _success_run(args: list[str], **kwargs: object) -> MagicMock:
     return MagicMock(returncode=0, stdout="", stderr="")
 
 
-# build_env — basic credentials
+# build_env - basic credentials
 
 
 def test_build_env_sets_required_credentials(backup_profile: Profile) -> None:
@@ -74,7 +74,7 @@ def test_build_env_uses_existing_home_for_xdg_cache_home_fallback(
     assert env["XDG_CACHE_HOME"] == "/tmp/restic-home/.cache"
 
 
-# build_env — REST backend credentials
+# build_env - REST backend credentials
 
 
 def test_build_env_rest_credentials(backup_profile: Profile) -> None:
@@ -101,7 +101,7 @@ def test_build_env_cacert(backup_profile: Profile) -> None:
     assert "RESTIC_CACERT" not in build_env(backup_profile)
 
 
-# build_env — AWS credentials
+# build_env - AWS credentials
 
 
 def test_build_env_aws_credentials(backup_profile: Profile) -> None:
@@ -129,7 +129,7 @@ def test_build_env_aws_credentials(backup_profile: Profile) -> None:
     assert "AWS_DEFAULT_REGION" not in env
 
 
-# build_env — GCS credentials
+# build_env - GCS credentials
 
 
 def test_build_env_gcs_project_id_only(backup_profile: Profile) -> None:
@@ -364,7 +364,7 @@ def test_repo_initialized_uses_profile_no_cache_without_plain_retry(
     assert "--no-cache" in calls[0]
 
 
-# build_forget_args — no retention policy
+# build_forget_args - no retention policy
 
 
 def test_build_forget_args_returns_empty_when_all_keep_zero() -> None:
@@ -384,7 +384,7 @@ def test_build_forget_args_returns_empty_when_all_keep_zero() -> None:
     assert build_forget_args(profile) == []
 
 
-# build_forget_args — retention policy present
+# build_forget_args - retention policy present
 
 
 def test_build_forget_args_includes_all_nonzero_keep_flags(
@@ -425,7 +425,7 @@ def test_build_forget_args_includes_host_when_requested(
     assert args[args.index("--host") + 1] == "test-host"
 
 
-# run_backup — ValueError for prune-only profile
+# run_backup - ValueError for prune-only profile
 
 
 def test_run_backup_raises_value_error_for_prune_only_profile(
@@ -438,7 +438,7 @@ def test_run_backup_raises_value_error_for_prune_only_profile(
     assert prune_profile.name in str(exc_info.value)
 
 
-# run_backup — subprocess calls (normal flow)
+# run_backup - subprocess calls (normal flow)
 
 
 def test_run_profile_dispatches_mixed_profiles_to_backup(
@@ -576,7 +576,7 @@ def test_run_backup_skips_retention_when_no_retention_policy(
     assert len(prune_calls) == 1
 
 
-# run_backup — dry_run
+# run_backup - dry_run
 
 
 def test_run_backup_dry_run_skips_subprocess_calls(
@@ -681,7 +681,7 @@ def test_run_backup_continues_when_init_reports_existing_repository(
     assert any("backup" in call for call in calls)
 
 
-# run_forget — ValueError when no retention policy
+# run_forget - ValueError when no retention policy
 
 
 def test_run_retention_raises_value_error_when_no_retention_block(
@@ -714,7 +714,7 @@ def test_run_retention_raises_value_error_when_no_retention_action(
     assert prune_profile.name in str(exc_info.value)
 
 
-# run_forget — subprocess calls
+# run_forget - subprocess calls
 
 
 def test_run_retention_invokes_restic_forget_without_prune_by_default(
@@ -821,7 +821,7 @@ def test_run_retention_invokes_standalone_prune_when_prune_only(
     assert "forget" not in calls[0]
 
 
-# run_forget — dry_run
+# run_forget - dry_run
 
 
 def test_run_retention_dry_run_skips_subprocess_calls(
@@ -840,7 +840,7 @@ def test_run_retention_dry_run_skips_subprocess_calls(
     assert calls == []
 
 
-# run_forget — global args propagated
+# run_forget - global args propagated
 
 
 def test_run_retention_includes_retry_lock_in_command(
@@ -864,7 +864,7 @@ def test_run_retention_includes_retry_lock_in_command(
     assert forget_calls[0][idx + 1] == "5m"
 
 
-# run_backup — exclude_file option (--exclude-file flag)
+# run_backup - exclude_file option (--exclude-file flag)
 
 
 def test_run_backup_passes_exclude_file_flag_when_set(
@@ -967,7 +967,7 @@ def test_run_backup_passes_both_exclude_patterns_and_exclude_file(
     assert "--exclude-file" in backup_cmd
 
 
-# run_forget — failure triggers WorkflowError
+# run_forget - failure triggers WorkflowError
 
 
 def test_run_retention_raises_on_restic_failure(
@@ -980,7 +980,7 @@ def test_run_retention_raises_on_restic_failure(
         run_retention(prune_profile)
 
 
-# run_hooks — empty list
+# run_hooks - empty list
 
 
 def test_run_hooks_empty_list_returns_true_without_subprocess_calls(
@@ -999,7 +999,7 @@ def test_run_hooks_empty_list_returns_true_without_subprocess_calls(
     assert calls == []
 
 
-# run_hooks — success
+# run_hooks - success
 
 
 def test_run_hooks_all_succeed_returns_true(
@@ -1052,7 +1052,7 @@ def test_run_hooks_uses_default_shell_when_omitted(
     assert calls[0][0] == "/bin/sh"
 
 
-# run_hooks — failure
+# run_hooks - failure
 
 
 def test_run_hooks_returns_false_on_first_failure_and_stops(
@@ -1075,7 +1075,7 @@ def test_run_hooks_returns_false_on_first_failure_and_stops(
     assert len(calls) == 1
 
 
-# run_hooks — dry_run
+# run_hooks - dry_run
 
 
 def test_run_hooks_dry_run_logs_without_executing(
@@ -1094,7 +1094,7 @@ def test_run_hooks_dry_run_logs_without_executing(
     assert calls == []
 
 
-# run_backup — hook phase ordering
+# run_backup - hook phase ordering
 
 
 def test_run_backup_runs_prevalidate_hooks_before_backup(
@@ -1175,7 +1175,7 @@ def test_run_backup_runs_success_hooks_on_success(
     assert "echo failure" not in hook_calls
 
 
-# run_backup — hook failure cases
+# run_backup - hook failure cases
 
 
 def test_run_backup_runs_failure_hooks_and_raises_when_prevalidate_fails(

@@ -22,7 +22,7 @@
         password: "molecule-unused-password"
 
     restic_profile_profiles:
-      # Backup+retention profile — one service/timer pair per profile.
+      # Backup+retention profile - one service/timer pair per profile.
       test_backup:
         repository_ref: test_backup_repo
         tag: "molecule"
@@ -52,7 +52,7 @@
         # is present but we only verify file artefacts, not live execution.
         timer_enabled: false
 
-      # Retention-only profile — still one service/timer pair per profile.
+      # Retention-only profile - still one service/timer pair per profile.
       test_prune:
         repository_ref: test_prune_repo
         on_calendar: "daily"

@@ -1,4 +1,4 @@
-"""Tests for restic_profile.config — load_config()."""
+"""Tests for restic_profile.config - load_config()."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from restic_profile.config import (
     load_config,
 )
 
-# load_config — file not found
+# load_config - file not found
 
 
 def test_load_config_raises_file_not_found_for_missing_file(tmp_path: Path) -> None:
@@ -30,7 +30,7 @@ def test_load_config_raises_file_not_found_for_missing_file(tmp_path: Path) -> N
     assert str(missing) in str(exc_info.value)
 
 
-# load_config — happy path
+# load_config - happy path
 
 
 def test_load_config_returns_restic_profile_config(config_toml_file: Path) -> None:
@@ -104,7 +104,7 @@ def test_load_config_missing_global_section(tmp_path: Path) -> None:
     assert "demo" in result.profiles
 
 
-# Profile defaults — tag
+# Profile defaults - tag
 
 
 def test_profile_tag_defaults_to_name_when_empty(tmp_path: Path) -> None:
@@ -186,7 +186,7 @@ def test_profile_forget_current_host_parsed_from_toml(tmp_path: Path) -> None:
     assert result.profiles["myapp"].retention.forget_current_host is False
 
 
-# Profile defaults — retry_lock inheritance
+# Profile defaults - retry_lock inheritance
 
 
 def test_profile_retry_lock_inherits_from_global(tmp_path: Path) -> None:
@@ -271,7 +271,7 @@ def test_profile_no_cache_overrides_global_when_set(tmp_path: Path) -> None:
     assert result.profiles["myapp"].no_cache is False
 
 
-# Profile defaults — unlock inheritance
+# Profile defaults - unlock inheritance
 
 
 def test_profile_unlock_inherits_from_global(tmp_path: Path) -> None:
@@ -514,7 +514,7 @@ def test_profile_runs_retention_when_backup_and_retention_exist(
     assert backup_profile.runs_retention is True
 
 
-# Profile validation — invalid profiles raise ValidationError
+# Profile validation - invalid profiles raise ValidationError
 
 
 def test_profile_empty_repository_raises_validation_error() -> None:
@@ -609,7 +609,7 @@ def test_empty_profiles_config_is_valid() -> None:
     assert cfg.profiles == {}
 
 
-# Profile — S3-compatible backend fields
+# Profile - S3-compatible backend fields
 
 
 def test_profile_aws_fields_default_to_empty() -> None:
@@ -645,7 +645,7 @@ def test_profile_aws_fields_are_stored_when_set(tmp_path: Path) -> None:
     assert repo.aws_secret_access_key == "wJalrXUtnFEMI"
 
 
-# HooksConfig — defaults
+# HooksConfig - defaults
 
 
 def test_hooks_config_defaults_to_empty_lists_and_sh_shell() -> None:
@@ -672,7 +672,7 @@ def test_profile_hooks_defaults_to_empty_hooks_config(backup_profile: Profile) -
     assert hooks.success == []
 
 
-# HooksConfig — TOML parsing
+# HooksConfig - TOML parsing
 
 
 def test_load_config_parses_hooks_from_toml(tmp_path: Path) -> None:

@@ -36,7 +36,7 @@ restic_profile_repositories: {}
 #   top_files_limit                   int   3        max largest files and diff-changed files in success
 #                                                      notification; set 0 to disable both
 #   env                               dict  {}       environment variables injected at send time
-#                                                      (e.g. HTTP_PROXY, HTTPS_PROXY — only affects
+#                                                      (e.g. HTTP_PROXY, HTTPS_PROXY - only affects
 #                                                      the notification HTTP call, never restic)
 #   send_kwargs                       dict  {}       telegram only: extra kwargs forwarded to
 #                                                      send_rich_message (e.g. disable_notification)
@@ -144,12 +144,12 @@ restic_profile_systemd_io_scheduling_class: ""
 #          Valid values are 0-7. Set to "" to keep the kernel default.
 restic_profile_systemd_io_scheduling_priority: ""
 
-# str: install source for the restic-profile Python package — "local" | "pypi" | "testpypi"
+# str: install source for the restic-profile Python package - "local" | "pypi" | "testpypi"
 #      "local" builds the wheel on the control node and uploads it to the managed host.
 #      "pypi" installs the latest published release from the public PyPI index.
 restic_profile_pip_install_source: pypi
 
-# str: source for the restic binary — "apt" | "go_build" | "existing"
+# str: source for the restic binary - "apt" | "go_build" | "existing"
 #      "apt" installs the distro package on the managed host.
 #      "go_build" builds a static binary on the control node and copies it to the managed host.
 #      "existing" leaves restic binary management to the operator.

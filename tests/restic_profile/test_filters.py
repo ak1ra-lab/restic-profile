@@ -194,8 +194,8 @@ def test_plan_env_files_deduplicated_by_ref(
     filters: Any, profiles: dict, repositories: dict
 ) -> None:
     plan = filters.deployment_plan(profiles, repositories, CONFIG_DIR, UNIT_PREFIX)
-    # r1 is referenced by myapp, no_timer, shared_repo — should appear once
-    # r2 is referenced by prune_only — should appear once
+    # r1 is referenced by myapp, no_timer, shared_repo - should appear once
+    # r2 is referenced by prune_only - should appear once
     refs = [f["key"] for f in plan["env_files"]]
     assert refs == ["r1", "r2"]
 

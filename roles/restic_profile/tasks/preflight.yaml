@@ -60,7 +60,7 @@
       Profile {{ _profile_item.key | default('<empty>') }}: enabled profiles must
       be dicts (mapping) with a non-empty 'repository_ref' that points to
       restic_profile_repositories, at least one of 'backup' or 'retention',
-      a valid systemd_scope ('system' or 'user'), and — when scope is 'user' —
+      a valid systemd_scope ('system' or 'user'), and - when scope is 'user' —
       a non-empty systemd_user.
   loop: "{{ restic_profile_profiles | ansible.builtin.dict2items }}"
   loop_control:

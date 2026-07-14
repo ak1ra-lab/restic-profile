@@ -37,14 +37,13 @@ uv tool install ansible-dev-tools \
 Verify with `adt --version`.
 
 !!! note
-    The `uv tool install` invocation above is **not** documented upstream — it is
-    a community recipe. See [the official installation docs][adt] for the
-    supported installers.
+    The `uv tool install` invocation above is **not** documented upstream - it is
+    a community recipe. See [the official installation docs][adt] for the supported installers.
 
 ## Self-contained collection paths
 
-To keep a repository's Ansible setup hermetic — never reaching into user-level or
-parent directories — pin the paths in a project-local `ansible.cfg`:
+To keep a repository's Ansible setup hermetic - never reaching into user-level or
+parent directories - pin the paths in a project-local `ansible.cfg`:
 
 ```ini
 [defaults]
@@ -68,7 +67,7 @@ auto-installs `requirements.yml` / `requirements.yaml`. Internally it uses
 `ansible-compat`, which derives a cache directory from the **project directory**:
 
 - Run from the project root (non-`offline` mode), it installs into
-  `./.ansible/collections` — regardless of what `collections_path` says.
+  `./.ansible/collections` - regardless of what `collections_path` says.
 - `offline: true` in the ansible-lint config disables the auto-install entirely.
 - If the project root is not writable, it falls back to a temporary directory.
 

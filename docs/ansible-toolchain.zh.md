@@ -34,12 +34,12 @@ uv tool install ansible-dev-tools \
 用 `adt --version` 查看版本。
 
 !!! note
-    上面的 `uv tool install` 命令**并未**记录在上游文档中 —— 这是社区总结的用法。
-    受支持的安装方式请参见[官方安装文档][adt]。
+上面的 `uv tool install` 命令**并未**记录在上游文档中 - 这是社区总结的用法。
+受支持的安装方式请参见[官方安装文档][adt]。
 
 ## 自包含的 collection 路径
 
-要让仓库的 Ansible 配置保持隔离 —— 绝不触及用户级别或上级目录 —— 在项目本地的
+要让仓库的 Ansible 配置保持隔离 - 绝不触及用户级别或上级目录 - 在项目本地的
 `ansible.cfg` 中固定这些路径：
 
 ```ini
@@ -64,7 +64,7 @@ ansible-galaxy collection install --force --collections-path .ansible/collection
 后者根据**项目目录**推导出一个缓存目录：
 
 - 从项目根目录运行（非 `offline` 模式）时，它会安装到 `./.ansible/collections`
-  —— 无论 `collections_path` 设为什么。
+  - 无论 `collections_path` 设为什么。
 - ansible-lint 配置中的 `offline: true` 会完全禁用该自动安装。
 - 如果项目根目录不可写，则回退到临时目录。
 

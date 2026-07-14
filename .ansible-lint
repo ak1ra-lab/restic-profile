@@ -5,7 +5,7 @@
 # Run with:  ansible-lint
 #            ansible-lint
 
-# Use the 'basic' profile — enforces the most important rules without
+# Use the 'basic' profile - enforces the most important rules without
 # being overly strict for a project that is still evolving.
 # Profiles in ascending order of strictness:
 #   min → basic → moderate → safety → shared → production

@@ -5,16 +5,16 @@ Profile-based [restic](https://restic.net/) wrapper, deployed with Ansible.
 This project is an Ansible collection (`ak1ra_lab.restic_profile`) that installs
 and configures the `restic-profile` CLI on local or remote hosts:
 
-- **restic-profile** CLI — reads a TOML config and runs `restic backup` /
+- **restic-profile** CLI - reads a TOML config and runs `restic backup` /
   `forget` / `prune` with hooks and IM notifications.
-- **restic_profile** role — deploys the CLI, renders the TOML config, and manages
+- **restic_profile** role - deploys the CLI, renders the TOML config, and manages
   one systemd timer per profile (including user-level `systemd_scope: user`).
-- **restic_rest_server** role — deploys a [rest-server](https://github.com/restic/rest-server)
+- **restic_rest_server** role - deploys a [rest-server](https://github.com/restic/rest-server)
   instance for remote backup storage.
 
 ## Deploy with Ansible
 
-You need Ansible on the control node — see [Ansible toolchain](ansible-toolchain.md)
+You need Ansible on the control node - see [Ansible toolchain](ansible-toolchain.md)
 for a uv-based setup. Clone the repo and install this collection with its
 dependencies into the project-local tree:
 
@@ -32,7 +32,7 @@ the control node.
 
 ## Standalone CLI (without Ansible)
 
-The CLI is also published on PyPI for manual or cron-driven use — no Ansible,
+The CLI is also published on PyPI for manual or cron-driven use - no Ansible,
 root, or systemd required:
 
 ```shell

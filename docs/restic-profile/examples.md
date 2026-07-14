@@ -1,7 +1,7 @@
 # Ansible host_vars examples
 
 All examples are `host_vars` snippets for the `restic_profile` role.
-Every field defaults to a sensible value — see
+Every field defaults to a sensible value - see
 `roles/restic_profile/defaults/main.yaml` for the full reference and inline
 comments.
 
@@ -121,7 +121,7 @@ restic_profile_profiles:
       keep_monthly: 12
 ```
 
-No `backup` block — this is a pure retention profile. `forget_current_host: false`
+No `backup` block - this is a pure retention profile. `forget_current_host: false`
 lets it manage snapshots from multiple backup clients sharing the same tag.
 
 ---
@@ -265,7 +265,7 @@ restic_profile_profiles:
 
 `gitlab:backup:create` writes timestamped tarballs to
 `/var/opt/gitlab/backups`. GitLab's built-in
-`gitlab_rails['backup_keep_time']` (default `604800` — 7 days in
+`gitlab_rails['backup_keep_time']` (default `604800` - 7 days in
 `/etc/gitlab/gitlab.rb`) auto-prunes old local archives, so no manual
 cleanup is needed. Set a smaller value if disk space is tight.
 
@@ -300,9 +300,9 @@ restic_profile_profiles:
 ```
 
 User-scope profiles require `systemd_scope: user` and an explicit
-`systemd_user`.  The role deploys config under
+`systemd_user`. The role deploys config under
 `~/.config/restic-profile/`, units under `~/.config/systemd/user/`, and
-state under `~/.local/share/restic-profile/`.  Timers start and stop
+state under `~/.local/share/restic-profile/`. Timers start and stop
 with the user's session without requiring `root` privileges.
 
 The `restic-profile` CLI automatically resolves config from

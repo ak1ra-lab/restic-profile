@@ -1,5 +1,5 @@
 ```toml
-# restic-profile.toml — 带详细注释的配置模板
+# restic-profile.toml - 带详细注释的配置模板
 #
 # 将此文件复制到 /etc/restic-profile/restic-profile.toml（系统作用域）
 # 或 ~/.config/restic-profile/restic-profile.toml（用户作用域），填写你的

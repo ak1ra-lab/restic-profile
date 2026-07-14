@@ -82,7 +82,7 @@ def _write_config(tmp_path: Path, content: str) -> Path:
     return p
 
 
-# check — valid config
+# check - valid config
 
 
 def test_check_with_valid_config_exits_0(
@@ -97,7 +97,7 @@ def test_check_with_valid_config_exits_0(
     assert "Config is valid" in captured.out + captured.err
 
 
-# check — missing config
+# check - missing config
 
 
 def test_check_with_missing_config_exits_1(
@@ -113,7 +113,7 @@ def test_check_with_missing_config_exits_1(
     assert "not found" in caplog.text.lower() or str(missing) in caplog.text
 
 
-# check — invalid config
+# check - invalid config
 
 
 def test_check_with_invalid_config_exits_1(
@@ -139,7 +139,7 @@ def test_check_with_missing_repo_and_password_exits_1(tmp_path: Path) -> None:
     assert exc_info.value.code == 1
 
 
-# list — valid config
+# list - valid config
 
 
 def test_list_with_valid_config(
@@ -160,7 +160,7 @@ def test_list_with_valid_config(
     assert "schedule=daily" in combined
 
 
-# list — missing config
+# list - missing config
 
 
 def test_list_with_missing_config_exits_1(
@@ -176,7 +176,7 @@ def test_list_with_missing_config_exits_1(
     assert "not found" in caplog.text.lower() or str(missing) in caplog.text
 
 
-# run profile — mocked run_profile (success)
+# run profile - mocked run_profile (success)
 
 
 def test_run_profile_with_mocked_runner_exits_0(
@@ -223,7 +223,7 @@ def test_run_profile_dry_run_flag_is_forwarded(
     assert received_kwargs[0].get("dry_run") is True
 
 
-# run profile — profile not found
+# run profile - profile not found
 
 
 def test_run_profile_nonexistent_profile_exits_1(
@@ -239,7 +239,7 @@ def test_run_profile_nonexistent_profile_exits_1(
     assert "nonexistent" in caplog.text or "not found" in caplog.text.lower()
 
 
-# run profile — missing config
+# run profile - missing config
 
 
 def test_run_profile_with_missing_config_exits_1(tmp_path: Path) -> None:
@@ -252,7 +252,7 @@ def test_run_profile_with_missing_config_exits_1(tmp_path: Path) -> None:
     assert exc_info.value.code == 1
 
 
-# run profile — run_profile raises ValueError
+# run profile - run_profile raises ValueError
 
 
 def test_run_profile_value_error_from_runner_exits_1(

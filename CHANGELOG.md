@@ -10,10 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Per-profile systemd user-scope support via `systemd_scope: user` and
-  `systemd_user` fields — deploys config to `~/.config/restic-profile/`
+  `systemd_user` fields - deploys config to `~/.config/restic-profile/`
   and systemd units to `~/.config/systemd/user/` with automatic
   `loginctl enable-linger` and `XDG_RUNTIME_DIR` handling
-- CLI config resolution via XDG search path — when `--config` is omitted,
+- CLI config resolution via XDG search path - when `--config` is omitted,
   searches `~/.config/restic-profile/restic-profile.toml` then falls back
   to `/etc/restic-profile/restic-profile.toml`
 
@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `RESTIC_COMPRESSION`, `RESTIC_PACK_SIZE`, and `HTTP_PROXY`
 - Runtime environment variable injection at profile level
   (`[profiles.<name>.env]`) for hook credentials such as `PGPASSWORD`,
-  `MYSQL_PWD` — applied after repository env so profile env takes precedence
+  `MYSQL_PWD` - applied after repository env so profile env takes precedence
 - Runtime environment variable injection at notify channel level
   (`[notify.<name>.env]`) for proxy settings that only affect notification
   HTTP calls

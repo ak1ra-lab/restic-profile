@@ -1,5 +1,5 @@
 ```toml
-# restic-profile.toml — well-commented starting config
+# restic-profile.toml - well-commented starting config
 #
 # Copy this file to /etc/restic-profile/restic-profile.toml (system scope)
 # or ~/.config/restic-profile/restic-profile.toml (user scope), fill in your

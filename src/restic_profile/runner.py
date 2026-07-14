@@ -82,7 +82,7 @@ def build_env(profile: Profile) -> dict[str, str]:
 
     if repo.google_project_id:
         env["GOOGLE_PROJECT_ID"] = repo.google_project_id
-        # google_access_token takes precedence — when set it disables all other
+        # google_access_token takes precedence - when set it disables all other
         # GCS auth mechanisms (service account key, ADC, etc.).
         if repo.google_access_token:
             env["GOOGLE_ACCESS_TOKEN"] = repo.google_access_token

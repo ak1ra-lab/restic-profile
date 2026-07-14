@@ -3,7 +3,7 @@ ak1ra_lab.restic_profile collection.
 
 ``deployment_plan`` turns the user's ``restic_profile_profiles`` and
 ``restic_profile_repositories`` dicts into a single structured plan that the
-role tasks consume directly — no more inline Jinja loops in YAML.
+role tasks consume directly - no more inline Jinja loops in YAML.
 
 ``deployment_targets`` groups enabled profiles by ``(scope, user)`` and
 computes the per-target filesystem paths (config_dir, unit_dir, ownership,
@@ -62,10 +62,10 @@ def deployment_plan(
     Parameters
     ----------
     profiles:
-        The ``restic_profile_profiles`` dict — each key is a profile name,
+        The ``restic_profile_profiles`` dict - each key is a profile name,
         each value is the profile configuration dict.
     repositories:
-        The ``restic_profile_repositories`` dict — each key is a repository
+        The ``restic_profile_repositories`` dict - each key is a repository
         reference name, each value is the repository credentials dict.
     config_dir:
         Directory where exclude files and env files live
@@ -73,25 +73,25 @@ def deployment_plan(
     unit_prefix:
         Prefix for systemd unit names (e.g. ``restic-profile-``).
     profile_names:
-        Optional restriction — when given, only profiles whose names appear
+        Optional restriction - when given, only profiles whose names appear
         in this list are included in the plan.  Used for per-target plans
         when user scope is layered on top.  Defaults to all profiles.
 
     Returns
     -------
     dict with keys:
-        ``service_units`` — list of ``{profile_name, profile, unit_name,
+        ``service_units`` - list of ``{profile_name, profile, unit_name,
         timer_enabled, has_timer}``.  ``has_timer`` is ``True`` only when
         ``timer_enabled`` is truthy **and** ``on_calendar`` is non-empty.
-        ``exclude_files`` — list of ``{profile_name, path}`` for every
+        ``exclude_files`` - list of ``{profile_name, path}`` for every
         enabled profile that defines ``backup.exclude_file_content``.
-        ``env_files`` — list of ``{key, value, path}`` for each unique
+        ``env_files`` - list of ``{key, value, path}`` for each unique
         ``repository_ref`` referenced by enabled profiles, de-duplicated
         in first-seen order.
-        ``expected_unit_names`` — list of unit base names (without
+        ``expected_unit_names`` - list of unit base names (without
         ``.service``/``.timer`` suffix); used for stale-file detection.
-        ``expected_exclude_paths`` — list of absolute paths; same purpose.
-        ``expected_env_paths`` — list of absolute paths; same purpose.
+        ``expected_exclude_paths`` - list of absolute paths; same purpose.
+        ``expected_env_paths`` - list of absolute paths; same purpose.
     """
     plan: dict[str, Any] = {
         "service_units": [],
@@ -160,7 +160,7 @@ def deployment_plan(
 
 
 # ---------------------------------------------------------------------------
-# Deployment targets — group profiles by (scope, user) and compute paths
+# Deployment targets - group profiles by (scope, user) and compute paths
 # ---------------------------------------------------------------------------
 
 _SYSTEM_CONFIG_DIR = "/etc/restic-profile"
