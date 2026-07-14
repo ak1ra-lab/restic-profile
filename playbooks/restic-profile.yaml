@@ -1,7 +1,7 @@
 ---
 - name: manage restic backup profiles
   hosts: "{{ playbook_hosts | default('restic_profile_nodes') }}"
-  gather_facts: false
+  gather_facts: true
   become: true
 
   tasks:

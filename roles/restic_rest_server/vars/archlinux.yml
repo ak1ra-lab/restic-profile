@@ -1,0 +1,6 @@
+---
+restic_rest_server_pkg_deps:
+  - python-passlib
+  - python-bcrypt
+restic_rest_server_pkg_name: []
+restic_rest_server_pkg_binary_path: /usr/bin/restic-rest-server

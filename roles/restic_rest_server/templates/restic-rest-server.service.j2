@@ -8,7 +8,7 @@ Type=simple
 User={{ restic_rest_server_user }}
 Group={{ restic_rest_server_group }}
 
-EnvironmentFile=/etc/default/restic-rest-server
+EnvironmentFile=/etc/restic-rest-server/env
 ExecCondition=/bin/sh -c '[ -n "$BACKUP_DIR" ]'
 
 ExecStart={{ restic_rest_server_exec_path }} --path $BACKUP_DIR --listen $LISTEN $ARGS

@@ -16,10 +16,10 @@ restic_rest_server_group: restic-rest-server
 #     - name: bob
 #       password: "{{ vault_bob_password }}"
 #
-# Requires the python3-passlib + python3-bcrypt packages on the *managed node*
-# (installed automatically by this role via apt). Ansible modules execute on the
-# managed node's Python interpreter, so installing passlib only in the Ansible
-# venv on the control node has no effect.
+# Requires python-passlib + python-bcrypt (or python3- prefixed) on the *managed node*
+# (installed automatically by this role via the distro package manager). Ansible
+# modules execute on the managed node's Python interpreter, so installing passlib
+# only in the Ansible venv on the control node has no effect.
 restic_rest_server_htpasswd_users: []
 # - name: "alice"
 #   password: "very-secure-password"
@@ -32,11 +32,11 @@ restic_rest_server_htpasswd_crypt_scheme: bcrypt
 # both roles run on the same host.
 restic_rest_server_backup_dir: /srv/restic
 
-# str: source for the restic-rest-server binary - "apt" | "go_build" | "existing"
-#      "apt" installs the distro package on the managed host.
+# str: source for the restic-rest-server binary - "package" | "go_build" | "existing"
+#      "package" installs the distro package on the managed host.
 #      "go_build" builds a static binary on the control node and copies it to the managed host.
 #      "existing" leaves binary management to the operator.
-restic_rest_server_binary_install_source: apt
+restic_rest_server_binary_install_source: package
 
 # str: destination path used when restic_rest_server_binary_install_source == "go_build"
 #      and the lookup path when restic_rest_server_binary_install_source == "existing"

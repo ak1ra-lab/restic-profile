@@ -149,11 +149,11 @@ restic_profile_systemd_io_scheduling_priority: ""
 #      "pypi" installs the latest published release from the public PyPI index.
 restic_profile_pip_install_source: pypi
 
-# str: source for the restic binary - "apt" | "go_build" | "existing"
-#      "apt" installs the distro package on the managed host.
+# str: source for the restic binary - "package" | "go_build" | "existing"
+#      "package" installs the distro package on the managed host.
 #      "go_build" builds a static binary on the control node and copies it to the managed host.
 #      "existing" leaves restic binary management to the operator.
-restic_profile_restic_install_source: apt
+restic_profile_restic_install_source: package
 
 # str: destination path used when restic_profile_restic_install_source == "go_build"
 restic_profile_restic_install_path: /usr/local/bin/restic

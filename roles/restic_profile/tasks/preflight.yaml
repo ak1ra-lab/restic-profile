@@ -1,11 +1,19 @@
 ---
+- name: assert target OS is supported
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.os_family in ['Debian', 'RedHat', 'Suse', 'Archlinux']
+    fail_msg: >-
+      Unsupported OS family: {{ ansible_facts.os_family | default('unknown') }}.
+      This role supports Debian, RedHat, Suse, and Archlinux.
+
 - name: assert restic install source is supported
   ansible.builtin.assert:
     that:
-      - restic_profile_restic_install_source in ['apt', 'go_build', 'existing']
+      - restic_profile_restic_install_source in ['package', 'go_build', 'existing']
     fail_msg: >-
       restic_profile_restic_install_source must be one of
-      ['apt', 'go_build', 'existing'] (got:
+      ['package', 'go_build', 'existing'] (got:
       {{ restic_profile_restic_install_source | to_json }})
 
 - name: assert restic_profile mappings are dicts

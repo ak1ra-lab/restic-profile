@@ -1,11 +1,16 @@
 ---
-- name: install restic via apt
-  when: restic_profile_restic_install_source == 'apt'
+- name: update apt cache on Debian
   become: true
+  when: ansible_facts.os_family == 'Debian'
   ansible.builtin.apt:
-    name: restic
-    state: present
     update_cache: true
+
+- name: install restic via package manager
+  when: restic_profile_restic_install_source == 'package'
+  become: true
+  ansible.builtin.package:
+    name: "{{ restic_profile_pkg_restic }}"
+    state: present
 
 - name: build restic on control node
   when: restic_profile_restic_install_source == 'go_build'

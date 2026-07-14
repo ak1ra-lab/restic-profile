@@ -34,7 +34,7 @@ restic_rest_server_htpasswd_users:
 
 备份客户端连接到 `https://backup.example.com:8012/alice/<repo-name>`。
 
-## 示例 2：在 Debian 12 上使用 go_build
+## 示例 2：软件包不可用时使用 go_build
 
 ```yaml
 restic_rest_server_binary_install_source: go_build
@@ -43,7 +43,7 @@ restic_rest_server_listen: ":8012"
 restic_rest_server_backup_dir: /srv/restic
 ```
 
-当发行版软件包不可用时（如 Debian 12），使用 `go_build`。在 Debian 13 及以上版本中，可通过 `apt` 安装软件包。
+当发行版软件包不可用时使用 `go_build`（`restic-rest-server` 软件包仅存在于 Debian 13+）。
 
 ## 在仓库主机上执行保留策略
 
@@ -79,7 +79,7 @@ restic_profile_profiles:
 | `restic_rest_server_append_only`           | `true`                                     | 禁止通过 REST 执行 forget/prune |
 | `restic_rest_server_private_repos`         | `true`                                     | 子目录为私有仓库                |
 | `restic_rest_server_htpasswd_file`         | `"/etc/restic-rest-server/users.htpasswd"` |                                 |
-| `restic_rest_server_binary_install_source` | `"apt"`                                    | `apt` / `go_build` / `existing` |
+| `restic_rest_server_binary_install_source` | `"package"`                              | `package` / `go_build` / `existing` |
 | `restic_rest_server_htpasswd_crypt_scheme` | `"bcrypt"`                                 | 强烈推荐                        |
 
-Htpasswd 用户需要目标节点上安装 `python3-passlib` + `python3-bcrypt`（角色会自动安装）。
+Htpasswd 用户需要目标节点上安装 `python-passlib` + `python-bcrypt`（或对应的 `python3-` 前缀版本，角色会自动安装）。

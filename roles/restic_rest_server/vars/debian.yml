@@ -1,0 +1,7 @@
+---
+restic_rest_server_pkg_deps:
+  - python3-passlib
+  - python3-bcrypt
+restic_rest_server_pkg_name:
+  - restic-rest-server
+restic_rest_server_pkg_binary_path: /usr/bin/restic-rest-server

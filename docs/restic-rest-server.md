@@ -36,7 +36,7 @@ restic_rest_server_htpasswd_users:
 
 Backup clients connect to `https://backup.example.com:8012/alice/<repo-name>`.
 
-## Example 2: go_build on a Debian 12 host
+## Example 2: go_build when package is unavailable
 
 ```yaml
 restic_rest_server_binary_install_source: go_build
@@ -45,8 +45,8 @@ restic_rest_server_listen: ":8012"
 restic_rest_server_backup_dir: /srv/restic
 ```
 
-Use `go_build` when the distro package isn't available (e.g. Debian 12).
-On Debian 13+ the package is available via `apt`.
+Use `go_build` when the distro package isn't available (e.g. the `restic-rest-server`
+package only exists on Debian 13+).
 
 ## Retention on the repository host
 
@@ -83,8 +83,8 @@ restic_profile_profiles:
 | `restic_rest_server_append_only`           | `true`                                     | Disallow forget/prune via REST   |
 | `restic_rest_server_private_repos`         | `true`                                     | Subdirectories are private repos |
 | `restic_rest_server_htpasswd_file`         | `"/etc/restic-rest-server/users.htpasswd"` |                                  |
-| `restic_rest_server_binary_install_source` | `"apt"`                                    | `apt` / `go_build` / `existing`  |
+| `restic_rest_server_binary_install_source` | `"package"`                              | `package` / `go_build` / `existing`  |
 | `restic_rest_server_htpasswd_crypt_scheme` | `"bcrypt"`                                 | Strongly recommended             |
 
-Htpasswd users require `python3-passlib` + `python3-bcrypt` on the managed node
-(installed automatically by the role).
+Htpasswd users require `python-passlib` + `python-bcrypt` (or their `python3-`
+prefixed variants) on the managed node (installed automatically by the role).

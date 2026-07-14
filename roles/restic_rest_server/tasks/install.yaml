@@ -1,28 +1,25 @@
 ---
-- name: install htpasswd Python dependencies
+- name: update apt cache on Debian
   become: true
+  when: ansible_facts.os_family == 'Debian'
   ansible.builtin.apt:
-    name:
-      # python3-passlib + python3-bcrypt are required by community.general.htpasswd
-      # on the managed node. passlib is the interface layer; python3-bcrypt provides
-      # the actual bcrypt backend passlib calls for crypt_scheme: bcrypt.
-      # Ansible modules run on the managed node's Python interpreter, so these
-      # libraries must be installed there (not in the Ansible venv on the control node).
-      - python3-passlib
-      - python3-bcrypt
-    state: present
     update_cache: true
 
-# restic-rest-server is available starting from Debian 13 (trixie);
-# on Debian 12 (bookworm) this will silently fail.
-- name: install restic-rest-server via apt
-  when: restic_rest_server_binary_install_source == 'apt'
+- name: install htpasswd Python dependencies
   become: true
-  ansible.builtin.apt:
-    name:
-      - restic-rest-server
+  ansible.builtin.package:
+    name: "{{ restic_rest_server_pkg_deps }}"
     state: present
-    update_cache: true
+  when: restic_rest_server_pkg_deps | length > 0
+
+- name: install restic-rest-server via package manager
+  when:
+    - restic_rest_server_binary_install_source == 'package'
+    - restic_rest_server_pkg_name | length > 0
+  become: true
+  ansible.builtin.package:
+    name: "{{ restic_rest_server_pkg_name }}"
+    state: present
   failed_when: false
 
 - name: build restic-rest-server on control node
@@ -51,23 +48,18 @@
     group: root
     mode: "0755"
 
-- name: check if /usr/bin/restic-rest-server exists (installed via apt)
-  ansible.builtin.stat:
-    path: /usr/bin/restic-rest-server
-  register: restic_rest_server_apt_stat
-
-- name: check if configured restic-rest-server binary exists
-  ansible.builtin.stat:
-    path: "{{ restic_rest_server_binary_install_path }}"
-  register: restic_rest_server_local_stat
-
-- name: set restic-rest-server availability facts
+- name: set restic-rest-server exec path
   ansible.builtin.set_fact:
-    # true when binary is reachable via either path
-    restic_rest_server_available: >-
-      {{ restic_rest_server_apt_stat.stat.exists or restic_rest_server_local_stat.stat.exists }}
-    # prefer the apt-managed path; fall back to the manually placed one
     restic_rest_server_exec_path: >-
-      {{ '/usr/bin/restic-rest-server'
-         if restic_rest_server_apt_stat.stat.exists
+      {{ restic_rest_server_pkg_binary_path
+         if restic_rest_server_binary_install_source == 'package'
          else restic_rest_server_binary_install_path }}
+
+- name: check if restic-rest-server binary exists
+  ansible.builtin.stat:
+    path: "{{ restic_rest_server_exec_path }}"
+  register: _restic_rest_server_bin
+
+- name: set restic-rest-server available fact
+  ansible.builtin.set_fact:
+    restic_rest_server_available: "{{ _restic_rest_server_bin.stat.exists }}"

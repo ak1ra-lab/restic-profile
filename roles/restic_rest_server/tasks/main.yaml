@@ -1,7 +1,17 @@
 ---
+- name: load OS-specific variables
+  ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', _include_vars_params) }}"
+  vars:
+    _include_vars_params:
+      files:
+        - "{{ ansible_facts.os_family | lower }}.yml"
+        - default.yml
+      paths:
+        - vars
+
 # Step 0: validate required variables and assumptions.
 - name: validate restic-rest-server configuration
-  ansible.builtin.import_tasks: validation.yaml
+  ansible.builtin.import_tasks: preflight.yaml
 
 # Step 1: install packages and detect the binary location.
 # Produces facts: restic_rest_server_available, restic_rest_server_exec_path

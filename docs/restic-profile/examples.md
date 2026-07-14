@@ -324,6 +324,6 @@ These affect every profile unless a profile overrides its copy.
 | `restic_profile_unlock`                | `false`   | Run `restic unlock` before every backup/retention            |
 | `restic_profile_systemd_cpu_quota`     | `"100%"`  | CPUQuota= in generated service units                         |
 | `restic_profile_pip_install_source`    | `local`   | How to install restic-profile: `local` / `pypi` / `testpypi` |
-| `restic_profile_restic_install_source` | `apt`     | How to install restic: `apt` / `go_build` / `existing`       |
+| `restic_profile_restic_install_source` | `package` | How to install restic: `package` / `go_build` / `existing`       |
 
 See `roles/restic_profile/defaults/main.yaml` for the complete list with comments.
