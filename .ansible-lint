@@ -18,6 +18,10 @@ exclude_paths:
   - site/
   - dist/
   - molecule/
+  - examples/
+  - playbooks/host_vars/
+  - playbooks/group_vars/
+  - mkdocs.yaml
 
 # Rules to warn about instead of failing on.
 # These are either stylistic preferences or rules that generate too many
