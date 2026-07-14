@@ -1,3 +1,4 @@
+---
 site_name: restic-profile
 site_description: "Profile-based restic automation in Python and Ansible"
 site_url: "https://ak1ra-lab.github.io/restic-profile/"

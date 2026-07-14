@@ -18,7 +18,6 @@ permissions:
   pages: write
   id-token: write
 
-
 concurrency:
   group: docs
   cancel-in-progress: false
