@@ -62,4 +62,4 @@
 
 - name: set restic-rest-server available fact
   ansible.builtin.set_fact:
-    restic_rest_server_available: "{{ _restic_rest_server_bin.stat.exists }}"
+    restic_rest_server_available: "{{ _restic_rest_server_bin.stat.executable }}"

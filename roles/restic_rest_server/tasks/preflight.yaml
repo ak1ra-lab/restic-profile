@@ -1,19 +1,23 @@
 ---
 - name: assert target OS is supported
+  vars:
+    _available_distro: ["debian", "redhat", "suse", "archlinux"]
   ansible.builtin.assert:
     that:
-      - ansible_facts.os_family in ['Debian', 'RedHat', 'Suse', 'Archlinux']
+      - (ansible_facts.os_family | lower) in _available_distro
     fail_msg: >-
       Unsupported OS family: {{ ansible_facts.os_family | default('unknown') }}.
-      This role supports Debian, RedHat, Suse, and Archlinux.
+      This role supports {{ _available_distro | join(', ') }}.
 
 - name: assert restic_rest_server binary install source is supported
+  vars:
+    _available_sources: ["package", "go_build", "existing"]
   ansible.builtin.assert:
     that:
-      - restic_rest_server_binary_install_source in ['package', 'go_build', 'existing']
+      - restic_rest_server_binary_install_source in _available_sources
     fail_msg: >-
       restic_rest_server_binary_install_source must be one of
-      ['package', 'go_build', 'existing'] (got:
+      {{ _available_sources | join(', ') }} (got:
       {{ restic_rest_server_binary_install_source | default('') | to_json }})
 
 - name: assert distro package is available when install_source is package
@@ -50,13 +54,16 @@
 - name: assert each htpasswd user entry with a non-empty name also has a password
   ansible.builtin.assert:
     that:
-      - item.password is defined
-      - item.password | string | length > 0
+      - htpasswd_user.password is defined
+      - htpasswd_user.password | string | length > 0
     fail_msg: >-
-      htpasswd user {{ item.name | to_json }} has no password set.
+      htpasswd user {{ htpasswd_user.name | to_json }} has no password set.
       Every entry in restic_rest_server_htpasswd_users with a non-empty
       name must also provide a password (use Ansible Vault to protect
       the value).
   loop: "{{ restic_rest_server_htpasswd_users }}"
-  when: item.name | default('') | length > 0
+  loop_control:
+    loop_var: htpasswd_user
+    loop_label: "{{ htpasswd_user.name | default('') | to_json }}"
+  when: htpasswd_user.name | default('') | length > 0
   no_log: true

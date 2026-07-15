@@ -51,14 +51,17 @@
   become: true
   community.general.htpasswd:
     path: "{{ restic_rest_server_htpasswd_file }}"
-    name: "{{ item.name }}"
-    password: "{{ item.password }}"
+    name: "{{ htpasswd_user.name }}"
+    password: "{{ htpasswd_user.password }}"
     crypt_scheme: "{{ restic_rest_server_htpasswd_crypt_scheme }}"
     owner: root
     group: "{{ restic_rest_server_group }}"
     mode: "0640"
   loop: "{{ restic_rest_server_htpasswd_users }}"
-  when: item.name | length > 0
+  loop_control:
+    loop_var: htpasswd_user
+    loop_label: "{{ htpasswd_user.name | default('') | to_json }}"
+  when: htpasswd_user.name | length > 0
   no_log: true
   notify:
     - restart restic-rest-server
@@ -66,7 +69,7 @@
 - name: deploy /etc/restic-rest-server/env
   become: true
   ansible.builtin.template:
-    src: restic-rest-server.default.j2
+    src: restic-rest-server.env.j2
     dest: /etc/restic-rest-server/env
     owner: root
     group: root

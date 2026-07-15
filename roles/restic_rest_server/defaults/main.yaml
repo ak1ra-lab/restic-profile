@@ -10,19 +10,15 @@ restic_rest_server_group: restic-rest-server
 
 # Basic-auth user list for community.general.htpasswd.
 # Override in host_vars or Vault to manage one or more users:
-#   restic_rest_server_htpasswd_users:
-#     - name: alice
-#       password: "{{ vault_alice_password }}"
-#     - name: bob
-#       password: "{{ vault_bob_password }}"
-#
 # Requires python-passlib + python-bcrypt (or python3- prefixed) on the *managed node*
 # (installed automatically by this role via the distro package manager). Ansible
 # modules execute on the managed node's Python interpreter, so installing passlib
 # only in the Ansible venv on the control node has no effect.
 restic_rest_server_htpasswd_users: []
-# - name: "alice"
-#   password: "very-secure-password"
+# - name: alice
+#   password: "{{ vault_alice_password }}"
+# - name: bob
+#   password: "{{ vault_bob_password }}"
 
 # htpasswd crypt scheme - bcrypt is strongly recommended by rest-server.
 restic_rest_server_htpasswd_crypt_scheme: bcrypt
