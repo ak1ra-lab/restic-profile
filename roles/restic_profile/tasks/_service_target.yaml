@@ -20,7 +20,7 @@
         | ak1ra_lab.restic_profile.deployment_plan(
             restic_profile_repositories,
             _target.config_dir,
-            restic_profile_unit_prefix,
+            restic_profile_file_prefix,
             _target.profile_names
           )
       }}
@@ -30,8 +30,8 @@
   ansible.builtin.find:
     paths: "{{ _target.unit_dir }}"
     patterns:
-      - "{{ restic_profile_unit_prefix }}*.service"
-      - "{{ restic_profile_unit_prefix }}*.timer"
+      - "{{ restic_profile_file_prefix }}*.service"
+      - "{{ restic_profile_file_prefix }}*.timer"
   register: _restic_profile_target_existing_units
 
 - name: stop and disable orphaned timers for target

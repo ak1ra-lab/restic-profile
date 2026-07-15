@@ -7,8 +7,8 @@
   ansible.builtin.find:
     paths: "{{ _target.unit_dir }}"
     patterns:
-      - "restic-profile-*.service"
-      - "restic-profile-*.timer"
+      - "{{ restic_profile_file_prefix }}*.service"
+      - "{{ restic_profile_file_prefix }}*.timer"
   register: _restic_profile_target_found_units
 
 - name: stop and disable all managed timers for target
@@ -42,7 +42,7 @@
 - name: find all managed exclude files for target
   ansible.builtin.find:
     paths: "{{ _target.config_dir }}"
-    patterns: "restic-profile-*.exclude"
+    patterns: "{{ restic_profile_file_prefix }}*.exclude"
   register: _restic_profile_target_found_excludes
 
 - name: remove all managed exclude files for target
@@ -56,7 +56,7 @@
 - name: find all managed env files for target
   ansible.builtin.find:
     paths: "{{ _target.config_dir }}"
-    patterns: "restic-profile-*.env"
+    patterns: "{{ restic_profile_file_prefix }}*.env"
   register: _restic_profile_target_found_env
 
 - name: remove all managed env files for target

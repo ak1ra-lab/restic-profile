@@ -11,7 +11,7 @@
         | ak1ra_lab.restic_profile.deployment_plan(
             restic_profile_repositories,
             _target.config_dir,
-            restic_profile_unit_prefix,
+            restic_profile_file_prefix,
             _target.profile_names
           )
       }}
@@ -61,7 +61,7 @@
 - name: find managed exclude files for target
   ansible.builtin.find:
     paths: "{{ _target.config_dir }}"
-    patterns: "restic-profile-*.exclude"
+    patterns: "{{ restic_profile_file_prefix }}*.exclude"
     file_type: file
   register: _restic_profile_target_excludes
 
@@ -78,7 +78,7 @@
 - name: find managed env files for target
   ansible.builtin.find:
     paths: "{{ _target.config_dir }}"
-    patterns: "restic-profile-*.env"
+    patterns: "{{ restic_profile_file_prefix }}*.env"
     file_type: file
   register: _restic_profile_target_env_files
 

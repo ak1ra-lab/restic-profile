@@ -30,10 +30,14 @@ restic_profile_cli_link: /usr/local/bin/restic-profile
 # str: operator-facing helper that runs restic-profile in a transient systemd scope
 restic_profile_scope_helper_path: /usr/local/bin/restic-profile-scope
 
+# str: prefix for restic-profile-managed files (config, hooks, units)
+# to avoid collisions with other files in the same directories.
+restic_profile_file_prefix: "restic-profile-"
+
 # --- Systemd unit naming prefix ---
 # Profile units: <prefix><name>.{service,timer}
 # Defined here so tasks and templates reference one source of truth.
-restic_profile_unit_prefix: "restic-profile-"
+# restic_profile_unit_prefix: "{{ restic_profile_file_prefix }}"
 
 # list[str]: hook lifecycle phases shared by the role tasks and TOML template
 restic_profile_hook_phases:

@@ -1,20 +1,24 @@
 ---
 - name: assert target OS is supported
+  vars:
+    _available_distro: ["debian", "redhat", "suse", "archlinux"]
   ansible.builtin.assert:
     that:
-      - ansible_facts.os_family in ['Debian', 'RedHat', 'Suse', 'Archlinux']
+      - (ansible_facts.os_family | lower) in _available_distro
     fail_msg: >-
       Unsupported OS family: {{ ansible_facts.os_family | default('unknown') }}.
-      This role supports Debian, RedHat, Suse, and Archlinux.
+      This role supports {{ _available_distro | join(', ') }}.
 
 - name: assert restic install source is supported
+  vars:
+    _available_sources: ["package", "go_build", "existing"]
   ansible.builtin.assert:
     that:
-      - restic_profile_restic_install_source in ['package', 'go_build', 'existing']
+      - restic_profile_restic_install_source in _available_sources
     fail_msg: >-
       restic_profile_restic_install_source must be one of
-      ['package', 'go_build', 'existing'] (got:
-      {{ restic_profile_restic_install_source | to_json }})
+      {{ _available_sources | join(', ') }} (got:
+      {{ restic_profile_restic_install_source | default('') | to_json }})
 
 - name: assert restic_profile mappings are dicts
   block:
@@ -209,8 +213,8 @@
   ansible.builtin.find:
     paths: /etc/systemd/system
     patterns:
-      - "restic-profile-*.service"
-      - "restic-profile-*.timer"
+      - "{{ restic_profile_file_prefix }}*.service"
+      - "{{ restic_profile_file_prefix }}*.timer"
   register: _restic_profile_system_leftover
 
 - name: compute orphaned deployment targets

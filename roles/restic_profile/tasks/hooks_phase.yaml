@@ -14,7 +14,7 @@
     restic_profile_hook_dest_path: >-
       {% set _basename = _hook_script_src | basename -%}
       {% set _ext = '.' ~ (_basename.split('.') | last) if '.' in _basename else '.sh' -%}
-      {{ restic_profile_hooks_dir }}/restic-profile-{{
+      {{ restic_profile_hooks_dir }}/{{ restic_profile_file_prefix }}{{
       restic_profile_hook_profile_name }}.{{ restic_profile_hook_phase }}-{{
       '%02d' | format(_hook_script_index + 1) }}{{ _ext }}
   ansible.builtin.copy:
@@ -54,7 +54,7 @@
     restic_profile_hook_dest_path: >-
       {% set _basename = (_hook_template_src | basename) | replace('.j2', '') -%}
       {% set _ext = '.' ~ (_basename.split('.') | last) if '.' in _basename else '.sh' -%}
-      {{ restic_profile_hooks_dir }}/restic-profile-{{
+      {{ restic_profile_hooks_dir }}/{{ restic_profile_file_prefix }}{{
       restic_profile_hook_profile_name }}.{{ restic_profile_hook_phase }}-{{
       '%02d' | format(restic_profile_hook_index | int) }}{{ _ext }}
   ansible.builtin.template:
