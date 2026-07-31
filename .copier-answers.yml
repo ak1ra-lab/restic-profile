@@ -1,7 +1,7 @@
 ---
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
 _commit: c7cc65d
-_src_path: .
+_src_path: git+https://github.com/ak1ra-lab/copier-pyproject.git
 author_email: git@ak1ra.xyz
 author_name: ak1ra
 copyright_date: '2026'
