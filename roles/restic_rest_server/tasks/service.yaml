@@ -60,7 +60,7 @@
   loop: "{{ restic_rest_server_htpasswd_users }}"
   loop_control:
     loop_var: htpasswd_user
-    loop_label: "{{ htpasswd_user.name | default('') | to_json }}"
+    label: "{{ htpasswd_user.name | default('') | to_json }}"
   when: htpasswd_user.name | length > 0
   no_log: true
   notify:
