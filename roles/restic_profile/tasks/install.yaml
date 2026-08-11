@@ -1,7 +1,9 @@
 ---
 - name: update apt cache on Debian
   become: true
-  when: ansible_facts.os_family == 'Debian'
+  when:
+    - ansible_facts.os_family == 'Debian'
+    - restic_profile_restic_install_source == 'package'
   ansible.builtin.apt:
     update_cache: true
 
