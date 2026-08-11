@@ -180,7 +180,7 @@ def test_build_success_facts_has_all_keys():
     assert len(facts["largest_files"]) == 2
     assert facts["diff_has_parent"] is False
     assert facts["repo_snapshots_count"] == 0
-    assert facts["repo_total_size"] == "—"
+    assert facts["repo_total_size"] == "-"
 
 
 def test_build_success_facts_with_diff_and_repo():

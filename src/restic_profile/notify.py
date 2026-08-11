@@ -340,7 +340,7 @@ def _build_success_facts(
         facts["repo_total_size"] = _human_bytes(repo_stats.get("total_size"))
     else:
         facts["repo_snapshots_count"] = 0
-        facts["repo_total_size"] = "—"
+        facts["repo_total_size"] = "-"
 
     return facts
 

@@ -46,7 +46,7 @@ def build_env(profile: Profile) -> dict[str, str]:
     """Build the environment dict for a restic subprocess.
 
     Starts from a copy of ``os.environ`` so that PATH and other inherited
-    variables are preserved.  Credentials are injected via env vars only —
+    variables are preserved.  Credentials are injected via env vars only -
     never written to disk.
     """
     env = os.environ.copy()
