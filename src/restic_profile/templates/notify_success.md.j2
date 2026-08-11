@@ -1,4 +1,4 @@
-### restic backup succeeded
+### restic backup success
 
 - Host: {{ host }}
 - Snapshot: {{ short_id }} @ {{ time }}
@@ -20,10 +20,10 @@
 
 ### changes
 
-+{{ diff_added_files }} files, +{{ diff_added_dirs }} dirs ({{ diff_added_bytes }})
--{{ diff_removed_files }} files, -{{ diff_removed_dirs }} dirs ({{ diff_removed_bytes }})
+- +{{ diff_added_files }} files, +{{ diff_added_dirs }} dirs ({{ diff_added_bytes }})
+- -{{ diff_removed_files }} files, -{{ diff_removed_dirs }} dirs ({{ diff_removed_bytes }})
 {% if diff_changed_files %}
-{{ diff_changed_files }} changed
+- {{ diff_changed_files }} changed
 {% endif %}
 {% if diff_changes %}
 
@@ -38,7 +38,7 @@
 - {{ repo_snapshots_count }} snapshots  ·  {{ repo_total_size }}
 {% if largest_files %}
 
-### largest Files
+### largest files
 
 {% for name, size in largest_files %}
 - {{ name }}  {{ size }}

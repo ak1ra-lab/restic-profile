@@ -228,7 +228,7 @@ def test_render_success_template_contains_key_info():
     )
     text = _render_notify_template("notify_success.md.j2", facts)
 
-    assert "restic backup succeeded" in text
+    assert "restic backup success" in text
     assert "test-host" in text
     assert "abc123de" in text
     assert "/data" in text
