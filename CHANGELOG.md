@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-08-11
+
+### Added
+
+- Multi-Linux-distro support in Ansible roles (`restic_profile`,
+  `restic_rest_server`): Arch, Debian, RedHat, and SUSE, with per-distro
+  package-name mappings in `vars/*.yml` and an `os_family` preflight
+  check; replace `ansible.builtin.apt` with `ansible.builtin.package`
+
+### Changed
+
+- Rename `install_source` value `apt` to `package` in both roles
+  (breaking for existing inventory/group_vars)
+- Move the `restic-rest-server` env file to `/etc/restic-rest-server/env`
+- Pin `ansible.cfg` `roles_path` and `collections_path` to project-local
+  paths (`./roles`, `./.ansible/collections`); rename `requirements.yml`
+  to `requirements.yaml`
+- Add `restic_profile_file_prefix` vars for customizing managed file
+  paths
+
+### Fixed
+
+- Only run `apt update_cache` on Debian-family hosts when
+  `install_source == 'package'`
+- Correct `loop_control.label` typo in role tasks
+
 ## [0.3.0] - 2026-07-13
 
 ### Added
