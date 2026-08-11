@@ -228,19 +228,19 @@ def test_render_success_template_contains_key_info():
     )
     text = _render_notify_template("notify_success.md.j2", facts)
 
-    assert "restic Backup Succeeded" in text
+    assert "restic backup succeeded" in text
     assert "test-host" in text
     assert "abc123de" in text
     assert "/data" in text
     assert "1.5 MiB" in text
     assert "5m30s" in text
     assert "bigfile.bin" in text
-    assert "Changes" in text
+    assert "changes" in text
     assert "+2 files" in text
     assert "-1 files" in text
     assert "/data/new.log" in text
     assert "/data/old.tmp" in text
-    assert "Repository" in text
+    assert "repository" in text
     assert "42 snapshots" in text
     assert "12.0 GiB" in text
 
@@ -258,8 +258,8 @@ def test_render_success_template_no_diff():
     )
     text = _render_notify_template("notify_success.md.j2", facts)
 
-    assert "Changes" not in text
-    assert "Repository" in text
+    assert "changes" not in text
+    assert "repository" in text
 
 
 def test_render_success_no_largest_files():
@@ -291,7 +291,7 @@ def test_render_failure_template():
     facts = _build_failure_facts("exit 1", "test-host", "myapp")
     text = _render_notify_template("notify_failure.md.j2", facts)
 
-    assert "restic Backup Failed" in text
+    assert "restic backup failed" in text
     assert "test-host" in text
     assert "myapp" in text
     assert "exit 1" in text
