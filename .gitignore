@@ -351,6 +351,8 @@ credentials.yaml
 examples/*
 
 ## LLM
-docs/sessions/*
+.agents/sessions/*
 .agents/state/sessions/*
 .antigravitycli/*
+.opencode/
+openspec/

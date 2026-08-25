@@ -1,14 +1,4 @@
 ---
-- name: load OS-specific variables
-  ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', _include_vars_params) }}"
-  vars:
-    _include_vars_params:
-      files:
-        - "{{ ansible_facts.os_family | lower }}.yml"
-        - default.yml
-      paths:
-        - vars
-
 - name: run preflight checks
   ansible.builtin.import_tasks: preflight.yaml
 

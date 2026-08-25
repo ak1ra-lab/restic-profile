@@ -1,4 +1,7 @@
 ---
+# str: distro package name for the restic binary
+restic_profile_pkg_restic: restic
+
 # --- Paths (following FHS) ---
 
 # str: dedicated restic-profile configuration directory
