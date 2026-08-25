@@ -146,6 +146,36 @@
     loop_var: _plan_unit_item
     label: "{{ _plan_unit_item.unit_name }}.timer"
   when: _plan_unit_item.has_timer
+  register: _restic_profile_timer_deploy
+
+- name: stop timers with changed scheduling for target
+  become: true
+  become_user: "{{ _target.user }}"
+  ansible.builtin.systemd_service:
+    name: "{{ _plan_unit_item.unit_name }}.timer"
+    scope: "{{ _target.scope_param }}"
+    state: stopped
+    daemon_reload: false
+  loop: "{{ _restic_profile_plan.service_units }}"
+  loop_control:
+    loop_var: _plan_unit_item
+    label: "{{ _plan_unit_item.unit_name }}.timer"
+  when:
+    - _plan_unit_item.has_timer
+    - (_restic_profile_target_timer_state.state[_plan_unit_item.unit_name ~ '.timer'].active_state | default('')) == 'active'
+    - (_restic_profile_timer_deploy.results
+       | selectattr('_plan_unit_item.unit_name', 'equalto', _plan_unit_item.unit_name)
+       | map(attribute='changed')
+       | first
+       | default(false))
+  no_log: true
+
+- name: systemctl daemon-reload for target
+  become: true
+  become_user: "{{ _target.user }}"
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    scope: "{{ _target.scope_param }}"
 
 - name: start and enable timers for target
   become: true
@@ -155,16 +185,9 @@
     scope: "{{ _target.scope_param }}"
     state: started
     enabled: true
-    daemon_reload: true
   loop: "{{ _restic_profile_plan.service_units }}"
   loop_control:
     loop_var: _plan_unit_item
+    label: "{{ _plan_unit_item.unit_name }}.timer"
   when: _plan_unit_item.has_timer
   no_log: true
-
-- name: systemctl daemon-reload for target
-  become: true
-  become_user: "{{ _target.user }}"
-  ansible.builtin.systemd_service:
-    daemon_reload: true
-    scope: "{{ _target.scope_param }}"
