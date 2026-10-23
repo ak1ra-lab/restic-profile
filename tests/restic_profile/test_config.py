@@ -1045,3 +1045,46 @@ sources = ["/data"]
     profile = result.profiles["myapp"]
 
     assert profile.env == {}
+
+
+def test_unknown_profile_key_is_rejected(tmp_path: Path) -> None:
+    """Unknown profile keys raise a validation error instead of being ignored."""
+    toml = """\
+[repositories.r1]
+repository = "rest:https://backup.example.com/"
+password = "secret"
+
+[profiles.myapp]
+repository_ref = "r1"
+on_calender = "daily"
+
+[profiles.myapp.backup]
+sources = ["/data"]
+"""
+    toml_file = tmp_path / "unknown-profile-key.toml"
+    toml_file.write_text(toml, encoding="utf-8")
+
+    with pytest.raises(ValidationError, match="on_calender"):
+        load_config(toml_file)
+
+
+def test_unknown_top_level_section_is_rejected(tmp_path: Path) -> None:
+    """A misspelled top-level table is reported instead of being ignored."""
+    toml = """\
+[profile.myapp]
+repository_ref = "r1"
+"""
+    toml_file = tmp_path / "unknown-section.toml"
+    toml_file.write_text(toml, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="profile"):
+        load_config(toml_file)
+
+
+def test_global_section_must_be_a_table(tmp_path: Path) -> None:
+    """A non-table [global] value is reported as a validation error."""
+    toml_file = tmp_path / "bad-global.toml"
+    toml_file.write_text('global = "not-a-table"\n', encoding="utf-8")
+
+    with pytest.raises(ValidationError):
+        load_config(toml_file)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from chaos_utils.notify.dingtalk import DingTalkBot
 from chaos_utils.notify.telegram import TelegramBot
@@ -17,13 +17,31 @@ from pydantic import (
 )
 
 
-class HooksConfig(BaseModel):
+class _StrictModel(BaseModel):
+    """Base model that rejects unknown keys instead of silently ignoring typos."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class GlobalConfig(_StrictModel):
+    """Global defaults applied to every profile unless overridden."""
+
+    restic_binary: str = ""
+    no_cache: bool = False
+    retry_lock: str = ""
+    unlock: bool = False
+    template_dir: str = ""
+
+
+class HooksConfig(_StrictModel):
     """Per-profile hook commands executed around the backup lifecycle.
 
     Each hook field is a list of shell command strings (or multi-line scripts).
     Commands are executed via *shell* so pipelines and shell builtins work as
-    expected.  If any command in a hook phase exits non-zero, that phase is
-    considered failed.
+    expected.  If a command in *prevalidate* or *before* exits non-zero, the
+    backup and *after* hooks are skipped and only the *failure* hooks run.
+    Failures in *after* or *success* are logged but do not change the workflow
+    result.
 
     Lifecycle order::
 
@@ -41,10 +59,8 @@ class HooksConfig(BaseModel):
     success: list[str] = Field(default_factory=list)
 
 
-class _BaseNotifyConfig(BaseModel):
+class _BaseNotifyConfig(_StrictModel):
     """Shared base for per-platform notifier configs."""
-
-    model_config = ConfigDict(extra="forbid")
 
     env: dict[str, str] = Field(
         default_factory=dict,
@@ -94,7 +110,7 @@ NotifierConfig = Annotated[
 ]
 
 
-class Repository(BaseModel):
+class Repository(_StrictModel):
     """A single restic repository definition and credentials."""
 
     name: str = ""
@@ -133,7 +149,7 @@ class Repository(BaseModel):
         return v
 
 
-class BackupConfig(BaseModel):
+class BackupConfig(_StrictModel):
     """Configurations specific to backing up data sources."""
 
     sources: list[str] = Field(default_factory=list)
@@ -142,7 +158,7 @@ class BackupConfig(BaseModel):
     one_file_system: bool = False
 
 
-class RetentionConfig(BaseModel):
+class RetentionConfig(_StrictModel):
     """Configurations specific to snapshot retention (forget & prune)."""
 
     keep_last: int = 0
@@ -175,7 +191,7 @@ class RetentionConfig(BaseModel):
         return self.has_policy or self.prune
 
 
-class Profile(BaseModel):
+class Profile(_StrictModel):
     """A single restic-profile configuration entry."""
 
     name: str = ""
@@ -240,13 +256,22 @@ class Profile(BaseModel):
         return self.retention is not None
 
 
-class ResticProfileConfig(BaseModel):
+class ResticProfileConfig(_StrictModel):
     """Top-level restic-profile configuration."""
 
     repositories: dict[str, Repository] = Field(default_factory=dict)
     profiles: dict[str, Profile] = Field(default_factory=dict)
     notify: dict[str, NotifierConfig] = Field(default_factory=dict)
     template_dir: str = ""
+
+
+_KNOWN_TOP_LEVEL_SECTIONS = frozenset({"global", "repositories", "notify", "profiles"})
+_TABLE_ADAPTER: TypeAdapter[dict[str, dict[str, Any]]] = TypeAdapter(
+    dict[str, dict[str, Any]]
+)
+_NOTIFY_ADAPTER: TypeAdapter[dict[str, NotifierConfig]] = TypeAdapter(
+    dict[str, NotifierConfig]
+)
 
 
 def load_config(path: Path) -> ResticProfileConfig:
@@ -258,6 +283,8 @@ def load_config(path: Path) -> ResticProfileConfig:
         When *path* does not exist.
     pydantic.ValidationError
         When the TOML content fails schema validation.
+    ValueError
+        When a reference between profiles, repositories, or notifiers is broken.
     """
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
@@ -265,42 +292,36 @@ def load_config(path: Path) -> ResticProfileConfig:
     with path.open("rb") as fh:
         data = tomllib.load(fh)
 
-    global_section: dict[str, object] = data.get("global", {})
-    global_restic_binary: str = str(global_section.get("restic_binary", ""))
-    global_no_cache: bool = bool(global_section.get("no_cache", False))
-    global_retry_lock: str = str(global_section.get("retry_lock", ""))
-    global_unlock: bool = bool(global_section.get("unlock", False))
-    global_template_dir: str = str(global_section.get("template_dir", ""))
+    unknown_sections = set(data) - _KNOWN_TOP_LEVEL_SECTIONS
+    if unknown_sections:
+        names = ", ".join(sorted(unknown_sections))
+        raise ValueError(f"Unknown top-level config section(s): {names}")
+
+    global_config = GlobalConfig.model_validate(data.get("global", {}))
+    repositories_raw = _TABLE_ADAPTER.validate_python(data.get("repositories", {}))
+    profiles_raw = _TABLE_ADAPTER.validate_python(data.get("profiles", {}))
+    notify_data = _NOTIFY_ADAPTER.validate_python(data.get("notify", {}))
 
     # Parse repositories
     repositories_data: dict[str, Repository] = {}
-    for rname, rdata in data.get("repositories", {}).items():
+    for rname, rdata in repositories_raw.items():
         entry = dict(rdata)
         entry.setdefault("name", rname)
         repositories_data[rname] = Repository.model_validate(entry)
 
-    # Parse notify channels
-    notify_adapter: TypeAdapter[dict[str, NotifierConfig]] = TypeAdapter(
-        dict[str, NotifierConfig]
-    )
-    notify_data: dict[str, NotifierConfig] = {}
-    raw_notify: dict[str, object] = data.get("notify", {})  # type: ignore[assignment]
-    if raw_notify:
-        notify_data = notify_adapter.validate_python(raw_notify)
-
     # Parse profiles
     profiles_data: dict[str, Profile] = {}
-    for pname, pdata in data.get("profiles", {}).items():
+    for pname, pdata in profiles_raw.items():
         entry = dict(pdata)
         entry.setdefault("name", pname)
         if "restic_binary" not in entry:
-            entry["restic_binary"] = global_restic_binary
+            entry["restic_binary"] = global_config.restic_binary
         if "no_cache" not in entry:
-            entry["no_cache"] = global_no_cache
+            entry["no_cache"] = global_config.no_cache
         if not entry.get("retry_lock", ""):
-            entry["retry_lock"] = global_retry_lock
+            entry["retry_lock"] = global_config.retry_lock
         if "unlock" not in entry:
-            entry["unlock"] = global_unlock
+            entry["unlock"] = global_config.unlock
 
         profile = Profile.model_validate(entry)
 
@@ -322,7 +343,7 @@ def load_config(path: Path) -> ResticProfileConfig:
                 )
             profile.resolved_notifier = notify_data[profile.notify_ref]
 
-        profile.resolved_template_dir = global_template_dir
+        profile.resolved_template_dir = global_config.template_dir
 
         profiles_data[pname] = profile
 
@@ -330,5 +351,5 @@ def load_config(path: Path) -> ResticProfileConfig:
         repositories=repositories_data,
         profiles=profiles_data,
         notify=notify_data,
-        template_dir=global_template_dir,
+        template_dir=global_config.template_dir,
     )
