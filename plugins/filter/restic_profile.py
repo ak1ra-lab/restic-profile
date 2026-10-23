@@ -20,7 +20,7 @@ import posixpath
 from typing import Any
 
 try:  # pragma: no cover - only inside Ansible runtime
-    from ansible.errors import AnsibleFilterError  # ty: ignore[unresolved-import]
+    from ansible.errors import AnsibleFilterError
 except ImportError:  # pragma: no cover - pytest without Ansible
 
     class AnsibleFilterError(Exception):

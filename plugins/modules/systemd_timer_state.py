@@ -7,11 +7,9 @@ structured call that returns a ``state`` dict keyed by unit name.
 
 from __future__ import annotations
 
-import os
-import subprocess
 from typing import Any
 
-from ansible.module_utils.basic import AnsibleModule  # ty: ignore[unresolved-import]
+from ansible.module_utils.basic import AnsibleModule
 
 DOCUMENTATION = r"""
 ---
@@ -97,22 +95,24 @@ def _query_unit(
     module: AnsibleModule, unit: str, scope: str, runtime_uid: str
 ) -> dict[str, Any]:
     """Run ``systemctl show`` for one unit and parse its properties."""
-    cmd: list[str] = ["systemctl"]
-    env: dict[str, str] | None = None
+    systemctl = module.get_bin_path("systemctl", required=True)
+    cmd: list[str] = [systemctl]
+    environ_update: dict[str, str] = {}
     if scope == "user":
         cmd.append("--user")
         if runtime_uid:
-            env = dict(os.environ)
-            env["XDG_RUNTIME_DIR"] = f"/run/user/{runtime_uid}"
+            environ_update["XDG_RUNTIME_DIR"] = f"/run/user/{runtime_uid}"
     cmd.extend(["show", "--property=ActiveState", "--property=UnitFileState", unit])
 
-    proc = subprocess.run(  # noqa: S603 - cmd built from trusted params
-        cmd, capture_output=True, text=True, env=env, check=False
+    rc, stdout, _stderr = module.run_command(
+        cmd,
+        environ_update=environ_update,
+        check_rc=False,
     )
 
     active_state = ""
     unit_file_state = ""
-    for line in proc.stdout.splitlines():
+    for line in stdout.splitlines():
         if line.startswith("ActiveState="):
             active_state = line[len("ActiveState=") :]
         elif line.startswith("UnitFileState="):
@@ -121,7 +121,7 @@ def _query_unit(
     return {
         "active_state": active_state,
         "unit_file_state": unit_file_state,
-        "rc": proc.returncode,
+        "rc": rc,
     }
 
 
