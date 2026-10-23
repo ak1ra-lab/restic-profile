@@ -48,7 +48,7 @@ restic_rest_server_backup_dir: /srv/restic
 ## 在仓库主机上执行保留策略
 
 当 `append_only: true` 时，客户端可以创建快照但不能运行 `forget` 或
-`prune`。在同一主机上使用 `restic_profile` 角色部署一个纯保留配置文件，指向本地仓库路径：
+`prune`。在同一主机上使用 `restic_profile` 角色部署一个纯保留 profile，指向本地仓库路径：
 
 ```yaml
 # 在备份服务器上，除 restic_rest_server 之外：
@@ -75,7 +75,7 @@ restic_profile_profiles:
 | 变量                                       | 默认值                                     | 备注                            |
 | ------------------------------------------ | ------------------------------------------ | ------------------------------- |
 | `restic_rest_server_listen`                | `":8012"`                                  | 监听地址                        |
-| `restic_rest_server_backup_dir`            | `"/srv/restic"`                            | 存储根目录                      |
+| `restic_rest_server_backup_dir`            | `"/srv/restic"`                            | 存储根目录，由服务用户创建并拥有 |
 | `restic_rest_server_append_only`           | `true`                                     | 禁止通过 REST 执行 forget/prune |
 | `restic_rest_server_private_repos`         | `true`                                     | 子目录为私有仓库                |
 | `restic_rest_server_htpasswd_file`         | `"/etc/restic-rest-server/users.htpasswd"` |                                 |

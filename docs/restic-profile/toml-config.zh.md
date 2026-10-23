@@ -101,9 +101,9 @@ on_calendar = "hourly"          # systemd OnCalendar=；留空禁用定时器
 randomized_delay_sec = "15min"  # systemd RandomizedDelaySec=
 
 # 按配置文件覆盖（未设置时继承 [global]）：
-restic_binary = ""              # 空 = 使用全局值
+restic_binary = ""              # 空 = 从 PATH 解析；删除该行以继承 [global]
 no_cache = false                # 覆盖全局 --no-cache
-retry_lock = ""                 # 覆盖全局 --retry-lock
+retry_lock = ""                 # 非空覆盖；空则继承 [global]
 unlock = false                  # 覆盖全局 unlock
 
 # 可选：配置文件级别的运行时环境变量（在仓库环境变量之后注入；

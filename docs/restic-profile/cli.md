@@ -13,7 +13,7 @@ restic-profile --unlock [--config PATH] [--dry-run] PROFILE
 | `--check`                  | `-C`         | Parse and validate the config, then exit                                                                                                                                 |
 | `--list`                   | `-l`         | Print profile table (name, type, schedule, repository)                                                                                                                   |
 | `--unlock PROFILE`         | `-U`         | Remove stale restic locks for the profile's repository                                                                                                                   |
-| `--dry-run [{all,notify}]` | `-n`         | `all` (default): log without executing. `notify`: dry-run subprocesses but send a real notification                                                                      |
+| `--dry-run [{all,notify}]` | `-n`         | `all` (default): log without executing. `notify`: dry-run subprocesses but send the success notification for real                                                         |
 | `PROFILE`                  | (positional) | Profile name in the config to execute                                                                                                                                    |
 
 `--check`, `--list`, and `--unlock` are mutually exclusive. Combining a profile
@@ -23,7 +23,7 @@ name with any of them is rejected.
 # Run a profile
 restic-profile myapp
 restic-profile myapp --dry-run                 # dry-run all
-restic-profile myapp --dry-run notify          # dry-run + real notification
+restic-profile myapp --dry-run notify          # dry-run + real success notification
 restic-profile myapp --config /path/to/custom.toml
 
 # Validate config

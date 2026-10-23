@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Add Python 3.14 to the published package classifiers
+- Validate `restic_profile_state` against `present`/`absent` during preflight
+- Create the `restic_rest_server_backup_dir` storage root with service-user
+  ownership before starting `rest-server`
+
+### Changed
+
+- Limit the official distribution matrix to the latest tested releases:
+  Debian 13, Ubuntu 26.04, Rocky Linux 10, and Fedora 44; drop EL 9 and
+  Fedora 43 from the role metadata
+- Escape user-provided values when rendering `restic-profile.toml` so quotes,
+  backslashes, and newlines in credentials or paths produce valid TOML
+- Treat notification delivery as best-effort: transport errors are logged and
+  no longer mask the backup or retention result
+- Use `module.run_command` in the `systemd_timer_state` module instead of
+  calling `subprocess` directly
+
+### Removed
+
+- Remove the Test PyPI publishing workflow and its README badge
+
+### Fixed
+
+- Accept the required profile name with `--unlock` instead of rejecting the
+  combination as invalid
+- Keep `--unlock` in dry-run mode when `--dry-run notify` is used
+- Report inline retention failures as retention failures instead of backup
+  failures
+- Stop active timers before `daemon-reload` when their scheduling changes
+- Align package-cache refresh and platform metadata across all supported
+  distributions
+
+## [0.4.1] - 2026-08-11
+
+### Changed
+
+- Update the built-in `notify_success.md.j2` template formatting for headings
+  and diff summary list items
+
 ## [0.4.0] - 2026-08-11
 
 ### Added

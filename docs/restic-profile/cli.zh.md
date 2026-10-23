@@ -13,7 +13,7 @@ restic-profile --unlock [--config PATH] [--dry-run] PROFILE
 | `--check`                  | `-C`       | 解析并验证配置文件，然后退出                                                                                                                            |
 | `--list`                   | `-l`       | 打印配置文件列表（名称、类型、计划、仓库）                                                                                                              |
 | `--unlock PROFILE`         | `-U`       | 为配置文件的仓库解除过期 restic 锁                                                                                                                      |
-| `--dry-run [{all,notify}]` | `-n`       | `all`（默认）：仅记录日志不执行。`notify`：空运行子进程但发送真实通知                                                                                   |
+| `--dry-run [{all,notify}]` | `-n`       | `all`（默认）：仅记录日志不执行。`notify`：空运行子进程但发送真实的成功通知                                                                         |
 | `PROFILE`                  | (位置参数) | 要执行的配置文件名                                                                                                                                      |
 
 `--check`、`--list` 和 `--unlock` 互斥。不能同时使用配置文件名称与其中任何一个。
@@ -22,7 +22,7 @@ restic-profile --unlock [--config PATH] [--dry-run] PROFILE
 # 运行配置文件
 restic-profile myapp
 restic-profile myapp --dry-run                 # 空运行所有
-restic-profile myapp --dry-run notify          # 空运行 + 真实通知
+restic-profile myapp --dry-run notify          # 空运行 + 真实成功通知
 restic-profile myapp --config /path/to/custom.toml
 
 # 验证配置

@@ -101,9 +101,9 @@ on_calendar = "hourly"          # systemd OnCalendar=; empty disables the timer
 randomized_delay_sec = "15min"  # systemd RandomizedDelaySec=
 
 # Per-profile overrides (inherit from [global] when unset):
-restic_binary = ""              # empty = use global
+restic_binary = ""              # empty = resolve from PATH; delete to inherit [global]
 no_cache = false                # override global --no-cache
-retry_lock = ""                 # override global --retry-lock
+retry_lock = ""                 # non-empty overrides; empty inherits [global]
 unlock = false                  # override global unlock
 
 # Optional: profile-level runtime env vars (injected after repository env;

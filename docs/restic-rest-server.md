@@ -79,7 +79,7 @@ restic_profile_profiles:
 | Variable                                   | Default                                    | Notes                            |
 | ------------------------------------------ | ------------------------------------------ | -------------------------------- |
 | `restic_rest_server_listen`                | `":8012"`                                  | Listen address                   |
-| `restic_rest_server_backup_dir`            | `"/srv/restic"`                            | Storage root                     |
+| `restic_rest_server_backup_dir`            | `"/srv/restic"`                            | Storage root, created and owned by the service user |
 | `restic_rest_server_append_only`           | `true`                                     | Disallow forget/prune via REST   |
 | `restic_rest_server_private_repos`         | `true`                                     | Subdirectories are private repos |
 | `restic_rest_server_htpasswd_file`         | `"/etc/restic-rest-server/users.htpasswd"` |                                  |
