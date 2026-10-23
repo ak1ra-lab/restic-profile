@@ -366,3 +366,38 @@ def test_dry_run_notify_requires_profile_name(
     assert exc_info.value.code == 2
     captured = capsys.readouterr()
     assert "provide a profile name" in captured.err
+
+
+def test_unlock_with_dry_run_notify_still_dry_runs(tmp_path: Path) -> None:
+    """--dry-run notify must not turn --unlock into a real execution."""
+    config_file = _write_config(tmp_path, _VALID_TOML)
+
+    with patch("restic_profile.cli.run_unlock") as mock_unlock:
+        main(["--unlock", "myapp", "--dry-run", "notify", "-c", str(config_file)])
+
+    mock_unlock.assert_called_once()
+    assert mock_unlock.call_args.kwargs["dry_run"] is True
+
+
+def test_unlock_runs_named_profile(tmp_path: Path) -> None:
+    """--unlock accepts the required profile name and executes for real."""
+    config_file = _write_config(tmp_path, _VALID_TOML)
+
+    with patch("restic_profile.cli.run_unlock") as mock_unlock:
+        main(["--unlock", "myapp", "-c", str(config_file)])
+
+    mock_unlock.assert_called_once()
+    assert mock_unlock.call_args.kwargs["dry_run"] is False
+
+
+def test_unlock_requires_profile_name(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--unlock without a profile name exits with a usage error."""
+    config_file = _write_config(tmp_path, _VALID_TOML)
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--unlock", "-c", str(config_file)])
+
+    assert exc_info.value.code == 2
+    assert "--unlock requires a profile name" in capsys.readouterr().err

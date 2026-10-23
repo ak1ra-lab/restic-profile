@@ -200,10 +200,8 @@ def main(argv: list[str] | None = None) -> None:
     if args.config is None:
         args.config = _resolve_config_path()
 
-    if args.profile_name and (args.list or args.check or args.unlock):
-        parser.error(
-            "profile name cannot be combined with --list, --check, or --unlock"
-        )
+    if args.profile_name and (args.list or args.check):
+        parser.error("profile name cannot be combined with --list or --check")
 
     if args.list:
         _cmd_list(args)
@@ -216,7 +214,7 @@ def main(argv: list[str] | None = None) -> None:
     if args.unlock:
         if not args.profile_name:
             parser.error("--unlock requires a profile name")
-        _cmd_unlock(args, is_dry_run=args.dry_run == "all")
+        _cmd_unlock(args, is_dry_run=args.dry_run is not None)
         return
 
     if not args.profile_name:
