@@ -46,7 +46,6 @@
   ansible.builtin.package:
     name: "{{ restic_rest_server_pkg_name }}"
     state: present
-  failed_when: false
 
 - name: build restic-rest-server on control node
   when: restic_rest_server_binary_install_source == 'go_build'
@@ -89,3 +88,13 @@
 - name: set restic-rest-server available fact
   ansible.builtin.set_fact:
     restic_rest_server_available: "{{ _restic_rest_server_bin.stat.executable }}"
+
+- name: assert restic-rest-server binary exists for managed install sources
+  when: restic_rest_server_binary_install_source != 'existing'
+  ansible.builtin.assert:
+    that:
+      - restic_rest_server_available | ansible.builtin.bool
+    fail_msg: >-
+      restic-rest-server was not found at
+      {{ restic_rest_server_exec_path }} after installation. Check the
+      package availability or go_build output.

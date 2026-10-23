@@ -13,6 +13,15 @@
     system: true
     create_home: false
 
+- name: ensure backup storage root exists
+  become: true
+  ansible.builtin.file:
+    path: "{{ restic_rest_server_backup_dir }}"
+    state: directory
+    owner: "{{ restic_rest_server_user }}"
+    group: "{{ restic_rest_server_group }}"
+    mode: "0750"
+
 - name: deploy restic-rest-server.service
   become: true
   ansible.builtin.template:
@@ -61,7 +70,7 @@
   loop_control:
     loop_var: htpasswd_user
     label: "{{ htpasswd_user.name | default('') | to_json }}"
-  when: htpasswd_user.name | length > 0
+  when: htpasswd_user.name | default('') | length > 0
   no_log: true
   notify:
     - restart restic-rest-server

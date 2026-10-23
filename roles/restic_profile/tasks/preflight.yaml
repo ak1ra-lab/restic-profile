@@ -20,6 +20,17 @@
       {{ _available_sources | join(', ') }} (got:
       {{ restic_profile_restic_install_source | default('') | to_json }})
 
+- name: assert restic_profile_state is supported
+  vars:
+    _available_states: ["present", "absent"]
+  ansible.builtin.assert:
+    that:
+      - restic_profile_state in _available_states
+    fail_msg: >-
+      restic_profile_state must be one of
+      {{ _available_states | join(', ') }} (got:
+      {{ restic_profile_state | default('') | to_json }})
+
 - name: assert restic_profile mappings are dicts
   block:
     - name: assert restic_profile_repositories is a dict
