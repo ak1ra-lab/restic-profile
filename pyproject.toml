@@ -47,10 +47,17 @@ packages = ["src/restic_profile"]
 tests = ["pytest>=9.1.1", "pytest-cov>=7.1.0"]
 lint = ["ruff>=0.15.20", "ty>=0.0.56"]
 docs = ["mkdocs-material>=9.6", "mkdocs-static-i18n>=1.2"]
+ansible = [
+    "ansible-core>=2.18",
+    "ansible-lint>=26.10.1",
+    "distlib>=0.4.4",
+    "molecule>=26.10.0",
+]
 dev = [
     { include-group = "tests" },
     { include-group = "lint" },
     { include-group = "docs" },
+    { include-group = "ansible" },
     "pre-commit>=4.6.0",
 ]
 
