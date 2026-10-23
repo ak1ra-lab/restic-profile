@@ -1258,6 +1258,24 @@ def test_run_backup_runs_after_and_failure_hooks_and_raises_when_backup_fails(
     assert "echo success" not in hook_calls
 
 
+def test_run_backup_reports_retention_failure_as_retention(
+    backup_profile: Profile, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failing inline forget step is reported as a retention failure."""
+
+    def fake_run(args: list[str], **kw: object) -> MagicMock:
+        if args[:2] == ["/bin/sh", "-c"]:
+            return MagicMock(returncode=0)
+        if "forget" in args:
+            return MagicMock(returncode=1, stdout="", stderr="forget failed")
+        return MagicMock(returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    with pytest.raises(WorkflowError, match="retention command failed"):
+        run_backup(backup_profile)
+
+
 def test_run_backup_exclude_file_is_ignored_in_dry_run(
     backup_profile: Profile, monkeypatch: pytest.MonkeyPatch
 ) -> None:

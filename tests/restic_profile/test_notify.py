@@ -504,3 +504,28 @@ def test_try_notify_failure_with_notifier():
     with patch("restic_profile.notify.socket.gethostname", return_value="test-host"):
         try_notify_failure(profile, "exit 1")
     bot_mock.send_markdown.assert_called_once()
+
+
+def test_try_notify_failure_does_not_mask_error_when_dispatch_fails(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A notifier transport error is logged instead of replacing the backup error."""
+    notifier_config = MagicMock()
+    notifier_config.type = "dingtalk"
+    notifier_config.env = {}
+
+    profile = MagicMock()
+    profile.resolved_notifier = notifier_config
+    profile.name = "myapp"
+    profile.resolved_template_dir = ""
+
+    with (
+        patch("restic_profile.notify.socket.gethostname", return_value="test-host"),
+        patch(
+            "restic_profile.notify._dispatch_formatted",
+            side_effect=RuntimeError("network down"),
+        ),
+    ):
+        try_notify_failure(profile, "exit 1")
+
+    assert "Failed to send failure notification" in caplog.text

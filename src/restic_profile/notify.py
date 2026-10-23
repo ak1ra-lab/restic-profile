@@ -483,11 +483,16 @@ def try_notify_success(
     )
 
     with _inject_notify_env(notifier.env):
-        _dispatch_formatted(
-            notifier,
-            title=f"restic Backup Succeeded - {profile.name}",
-            markdown=markdown,
-        )
+        try:
+            _dispatch_formatted(
+                notifier,
+                title=f"restic Backup Succeeded - {profile.name}",
+                markdown=markdown,
+            )
+        except Exception:  # notifications are best-effort
+            logger.exception(
+                "Failed to send success notification for profile %s", profile.name
+            )
 
 
 def try_notify_failure(profile: Profile, error_msg: str) -> None:
@@ -506,8 +511,13 @@ def try_notify_failure(profile: Profile, error_msg: str) -> None:
     )
 
     with _inject_notify_env(notifier.env):
-        _dispatch_formatted(
-            notifier,
-            title=f"restic Backup Failed - {profile.name}",
-            markdown=markdown,
-        )
+        try:
+            _dispatch_formatted(
+                notifier,
+                title=f"restic Backup Failed - {profile.name}",
+                markdown=markdown,
+            )
+        except Exception:  # do not mask the original failure
+            logger.exception(
+                "Failed to send failure notification for profile %s", profile.name
+            )

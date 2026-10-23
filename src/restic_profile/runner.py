@@ -18,6 +18,7 @@ from .notify import try_notify_failure, try_notify_success
 logger = logging.getLogger(__name__)
 
 _COMMON_RESTIC_PATHS = ("/usr/local/bin/restic", "/usr/bin/restic")
+_BACKUP_SNAPSHOT_RE = re.compile(r"snapshot ([0-9a-f]+) saved")
 
 
 class _CommandError(Exception):
@@ -547,9 +548,8 @@ def run_backup(
 
     backup_cmd += sources
 
-    _BACKUP_SNAPSHOT_RE = re.compile(r"snapshot ([0-9a-f]+) saved")
-
     backup_failed = False
+    failed_stage = "backup"
     snapshot_id: str | None = None
     backup_error: _CommandError | None = None
     try:
@@ -565,6 +565,7 @@ def run_backup(
                         snapshot_id = m.group(1)
 
         if profile.retention:
+            failed_stage = "retention"
             forget_cmd = _build_forget_command(
                 profile,
                 current_host_only=True,
@@ -597,7 +598,7 @@ def run_backup(
     run_hooks("after", hooks.after, env, hooks.shell, dry_run=dry_run)
 
     if backup_failed:
-        _fail(f"Profile {profile.name!r}: backup command failed", backup_error)
+        _fail(f"Profile {profile.name!r}: {failed_stage} command failed", backup_error)
 
     run_hooks("success", hooks.success, env, hooks.shell, dry_run=dry_run)
     if profile.resolved_notifier is not None:
