@@ -301,7 +301,7 @@ User-scope 配置文件需要 `systemd_scope: user` 和显式的 `systemd_user`�
 | `restic_profile_retry_lock`            | `""`      | `--retry-lock` 持续时间（与旧版 restic ≤0.14 不兼容）  |
 | `restic_profile_unlock`                | `false`   | 在每个备份/保留操作之前运行 `restic unlock`            |
 | `restic_profile_systemd_cpu_quota`     | `"100%"`  | 生成的 service 单元中的 CPUQuota=                      |
-| `restic_profile_pip_install_source`    | `local`   | 如何安装 restic-profile：`local` / `pypi` / `testpypi` |
+| `restic_profile_pip_install_source`    | `pypi`    | 如何安装 restic-profile：`local` / `pypi`           |
 | `restic_profile_restic_install_source` | `package` | 如何安装 restic：`package` / `go_build` / `existing`       |
 
 完整列表和注释见 `roles/restic_profile/defaults/main.yaml`。

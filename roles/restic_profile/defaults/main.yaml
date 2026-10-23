@@ -144,7 +144,7 @@ restic_profile_systemd_io_scheduling_class: ""
 #          Valid values are 0-7. Set to "" to keep the kernel default.
 restic_profile_systemd_io_scheduling_priority: ""
 
-# str: install source for the restic-profile Python package - "local" | "pypi" | "testpypi"
+# str: install source for the restic-profile Python package - "local" | "pypi"
 #      "local" builds the wheel on the control node and uploads it to the managed host.
 #      "pypi" installs the latest published release from the public PyPI index.
 restic_profile_pip_install_source: pypi
