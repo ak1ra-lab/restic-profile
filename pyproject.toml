@@ -17,6 +17,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 keywords = ["restic", "backup", "ansible"]
 readme = { file = "README.md", content-type = "text/markdown" }
@@ -38,7 +39,7 @@ build-backend = "hatchling.build"
 source = "vcs"
 
 [tool.hatch.version.raw-options]
-fallback_version = "0.2.0"
+fallback_version = "0.4.1"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/restic_profile"]

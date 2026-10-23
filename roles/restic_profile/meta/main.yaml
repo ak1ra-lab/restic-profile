@@ -12,11 +12,9 @@ galaxy_info:
         - trixie
     - name: EL
       versions:
-        - "9"
         - "10"
     - name: Fedora
       versions:
-        - "43"
         - "44"
     - name: opensuse
       versions:

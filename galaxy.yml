@@ -1,7 +1,7 @@
 ---
 namespace: ak1ra_lab
 name: restic_profile
-version: 0.3.0
+version: 0.4.1
 readme: README.md
 authors:
   - ak1ra <ak1ra.komj@gmail.com>
@@ -15,7 +15,7 @@ tags:
   - restic
 dependencies: {}
 repository: https://github.com/ak1ra-lab/restic-profile
-documentation: https://github.com/ak1ra-lab/restic-profile
+documentation: https://ak1ra-lab.github.io/restic-profile/
 homepage: https://github.com/ak1ra-lab/restic-profile
 issues: https://github.com/ak1ra-lab/restic-profile/issues
 # https://setuptools.pypa.io/en/latest/userguide/miscellaneous.html
@@ -32,6 +32,5 @@ manifest:
     - recursive-exclude playbooks/group_vars *
     - recursive-exclude playbooks/scripts *
     - recursive-exclude playbooks/templates *
-    - recursive-exclude roles/*/molecule *
     - global-exclude *~ *.py[cod] __pycache__ *.bak *.swp *.tmp *.retry
     - include requirements.yaml LICENSE README.md pyproject.toml uv.lock mkdocs.yml
