@@ -1,0 +1,82 @@
+---
+# default scenario - lifecycle manager for the shared test containers.
+#
+# The containers are ordinary Ansible managed nodes: the inventory carries
+# the connection details (and image), this playbook instantiates them on the
+# configured runtime (MOLECULE_CONTAINER_RUNTIME - see
+# inventory/group_vars/test_resources.yml).
+
+- name: create the shared test containers
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars:
+    _molecule_container_runtime: >-
+      {{ lookup('ansible.builtin.env', 'MOLECULE_CONTAINER_RUNTIME')
+         | default('podman', true) }}
+  tasks:
+    - name: create containers with podman
+      when: _molecule_container_runtime == 'podman'
+      containers.podman.podman_container:
+        name: "{{ hostvars[item]['ansible_host'] }}"
+        hostname: "{{ item }}"
+        image: "{{ hostvars[item]['container_image'] }}"
+        command: "{{ hostvars[item]['container_command'] | default('/sbin/init') }}"
+        systemd: "{{ hostvars[item]['container_systemd'] | default('always') }}"
+        privileged: "{{ hostvars[item]['container_privileged'] | default(true) }}"
+        volumes: "{{ hostvars[item]['container_volumes'] | default([]) }}"
+        state: started
+      loop: "{{ groups['test_resources'] }}"
+      loop_control:
+        label: "{{ item }}"
+      register: _molecule_containers_podman
+
+    - name: create containers with docker
+      when: _molecule_container_runtime == 'docker'
+      community.docker.docker_container:
+        name: "{{ hostvars[item]['ansible_host'] }}"
+        hostname: "{{ item }}"
+        image: "{{ hostvars[item]['container_image'] }}"
+        command: "{{ hostvars[item]['container_command'] | default('/sbin/init') }}"
+        privileged: "{{ hostvars[item]['container_privileged'] | default(true) }}"
+        volumes: "{{ hostvars[item]['container_volumes'] | default([]) }}"
+        state: started
+      loop: "{{ groups['test_resources'] }}"
+      loop_control:
+        label: "{{ item }}"
+      register: _molecule_containers_docker
+
+    - name: collect the created container facts from the active runtime
+      ansible.builtin.set_fact:
+        _molecule_created_containers: >-
+          {{ ((_molecule_containers_podman.results | default([]))
+              + (_molecule_containers_docker.results | default([])))
+             | selectattr('container', 'defined')
+             | map(attribute='container') | list }}
+
+    - name: fail when a container did not start
+      ansible.builtin.assert:
+        that:
+          - item.State.Running
+          - item.State.ExitCode == 0
+        fail_msg: "container {{ item.Name }} failed to start"
+      loop: "{{ _molecule_created_containers }}"
+      loop_control:
+        label: "{{ item.Name }}"
+
+    # There is no Ansible module for waiting on the systemd manager to
+    # finish booting; the official Molecule systemd guide recommends this
+    # command. "degraded" is a healthy state inside these containers (some
+    # units cannot start without a full host), so it is accepted.
+    - name: wait for systemd to finish booting
+      ansible.builtin.command: systemctl is-system-running --wait # noqa: command-instead-of-module
+      register: _systemd_state
+      changed_when: false
+      failed_when: _systemd_state.stdout not in ['running', 'degraded']
+      until: _systemd_state.stdout in ['running', 'degraded']
+      retries: 30
+      delay: 2
+      delegate_to: "{{ item }}"
+      loop: "{{ groups['test_resources'] }}"
+      loop_control:
+        label: "{{ item }}"

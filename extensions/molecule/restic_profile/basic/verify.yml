@@ -1,0 +1,231 @@
+---
+# restic_profile/basic scenario - assert the config, credentials, units and
+# timer state an operator observes.
+
+- name: verify the converged restic_profile state
+  hosts: all
+  gather_facts: true
+  become: true
+  vars:
+    _config_file: /etc/restic-profile/restic-profile.toml
+    _env_file: /etc/restic-profile/restic-profile-r1.env
+    _exclude_file: /etc/restic-profile/restic-profile-test_backup.exclude
+    _bin: /var/lib/restic-profile/venv/bin/restic-profile
+    _cli_link: /usr/local/bin/restic-profile
+    _scope_helper: /usr/local/bin/restic-profile-scope
+    _expected_password: 'molecule-"pw"\test'
+  tasks:
+    - name: collect the TOML config
+      ansible.builtin.stat:
+        path: "{{ _config_file }}"
+      register: _config_stat
+
+    - name: assert the TOML config exists with restrictive permissions
+      ansible.builtin.assert:
+        that:
+          - _config_stat.stat.exists
+          - _config_stat.stat.isreg
+          - _config_stat.stat.mode == '0640'
+          - _config_stat.stat.pw_name == 'root'
+          - _config_stat.stat.gr_name == 'root'
+        fail_msg: "unexpected {{ _config_file }} state: {{ _config_stat.stat }}"
+        quiet: true
+
+    - name: read the TOML config
+      ansible.builtin.slurp:
+        src: "{{ _config_file }}"
+      register: _config_content
+
+    - name: assert the TOML config contains the expected sections and values
+      vars:
+        _toml: "{{ _config_content.content | ansible.builtin.b64decode }}"
+      ansible.builtin.assert:
+        that:
+          - "'[profiles.\"test_backup\"]' in _toml"
+          - "'[profiles.\"test_prune\"]' in _toml"
+          - "'[repositories.\"r1\"]' in _toml"
+          - "'no_cache = true' in _toml"
+          - "'retry_lock = \"5m\"' in _toml"
+          - "'repository = \"/tmp/restic-profile-repos/test_backup\"' in _toml"
+          - "'exclude_file = \"/etc/restic-profile/restic-profile-test_backup.exclude\"' in _toml"
+          - "'before = [' in _toml"
+          - "'before backup' in _toml"
+          - "'prune = true' in _toml"
+        fail_msg: "unexpected TOML content:\n{{ _toml }}"
+        quiet: true
+
+    - name: collect the repository env file
+      ansible.builtin.stat:
+        path: "{{ _env_file }}"
+      register: _env_stat
+
+    - name: assert the env file exists with restrictive permissions
+      ansible.builtin.assert:
+        that:
+          - _env_stat.stat.exists
+          - _env_stat.stat.isreg
+          - _env_stat.stat.mode == '0640'
+          - _env_stat.stat.pw_name == 'root'
+          - _env_stat.stat.gr_name == 'root'
+        quiet: true
+
+    - name: source the env file and read the password
+      ansible.builtin.shell: |
+        set -eu
+        # shellcheck disable=SC1090
+        source "{{ _env_file }}"
+        printf '%s' "$RESTIC_PASSWORD"
+      args:
+        executable: /bin/bash
+      register: _sourced_password
+      changed_when: false
+
+    - name: assert the env file preserves shell-special characters
+      ansible.builtin.assert:
+        that:
+          - _sourced_password.stdout == _expected_password
+        fail_msg: >-
+          unexpected RESTIC_PASSWORD: {{ _sourced_password.stdout | ansible.builtin.to_json }}
+        quiet: true
+
+    - name: collect the exclude file
+      ansible.builtin.slurp:
+        src: "{{ _exclude_file }}"
+      register: _exclude_content
+
+    - name: assert the rendered exclude file contains both patterns
+      ansible.builtin.assert:
+        that:
+          - "'*.log' in (_exclude_content.content | ansible.builtin.b64decode)"
+          - "'node_modules/' in (_exclude_content.content | ansible.builtin.b64decode)"
+        quiet: true
+
+    - name: collect the deployed unit files
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: _unit_stat
+      loop:
+        - /etc/systemd/system/restic-profile-test_backup.service
+        - /etc/systemd/system/restic-profile-test_backup.timer
+        - /etc/systemd/system/restic-profile-test_prune.service
+        - /etc/systemd/system/restic-profile-test_prune.timer
+
+    - name: assert every unit file exists with mode 0644
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.isreg
+          - item.stat.mode == '0644'
+          - item.stat.pw_name == 'root'
+          - item.stat.gr_name == 'root'
+        fail_msg: "unexpected unit state: {{ item }}"
+        quiet: true
+      loop: "{{ _unit_stat.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: read the backup timer unit
+      ansible.builtin.slurp:
+        src: /etc/systemd/system/restic-profile-test_backup.timer
+      register: _timer_content
+
+    - name: assert the timer schedule and catch-up policy
+      vars:
+        _timer: "{{ _timer_content.content | ansible.builtin.b64decode }}"
+      ansible.builtin.assert:
+        that:
+          - "'OnCalendar=daily' in _timer"
+          - "'Persistent=false' in _timer"
+          - "'RandomizedDelaySec=5min' in _timer"
+        quiet: true
+
+    - name: read the backup service unit
+      ansible.builtin.slurp:
+        src: /etc/systemd/system/restic-profile-test_backup.service
+      register: _service_content
+
+    - name: assert the service uses the venv entry point and CPU quota
+      vars:
+        _service: "{{ _service_content.content | ansible.builtin.b64decode }}"
+      ansible.builtin.assert:
+        that:
+          - "'CPUQuota=100%' in _service"
+          - "'ExecStart=/var/lib/restic-profile/venv/bin/restic-profile test_backup' in _service"
+          - "'--config /etc/restic-profile/restic-profile.toml' in _service"
+        quiet: true
+
+    - name: collect the CLI paths
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: _cli_stat
+      loop:
+        - "{{ _bin }}"
+        - "{{ _cli_link }}"
+        - "{{ _scope_helper }}"
+
+    - name: assert the CLI entry point, symlink, and scope helper are usable
+      ansible.builtin.assert:
+        that:
+          - _cli_stat.results[0].stat.exists
+          - _cli_stat.results[0].stat.executable
+          - _cli_stat.results[1].stat.islnk
+          - _cli_stat.results[1].stat.lnk_source == _bin
+          - _cli_stat.results[2].stat.executable
+        quiet: true
+
+    - name: validate the deployed config with the CLI
+      ansible.builtin.command:
+        argv:
+          - "{{ _bin }}"
+          - --check
+          - --config
+          - "{{ _config_file }}"
+      changed_when: false
+
+    - name: list the deployed profiles with the CLI
+      ansible.builtin.command:
+        argv:
+          - "{{ _bin }}"
+          - --list
+          - --config
+          - "{{ _config_file }}"
+      register: _profile_list
+      changed_when: false
+
+    - name: assert both profiles are visible
+      ansible.builtin.assert:
+        that:
+          - "'test_backup' in _profile_list.stdout"
+          - "'test_prune' in _profile_list.stdout"
+        quiet: true
+
+    - name: query the deployed timer state
+      ak1ra_lab.restic_profile.systemd_timer_state:
+        units:
+          - restic-profile-test_backup.timer
+          - restic-profile-test_prune.timer
+      register: _timer_state
+
+    - name: assert both timers are active and enabled
+      ansible.builtin.assert:
+        that:
+          - _timer_state.state['restic-profile-test_backup.timer'].active_state == 'active'
+          - _timer_state.state['restic-profile-test_backup.timer'].unit_file_state == 'enabled'
+          - _timer_state.state['restic-profile-test_prune.timer'].active_state == 'active'
+          - _timer_state.state['restic-profile-test_prune.timer'].unit_file_state == 'enabled'
+        fail_msg: "unexpected timer state: {{ _timer_state.state }}"
+        quiet: true
+
+    - name: verify the package-installed restic where that path is used
+      when: restic_profile_restic_install_source == 'package'
+      ansible.builtin.command:
+        argv: [dpkg-query, -W, "-f=${Status}", restic]
+      register: _restic_package
+      changed_when: false
+
+    - name: assert the packaged restic is installed
+      when: restic_profile_restic_install_source == 'package'
+      ansible.builtin.assert:
+        that:
+          - _restic_package.stdout is ansible.builtin.search('ok installed')
+        quiet: true

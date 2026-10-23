@@ -1,0 +1,62 @@
+---
+# restic_profile/basic scenario - install the local wheel and deploy two
+# system-scope profiles. The special characters in the repository password
+# exercise TOML string escaping.
+
+- name: converge restic_profile
+  hosts: all
+  gather_facts: true
+  become: true
+  vars:
+    restic_profile_pip_install_source: local
+    pyproject_install_local_project_root: >-
+      {{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY')
+         | default(playbook_dir | ansible.builtin.dirname | ansible.builtin.dirname
+                   | ansible.builtin.dirname | ansible.builtin.dirname, true) }}
+
+    restic_profile_no_cache: true
+    restic_profile_retry_lock: "5m"
+
+    restic_profile_repositories:
+      r1:
+        repository: /tmp/restic-profile-repos/test_backup
+        password: 'molecule-"pw"\test'
+      r2:
+        repository: /tmp/restic-profile-repos/test_prune
+        password: "molecule-prune-pw"
+
+    restic_profile_profiles:
+      test_backup:
+        repository_ref: r1
+        tag: molecule
+        on_calendar: daily
+        randomized_delay_sec: 5min
+        persistent: false
+        hooks:
+          before:
+            - 'echo "before backup"'
+        backup:
+          sources:
+            - /tmp/restic-profile-test-data
+          exclude_patterns:
+            - "*.bak"
+          exclude_file_content: |
+            *.log
+            node_modules/
+          one_file_system: true
+        retention:
+          keep_hourly: 6
+          keep_daily: 7
+          keep_weekly: 4
+
+      test_prune:
+        repository_ref: r2
+        on_calendar: weekly
+        persistent: false
+        retention:
+          prune: true
+          keep_daily: 7
+  tasks:
+    - name: apply restic_profile
+      ansible.builtin.include_role:
+        name: ak1ra_lab.restic_profile.restic_profile

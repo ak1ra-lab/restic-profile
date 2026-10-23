@@ -1,0 +1,47 @@
+---
+# restic_profile/user_scope scenario - tear down the user-scope deployment,
+# linger state, and the test user. Tolerates a fresh container (cleanup runs
+# before prepare).
+
+- name: remove the user-scope restic_profile deployment
+  hosts: debian-13
+  gather_facts: true
+  become: true
+  tasks:
+    - name: apply restic_profile with state absent
+      ansible.builtin.include_role:
+        name: ak1ra_lab.restic_profile.restic_profile
+      vars:
+        restic_profile_state: absent
+
+    - name: disable lingering for the test user
+      ansible.builtin.command:
+        cmd: loginctl disable-linger molecule
+      failed_when: false
+      changed_when: false
+
+    - name: resolve the test user uid
+      ansible.builtin.getent:
+        database: passwd
+        key: molecule
+        fail_key: false
+
+    - name: remember the test user uid when it exists
+      ansible.builtin.set_fact:
+        _molecule_user_uid: >-
+          {{ (ansible_facts.getent_passwd | default({}))
+             .get('molecule', ['', ''])[1] | default('') }}
+
+    - name: stop the per-user systemd manager before removing the user
+      when: _molecule_user_uid | length > 0
+      ansible.builtin.systemd_service:
+        name: "user@{{ _molecule_user_uid }}.service"
+        state: stopped
+      failed_when: false
+
+    - name: remove the test user and home directory
+      when: _molecule_user_uid | length > 0
+      ansible.builtin.user:
+        name: molecule
+        state: absent
+        remove: true

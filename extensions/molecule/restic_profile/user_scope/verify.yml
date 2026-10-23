@@ -1,0 +1,135 @@
+---
+# restic_profile/user_scope scenario - assert the user-scoped config, env,
+# units, CLI paths, linger state, and active timer.
+
+- name: verify the converged user-scope state
+  hosts: debian-13
+  gather_facts: true
+  become: true
+  vars:
+    _config_dir: /home/molecule/.config/restic-profile
+    _config_file: "{{ _config_dir }}/restic-profile.toml"
+    _env_file: "{{ _config_dir }}/restic-profile-r1.env"
+    _unit_dir: /home/molecule/.config/systemd/user
+    _bin: /var/lib/restic-profile/venv/bin/restic-profile
+    _cli_link: /usr/local/bin/restic-profile
+    _scope_helper: /usr/local/bin/restic-profile-scope
+    _expected_password: "molecule-user-pw"
+  tasks:
+    - name: resolve the test user uid
+      ansible.builtin.getent:
+        database: passwd
+        key: molecule
+
+    - name: remember the test user uid
+      ansible.builtin.set_fact:
+        _molecule_user_uid: "{{ ansible_facts.getent_passwd['molecule'][1] }}"
+
+    - name: collect the user-scoped config, env, units, and CLI paths
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: _user_stat
+      loop:
+        - "{{ _config_file }}"
+        - "{{ _env_file }}"
+        - "{{ _unit_dir }}/restic-profile-test_user.service"
+        - "{{ _unit_dir }}/restic-profile-test_user.timer"
+        - /var/lib/systemd/linger/molecule
+        - "{{ _bin }}"
+        - "{{ _cli_link }}"
+        - "{{ _scope_helper }}"
+
+    - name: assert the user-scoped files have the expected modes and ownership
+      ansible.builtin.assert:
+        that:
+          - _user_stat.results[0].stat.exists
+          - _user_stat.results[0].stat.mode == '0600'
+          - _user_stat.results[0].stat.pw_name == 'molecule'
+          - _user_stat.results[0].stat.gr_name == 'molecule'
+          - _user_stat.results[1].stat.exists
+          - _user_stat.results[1].stat.mode == '0600'
+          - _user_stat.results[1].stat.pw_name == 'molecule'
+          - _user_stat.results[1].stat.gr_name == 'molecule'
+          - _user_stat.results[2].stat.exists
+          - _user_stat.results[2].stat.mode == '0644'
+          - _user_stat.results[2].stat.pw_name == 'molecule'
+          - _user_stat.results[2].stat.gr_name == 'molecule'
+          - _user_stat.results[3].stat.exists
+          - _user_stat.results[3].stat.mode == '0644'
+          - _user_stat.results[3].stat.pw_name == 'molecule'
+          - _user_stat.results[3].stat.gr_name == 'molecule'
+          - _user_stat.results[4].stat.exists
+          - _user_stat.results[5].stat.exists
+          - _user_stat.results[5].stat.executable
+          - _user_stat.results[6].stat.islnk
+          - _user_stat.results[6].stat.lnk_source == _bin
+          - _user_stat.results[7].stat.exists
+          - _user_stat.results[7].stat.executable
+        fail_msg: "unexpected user-scope file state: {{ _user_stat.results }}"
+        quiet: true
+
+    - name: source the user env file and read the password
+      become: true
+      become_user: molecule
+      ansible.builtin.shell: |
+        set -eu
+        source "{{ _env_file }}"
+        printf '%s' "$RESTIC_PASSWORD"
+      args:
+        executable: /bin/bash
+      register: _user_sourced_password
+      changed_when: false
+
+    - name: assert the user env file preserves the password
+      ansible.builtin.assert:
+        that:
+          - _user_sourced_password.stdout == _expected_password
+        fail_msg: >-
+          unexpected RESTIC_PASSWORD: {{ _user_sourced_password.stdout | ansible.builtin.to_json }}
+        quiet: true
+
+    - name: read the user-scoped TOML config
+      ansible.builtin.slurp:
+        src: "{{ _config_file }}"
+      register: _user_config_content
+
+    - name: assert the user config contains the profile and repository
+      vars:
+        _toml: "{{ _user_config_content.content | ansible.builtin.b64decode }}"
+      ansible.builtin.assert:
+        that:
+          - "'[profiles.\"test_user\"]' in _toml"
+          - "'[repositories.\"r1\"]' in _toml"
+          - "'repository = \"/tmp/restic-profile-user-repo\"' in _toml"
+        quiet: true
+
+    - name: validate the user-scoped config with the CLI
+      become: true
+      become_user: molecule
+      ansible.builtin.command:
+        argv:
+          - "{{ _bin }}"
+          - --check
+          - --config
+          - "{{ _config_file }}"
+      environment:
+        XDG_RUNTIME_DIR: "/run/user/{{ _molecule_user_uid }}"
+      changed_when: false
+
+    - name: query the user timer state
+      become: true
+      become_user: molecule
+      ak1ra_lab.restic_profile.systemd_timer_state:
+        units:
+          - restic-profile-test_user.timer
+        scope: user
+        runtime_uid: "{{ _molecule_user_uid }}"
+      register: _user_timer_state
+
+    - name: assert the user timer is active and enabled
+      ansible.builtin.assert:
+        that:
+          - _user_timer_state.state['restic-profile-test_user.timer'].active_state == 'active'
+          - _user_timer_state.state['restic-profile-test_user.timer'].unit_file_state == 'enabled'
+        fail_msg: "unexpected user timer state: {{ _user_timer_state.state }}"
+        quiet: true

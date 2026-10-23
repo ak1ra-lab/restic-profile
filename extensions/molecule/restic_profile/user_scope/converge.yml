@@ -1,0 +1,37 @@
+---
+# restic_profile/user_scope scenario - install the local wheel and deploy a
+# user-scope backup profile. The timer runs under the test user's manager.
+
+- name: converge a user-scope restic_profile
+  hosts: debian-13
+  gather_facts: true
+  become: true
+  vars:
+    restic_profile_pip_install_source: local
+    pyproject_install_local_project_root: >-
+      {{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY')
+         | default(playbook_dir | ansible.builtin.dirname | ansible.builtin.dirname
+                   | ansible.builtin.dirname | ansible.builtin.dirname, true) }}
+
+    restic_profile_no_cache: true
+    restic_profile_retry_lock: "5m"
+
+    restic_profile_repositories:
+      r1:
+        repository: /tmp/restic-profile-user-repo
+        password: "molecule-user-pw"
+
+    restic_profile_profiles:
+      test_user:
+        repository_ref: r1
+        systemd_scope: user
+        systemd_user: molecule
+        on_calendar: daily
+        persistent: false
+        backup:
+          sources:
+            - /tmp/restic-profile-user-data
+  tasks:
+    - name: apply restic_profile
+      ansible.builtin.include_role:
+        name: ak1ra_lab.restic_profile.restic_profile

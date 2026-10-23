@@ -327,6 +327,7 @@ __marimo__/
 
 # Ansible
 .ansible/*
+.molecule/
 inventory/*.yaml
 playbooks/host_vars/**/*.yaml
 playbooks/group_vars/**/*.yaml

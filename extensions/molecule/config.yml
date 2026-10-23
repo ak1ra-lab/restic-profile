@@ -1,0 +1,49 @@
+---
+# Shared Molecule configuration for every scenario of this collection.
+#
+# Layout follows the official collection-testing guide: scenarios live under
+# extensions/molecule/<role>/<scenario>/, this base file is deep-merged into
+# every scenario's molecule.yml, and `shared_state: true` makes the `default`
+# scenario the single lifecycle manager for all test containers (create once,
+# destroy once) while the component scenarios only prepare, converge, verify
+# and clean up.
+#
+# The test inventory is deliberately separate from inventory/homelab.yaml;
+# pass it explicitly and set ANSIBLE_INVENTORY so the project ansible.cfg
+# cannot pull real hosts into a Molecule run.
+#
+# The collection under test and its requirements.yaml dependencies are
+# installed into .ansible/collections before Molecule starts. The dependency
+# action is disabled because the shared `default` scenario runs create/destroy
+# before ansible-compat's prerun would install anything.
+
+ansible:
+  executor:
+    backend: ansible-playbook
+    args:
+      ansible_playbook:
+        - --inventory=${MOLECULE_PROJECT_DIRECTORY}/extensions/molecule/inventory/
+  cfg:
+    defaults:
+      host_key_checking: false
+      retry_files_enabled: false
+  env:
+    ANSIBLE_FORCE_COLOR: "true"
+    ANSIBLE_INVENTORY: ${MOLECULE_PROJECT_DIRECTORY}/extensions/molecule/inventory/
+    ANSIBLE_COLLECTIONS_PATH: ${MOLECULE_PROJECT_DIRECTORY}/.ansible/collections
+
+dependency:
+  enabled: false
+
+shared_state: true
+
+scenario:
+  test_sequence:
+    - cleanup
+    - syntax
+    - prepare
+    - converge
+    - idempotence
+    - verify
+    - cleanup
+    - verify absent-verify.yml

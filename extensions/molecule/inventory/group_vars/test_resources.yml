@@ -1,0 +1,28 @@
+---
+# Shared settings for the test_resources group; per-host values (container
+# name, image, and restic install source) live in hosts.yml.
+#
+# The container runtime is selectable through the environment so the same
+# scenarios run unchanged on Podman (default; CI uses rootful Podman) or on
+# a rootful Docker daemon:
+#
+#   MOLECULE_CONTAINER_RUNTIME=docker \
+#     MOLECULE_GLOB='extensions/molecule/**/molecule.yml' molecule test --all
+#
+# Docker needs the community.docker collection (requirements.yaml) and its
+# Python SDK on the control node. Both runtimes run the containers
+# privileged: systemd needs the capabilities, and the systemd user manager
+# used by the user-scope scenario needs a writable /sys.
+
+_molecule_container_runtime: >-
+  {{ lookup('ansible.builtin.env', 'MOLECULE_CONTAINER_RUNTIME')
+     | default('podman', true) }}
+
+ansible_connection: >-
+  {{ 'community.docker.docker'
+     if _molecule_container_runtime == 'docker'
+     else 'containers.podman.podman' }}
+
+container_command: /sbin/init
+container_systemd: always
+container_privileged: true

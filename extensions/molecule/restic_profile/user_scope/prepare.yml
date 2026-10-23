@@ -1,0 +1,58 @@
+---
+# restic_profile/user_scope scenario - shared preparation plus the user
+# manager required by systemd_scope=user.
+
+- name: run the shared container preparation
+  import_playbook: ../../shared/prepare.yml
+
+- name: prepare the user-scope test user
+  hosts: debian-13
+  gather_facts: true
+  become: true
+  tasks:
+    - name: install the PAM systemd module and user D-Bus session
+      ansible.builtin.package:
+        name:
+          - libpam-systemd
+          - dbus-user-session
+        state: present
+
+    - name: create the test user
+      ansible.builtin.user:
+        name: molecule
+        shell: /bin/bash
+        create_home: true
+        state: present
+
+    - name: restart logind after installing the PAM module
+      ansible.builtin.systemd_service:
+        name: systemd-logind
+        state: restarted
+
+    - name: resolve the test user uid
+      ansible.builtin.getent:
+        database: passwd
+        key: molecule
+
+    - name: remember the test user uid
+      ansible.builtin.set_fact:
+        _molecule_user_uid: "{{ ansible_facts.getent_passwd['molecule'][1] }}"
+
+    - name: enable lingering so the user manager survives without a login
+      ansible.builtin.command:
+        cmd: loginctl enable-linger molecule
+        creates: /var/lib/systemd/linger/molecule
+
+    - name: wait for the user manager bus
+      ansible.builtin.wait_for:
+        path: /run/user/{{ _molecule_user_uid }}/bus
+        state: present
+        timeout: 30
+
+    - name: create the backup source directory
+      ansible.builtin.file:
+        path: /tmp/restic-profile-user-data
+        state: directory
+        owner: molecule
+        group: molecule
+        mode: "0755"

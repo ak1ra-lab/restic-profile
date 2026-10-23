@@ -2,11 +2,10 @@
 # ansible-lint configuration
 # https://ansible.readthedocs.io/projects/lint/configuring/
 #
-# Run with:  ansible-lint
-#            ansible-lint
-
-# Use the 'basic' profile - enforces the most important rules without
-# being overly strict for a project that is still evolving.
+# Run with: ansible-lint
+#
+# Use the 'production' profile - the strictest built-in profile, which
+# includes the checks from every lower profile as well.
 # Profiles in ascending order of strictness:
 #   min → basic → moderate → safety → shared → production
 profile: production
@@ -15,13 +14,13 @@ profile: production
 exclude_paths:
   - .venv/
   - .git/
+  - .molecule/
   - site/
   - dist/
-  - molecule/
   - examples/
   - playbooks/host_vars/
   - playbooks/group_vars/
-  - mkdocs.yaml
+  - mkdocs.yml
 
 # Rules to warn about instead of failing on.
 # These are either stylistic preferences or rules that generate too many
@@ -38,13 +37,7 @@ warn_list:
 skip_list:
   - name[casing]
 
-# Lint only the paths relevant to Ansible content; ignore the Python
-# source tree and documentation.
-kinds:
-  - playbook: "playbooks/*.yaml"
-  - tasks: "roles/*/tasks/*.yaml"
-  - handlers: "roles/*/handlers/*.yaml"
-  - vars: "roles/*/vars/*.yaml"
-  - defaults: "roles/*/defaults/*.yaml"
-  - meta: "roles/*/meta/*.yaml"
-  - yaml: "roles/*/molecule/**/*.yaml"
+# Do not add a `kinds:` mapping back. The default kind detection already
+# covers every path in this repository; remapping role `defaults/` or `vars/`
+# files to a custom kind silently disables `var-naming[no-role-prefix]`, and
+# remapping Molecule playbooks to the plain "yaml" kind skips playbook rules.

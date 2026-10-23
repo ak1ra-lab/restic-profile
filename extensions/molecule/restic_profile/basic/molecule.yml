@@ -1,0 +1,22 @@
+---
+# restic_profile/basic scenario - deploy system-scope backup and
+# retention-only profiles on Debian and RedHat family hosts.
+#
+# Debian 13 exercises the distro package path; the other hosts use the
+# `existing` restic install source with a stub binary because restic is not
+# guaranteed to be available in their base repositories. Timers are enabled
+# but scheduled for the future with Persistent=false, so the stub is never
+# invoked during the test.
+#
+# The local wheel build/install is intentionally non-idempotent
+# (`forcereinstall`), so the idempotence action is omitted. The
+# restic_rest_server scenario covers a fully idempotent role path.
+scenario:
+  test_sequence:
+    - cleanup
+    - syntax
+    - prepare
+    - converge
+    - verify
+    - cleanup
+    - verify absent-verify.yml

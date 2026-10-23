@@ -1,0 +1,38 @@
+---
+# restic_profile/basic scenario - assert the state=absent teardown removed
+# every role-managed artifact.
+
+- name: verify the restic_profile teardown
+  hosts: all
+  gather_facts: false
+  become: true
+  vars:
+    _removed_paths:
+      - /etc/restic-profile/restic-profile.toml
+      - /etc/restic-profile/restic-profile-r1.env
+      - /etc/restic-profile/restic-profile-r2.env
+      - /etc/restic-profile/restic-profile-test_backup.exclude
+      - /etc/systemd/system/restic-profile-test_backup.service
+      - /etc/systemd/system/restic-profile-test_backup.timer
+      - /etc/systemd/system/restic-profile-test_prune.service
+      - /etc/systemd/system/restic-profile-test_prune.timer
+      - /usr/local/bin/restic-profile
+      - /usr/local/bin/restic-profile-scope
+      - /var/lib/restic-profile/venv
+      - /var/lib/restic-profile/deployed_targets.json
+  tasks:
+    - name: collect the removed paths
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: _removed_stat
+      loop: "{{ _removed_paths }}"
+
+    - name: assert every managed path is gone
+      ansible.builtin.assert:
+        that:
+          - not item.stat.exists
+        fail_msg: "{{ item.item }} still exists after state=absent"
+        quiet: true
+      loop: "{{ _removed_stat.results }}"
+      loop_control:
+        label: "{{ item.item }}"

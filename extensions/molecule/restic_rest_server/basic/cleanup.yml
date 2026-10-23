@@ -1,0 +1,53 @@
+---
+# restic_rest_server/basic scenario - remove everything the scenario
+# created, including the package. The role has no state=absent contract, so
+# this is explicit test teardown; it tolerates a fresh container because
+# cleanup runs first.
+
+- name: remove the restic_rest_server deployment
+  hosts: debian-13
+  gather_facts: true
+  become: true
+  tasks:
+    - name: stop and disable the service
+      ansible.builtin.systemd_service:
+        name: restic-rest-server.service
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: remove the service unit
+      ansible.builtin.file:
+        path: /etc/systemd/system/restic-rest-server.service
+        state: absent
+
+    - name: reload systemd after removing the unit
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      failed_when: false
+
+    - name: remove the rest-server configuration directory
+      ansible.builtin.file:
+        path: /etc/restic-rest-server
+        state: absent
+
+    - name: remove the test storage root
+      ansible.builtin.file:
+        path: /srv/restic-molecule
+        state: absent
+
+    - name: remove the rest-server package
+      ansible.builtin.package:
+        name: restic-rest-server
+        state: absent
+
+    - name: remove the rest-server user
+      ansible.builtin.user:
+        name: restic-rest-server
+        state: absent
+        remove: true
+
+    - name: remove the rest-server group
+      ansible.builtin.group:
+        name: restic-rest-server
+        state: absent

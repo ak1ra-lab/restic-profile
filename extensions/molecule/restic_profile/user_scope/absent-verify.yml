@@ -1,0 +1,45 @@
+---
+# restic_profile/user_scope scenario - assert the user-scope deployment and
+# test user are gone.
+
+- name: verify the user-scope teardown
+  hosts: debian-13
+  gather_facts: false
+  become: true
+  vars:
+    _removed_paths:
+      - /home/molecule
+      - /var/lib/systemd/linger/molecule
+      - /var/lib/restic-profile/venv
+      - /var/lib/restic-profile/deployed_targets.json
+      - /usr/local/bin/restic-profile
+      - /usr/local/bin/restic-profile-scope
+  tasks:
+    - name: collect the removed paths
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: _removed_stat
+      loop: "{{ _removed_paths }}"
+
+    - name: assert every managed path is gone
+      ansible.builtin.assert:
+        that:
+          - not item.stat.exists
+        fail_msg: "{{ item.item }} still exists after teardown"
+        quiet: true
+      loop: "{{ _removed_stat.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: check whether the test user still exists
+      ansible.builtin.command:
+        argv: [getent, passwd, molecule]
+      register: _user_lookup
+      changed_when: false
+      failed_when: false
+
+    - name: assert the test user is gone
+      ansible.builtin.assert:
+        that:
+          - _user_lookup.rc != 0
+        quiet: true

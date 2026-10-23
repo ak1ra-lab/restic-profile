@@ -1,0 +1,21 @@
+---
+# restic_profile/basic scenario - exercise the role's state=absent contract.
+# Runs before prepare and again after verify; the role tolerates both a
+# populated deployment and a fresh container.
+
+- name: remove the restic_profile deployment
+  hosts: all
+  gather_facts: true
+  become: true
+  tasks:
+    - name: apply restic_profile with state absent
+      ansible.builtin.include_role:
+        name: ak1ra_lab.restic_profile.restic_profile
+      vars:
+        restic_profile_state: absent
+
+    - name: remove the restic stub
+      when: restic_profile_restic_install_source == 'existing'
+      ansible.builtin.file:
+        path: /usr/local/bin/restic
+        state: absent

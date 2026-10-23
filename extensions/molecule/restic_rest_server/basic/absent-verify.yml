@@ -1,0 +1,63 @@
+---
+# restic_rest_server/basic scenario - assert the explicit teardown removed
+# the service, configuration, storage root, and service account.
+
+- name: verify the restic_rest_server teardown
+  hosts: debian-13
+  gather_facts: false
+  become: true
+  vars:
+    _removed_paths:
+      - /etc/systemd/system/restic-rest-server.service
+      - /etc/restic-rest-server
+      - /srv/restic-molecule
+  tasks:
+    - name: collect the removed paths
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: _removed_stat
+      loop: "{{ _removed_paths }}"
+
+    - name: assert every managed path is gone
+      ansible.builtin.assert:
+        that:
+          - not item.stat.exists
+        fail_msg: "{{ item.item }} still exists after teardown"
+        quiet: true
+      loop: "{{ _removed_stat.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: check whether the service user still exists
+      ansible.builtin.command:
+        argv: [getent, passwd, restic-rest-server]
+      register: _user_lookup
+      changed_when: false
+      failed_when: false
+
+    - name: check whether the service group still exists
+      ansible.builtin.command:
+        argv: [getent, group, restic-rest-server]
+      register: _group_lookup
+      changed_when: false
+      failed_when: false
+
+    - name: assert the service account is gone
+      ansible.builtin.assert:
+        that:
+          - _user_lookup.rc != 0
+          - _group_lookup.rc != 0
+        quiet: true
+
+    - name: check whether the rest-server package is still installed
+      ansible.builtin.command:
+        argv: [dpkg-query, -W, "-f=${Status}", restic-rest-server]
+      register: _package_lookup
+      changed_when: false
+      failed_when: false
+
+    - name: assert the rest-server package is gone
+      ansible.builtin.assert:
+        that:
+          - _package_lookup.stdout is not ansible.builtin.search('install ok installed')
+        quiet: true

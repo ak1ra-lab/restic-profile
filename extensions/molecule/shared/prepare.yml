@@ -1,0 +1,35 @@
+---
+# Shared preparation for every component scenario.
+#
+# The docker-systemd images ship a package index from build time; it goes
+# stale as the distributions publish new package versions, and the roles'
+# package installs then fail with 404s. Refresh the matching index first.
+
+- name: prepare the shared containers
+  hosts: all
+  gather_facts: true
+  become: true
+  tasks:
+    # Support policy: a distribution is testable only when its bundled
+    # Python matches the project floor (requires-python >=3.11). Callers must
+    # drop the distro rather than install a newer Python alongside it.
+    - name: assert the managed node Python is supported
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.python_version is ansible.builtin.version('3.11', '>=')
+        fail_msg: >-
+          {{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}
+          ships Python {{ ansible_facts.python_version }}, below the project's
+          >=3.11 floor. Drop this distro from the Molecule inventory instead
+          of installing a newer interpreter.
+
+    - name: refresh the apt index
+      when: ansible_facts.os_family == 'Debian'
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: refresh the dnf index
+      when: ansible_facts.os_family == 'RedHat'
+      ansible.builtin.dnf:
+        update_cache: true

@@ -1,0 +1,20 @@
+---
+# restic_profile/user_scope scenario - deploy a systemd user-scope profile.
+#
+# The docker-systemd images do not install libpam-systemd by default, so the
+# shared preparation is extended with the PAM module and a user session bus
+# before logind can start the per-user systemd manager. The scenario runs on
+# Debian 13 only; user-manager plumbing is distribution-specific and the
+# system-scope scenario already covers the RedHat family.
+#
+# The local wheel build/install is intentionally non-idempotent
+# (`forcereinstall`), so the idempotence action is omitted.
+scenario:
+  test_sequence:
+    - cleanup
+    - syntax
+    - prepare
+    - converge
+    - verify
+    - cleanup
+    - verify absent-verify.yml

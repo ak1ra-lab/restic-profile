@@ -1,0 +1,5 @@
+---
+# restic_rest_server/basic scenario - shared container preparation only.
+
+- name: run the shared container preparation
+  import_playbook: ../../shared/prepare.yml

@@ -1,0 +1,21 @@
+---
+# restic_rest_server/basic scenario - install rest-server from the Debian
+# package and expose it on a non-default port with a bcrypt htpasswd user.
+
+- name: converge restic_rest_server
+  hosts: debian-13
+  gather_facts: true
+  become: true
+  vars:
+    restic_rest_server_binary_install_source: package
+    restic_rest_server_listen: ":18012"
+    restic_rest_server_backup_dir: /srv/restic-molecule
+    restic_rest_server_append_only: true
+    restic_rest_server_private_repos: true
+    restic_rest_server_htpasswd_users:
+      - name: molecule
+        password: 'molecule-"pw"'
+  tasks:
+    - name: apply restic_rest_server
+      ansible.builtin.include_role:
+        name: ak1ra_lab.restic_profile.restic_rest_server

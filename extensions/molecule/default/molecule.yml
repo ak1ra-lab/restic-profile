@@ -1,0 +1,7 @@
+---
+# default scenario - resource lifecycle only; shared_state delegates the
+# create/destroy of every scenario to this one.
+scenario:
+  test_sequence:
+    - create
+    - destroy

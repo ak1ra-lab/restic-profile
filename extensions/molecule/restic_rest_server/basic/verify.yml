@@ -1,0 +1,113 @@
+---
+# restic_rest_server/basic scenario - assert the service, auth file, env
+# file, and storage root an operator observes.
+
+- name: verify the converged restic_rest_server state
+  hosts: debian-13
+  gather_facts: true
+  become: true
+  vars:
+    _service_file: /etc/systemd/system/restic-rest-server.service
+    _env_file: /etc/restic-rest-server/env
+    _htpasswd_file: /etc/restic-rest-server/users.htpasswd
+    _backup_dir: /srv/restic-molecule
+  tasks:
+    - name: collect the service, env, htpasswd, and storage root
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: _server_stat
+      loop:
+        - "{{ _service_file }}"
+        - "{{ _env_file }}"
+        - "{{ _htpasswd_file }}"
+        - "{{ _backup_dir }}"
+
+    - name: assert the managed files have the expected modes and ownership
+      ansible.builtin.assert:
+        that:
+          - _server_stat.results[0].stat.exists
+          - _server_stat.results[0].stat.mode == '0644'
+          - _server_stat.results[0].stat.pw_name == 'root'
+          - _server_stat.results[0].stat.gr_name == 'root'
+          - _server_stat.results[1].stat.exists
+          - _server_stat.results[1].stat.mode == '0644'
+          - _server_stat.results[1].stat.pw_name == 'root'
+          - _server_stat.results[1].stat.gr_name == 'root'
+          - _server_stat.results[2].stat.exists
+          - _server_stat.results[2].stat.mode == '0640'
+          - _server_stat.results[2].stat.pw_name == 'root'
+          - _server_stat.results[2].stat.gr_name == 'restic-rest-server'
+          - _server_stat.results[3].stat.exists
+        fail_msg: "unexpected rest-server file state: {{ _server_stat.results }}"
+        quiet: true
+
+    - name: assert the storage root is owned by the service user
+      ansible.builtin.assert:
+        that:
+          - _server_stat.results[3].stat.isdir
+          - _server_stat.results[3].stat.mode == '0750'
+          - _server_stat.results[3].stat.pw_name == 'restic-rest-server'
+          - _server_stat.results[3].stat.gr_name == 'restic-rest-server'
+        quiet: true
+
+    - name: read the environment file
+      ansible.builtin.slurp:
+        src: "{{ _env_file }}"
+      register: _env_content
+
+    - name: assert the environment file has the expected listener and flags
+      vars:
+        _env: "{{ _env_content.content | ansible.builtin.b64decode }}"
+      ansible.builtin.assert:
+        that:
+          - "'LISTEN=:18012' in _env"
+          - "'BACKUP_DIR=/srv/restic-molecule' in _env"
+          - "'--append-only' in _env"
+          - "'--private-repos' in _env"
+        quiet: true
+
+    - name: read the htpasswd file
+      ansible.builtin.slurp:
+        src: "{{ _htpasswd_file }}"
+      register: _htpasswd_content
+
+    - name: assert the htpasswd entry exists and is not plaintext
+      vars:
+        _htpasswd: "{{ _htpasswd_content.content | ansible.builtin.b64decode }}"
+      ansible.builtin.assert:
+        that:
+          - "'molecule:' in _htpasswd"
+          - "'molecule-\"pw\"' not in _htpasswd"
+        quiet: true
+
+    - name: collect the rest-server service facts
+      ansible.builtin.service_facts:
+
+    - name: assert the service is running and enabled
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['restic-rest-server.service'].state == 'running'
+          - ansible_facts.services['restic-rest-server.service'].status == 'enabled'
+        fail_msg: "unexpected rest-server service state: {{ ansible_facts.services['restic-rest-server.service'] }}"
+        quiet: true
+
+    - name: verify the package-installed rest-server
+      ansible.builtin.command:
+        argv: [dpkg-query, -W, "-f=${Status}", restic-rest-server]
+      register: _server_package
+      changed_when: false
+
+    - name: assert the packaged rest-server is installed
+      ansible.builtin.assert:
+        that:
+          - _server_package.stdout is ansible.builtin.search('install ok installed')
+        quiet: true
+
+    - name: wait for the REST listener to answer
+      ansible.builtin.uri:
+        url: http://127.0.0.1:18012/
+        status_code: 401
+      register: _health
+      retries: 15
+      delay: 1
+      until: _health.status == 401

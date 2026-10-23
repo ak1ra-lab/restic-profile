@@ -1,0 +1,31 @@
+---
+# restic_profile/basic scenario - shared container preparation plus the
+# data directory used by every host and the restic stub used by hosts that
+# rely on the `existing` install source.
+
+- name: run the shared container preparation
+  import_playbook: ../../shared/prepare.yml
+
+- name: prepare restic_profile fixtures
+  hosts: all
+  gather_facts: false
+  become: true
+  tasks:
+    - name: create the backup source directory
+      ansible.builtin.file:
+        path: /tmp/restic-profile-test-data
+        state: directory
+        mode: "0755"
+
+    - name: install the restic stub
+      when: restic_profile_restic_install_source == 'existing'
+      ansible.builtin.copy:
+        dest: /usr/local/bin/restic
+        owner: root
+        group: root
+        mode: "0755"
+        content: |
+          #!/bin/sh
+          # Molecule stub: the scenarios never start a timer that would call
+          # restic. Exit successfully so an accidental invocation is harmless.
+          exit 0

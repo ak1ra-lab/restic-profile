@@ -1,0 +1,15 @@
+---
+# restic_rest_server/basic scenario - deploy the REST server from the
+# Debian package, verify the systemd unit, htpasswd auth, and storage root,
+# then tear it down. The role's absent contract does not exist, so cleanup
+# removes the test deployment explicitly.
+scenario:
+  test_sequence:
+    - cleanup
+    - syntax
+    - prepare
+    - converge
+    - idempotence
+    - verify
+    - cleanup
+    - verify absent-verify.yml
