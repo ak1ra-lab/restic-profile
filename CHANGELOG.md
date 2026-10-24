@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2026-10-24
 
 ### Added
 
@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Limit the official distribution matrix to the latest tested releases:
   Debian 13, Ubuntu 26.04, Rocky Linux 10, and Fedora 44; drop EL 9 and
   Fedora 43 from the role metadata
+- Raise the minimum supported `ansible-core` version to 2.18
 - Escape user-provided values when rendering `restic-profile.toml` so quotes,
   backslashes, and newlines in credentials or paths produce valid TOML
 - Treat notification delivery as best-effort: transport errors are logged and
@@ -40,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stop active timers before `daemon-reload` when their scheduling changes
 - Align package-cache refresh and platform metadata across all supported
   distributions
+- Reject unknown keys in the TOML configuration instead of silently ignoring
+  them
 
 ## [0.4.1] - 2026-08-11
 
