@@ -242,10 +242,7 @@ def _group_profiles_by_target(
         if scope == "user":
             user = str(profile.get("systemd_user", "")).strip()
             if not user:
-                raise AnsibleFilterError(
-                    "Profile '{0}' has systemd_scope='user' but does not set"
-                    " systemd_user.".format(pname)
-                )
+                raise AnsibleFilterError(f"Profile '{pname}' has systemd_scope='user' but does not set systemd_user.")
         else:
             user = "root"
         key = f"{scope}:{user}"
@@ -307,8 +304,8 @@ def deployment_targets(
             entry = passwd.get(user)
             if entry is None:
                 raise AnsibleFilterError(
-                    "Target user '{0}' (required by profiles: {1}) not found"
-                    " on this host.".format(user, ", ".join(raw["profile_names"]))
+                    f"Target user '{user}' (required by profiles: {', '.join(raw['profile_names'])})"
+                    " not found on this host."
                 )
             home = str(entry[4]) if len(entry) > 4 else ""
             uid: int | str = int(entry[1]) if len(entry) > 1 else ""

@@ -85,9 +85,7 @@ def _write_config(tmp_path: Path, content: str) -> Path:
 # check - valid config
 
 
-def test_check_with_valid_config_exits_0(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_check_with_valid_config_exits_0(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """restic-profile --check exits 0 and reports 'Config is valid'."""
     config_file = _write_config(tmp_path, _VALID_TOML)
 
@@ -100,9 +98,7 @@ def test_check_with_valid_config_exits_0(
 # check - missing config
 
 
-def test_check_with_missing_config_exits_1(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_check_with_missing_config_exits_1(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     """restic-profile --check exits 1 and logs an error when the config is missing."""
     missing = tmp_path / "does_not_exist.toml"
 
@@ -116,9 +112,7 @@ def test_check_with_missing_config_exits_1(
 # check - invalid config
 
 
-def test_check_with_invalid_config_exits_1(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_check_with_invalid_config_exits_1(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     """restic-profile --check exits 1 and logs an error for an invalid config."""
     config_file = _write_config(tmp_path, _INVALID_PASSWORD_TOML)
 
@@ -142,9 +136,7 @@ def test_check_with_missing_repo_and_password_exits_1(tmp_path: Path) -> None:
 # list - valid config
 
 
-def test_list_with_valid_config(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_list_with_valid_config(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """restic-profile --list prints profile names, types, and schedules."""
     config_file = _write_config(tmp_path, _VALID_TOML)
 
@@ -163,9 +155,7 @@ def test_list_with_valid_config(
 # list - missing config
 
 
-def test_list_with_missing_config_exits_1(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_list_with_missing_config_exits_1(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     """restic-profile --list exits 1 and logs an error when the config is missing."""
     missing = tmp_path / "no_config.toml"
 
@@ -179,9 +169,7 @@ def test_list_with_missing_config_exits_1(
 # run profile - mocked run_profile (success)
 
 
-def test_run_profile_with_mocked_runner_exits_0(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_profile_with_mocked_runner_exits_0(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """restic-profile <profile> exits 0 when run_profile succeeds."""
     config_file = _write_config(tmp_path, _VALID_TOML)
     monkeypatch.setattr("restic_profile.cli.run_profile", lambda *a, **kw: None)
@@ -189,9 +177,7 @@ def test_run_profile_with_mocked_runner_exits_0(
     main(["myapp", "--config", str(config_file)])
 
 
-def test_run_profile_calls_runner_with_profile(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_profile_calls_runner_with_profile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """restic-profile <profile> passes the correct Profile to run_profile."""
     config_file = _write_config(tmp_path, _VALID_TOML)
     received: list[object] = []
@@ -206,9 +192,7 @@ def test_run_profile_calls_runner_with_profile(
     assert getattr(received[0], "name", None) == "myapp"
 
 
-def test_run_profile_dry_run_flag_is_forwarded(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_profile_dry_run_flag_is_forwarded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """restic-profile <profile> --dry-run forwards dry_run=True to run_profile."""
     config_file = _write_config(tmp_path, _VALID_TOML)
     received_kwargs: list[dict] = []
@@ -226,9 +210,7 @@ def test_run_profile_dry_run_flag_is_forwarded(
 # run profile - profile not found
 
 
-def test_run_profile_nonexistent_profile_exits_1(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_run_profile_nonexistent_profile_exits_1(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     """restic-profile <profile> exits 1 and logs an error for an unknown profile."""
     config_file = _write_config(tmp_path, _VALID_TOML)
 
@@ -255,9 +237,7 @@ def test_run_profile_with_missing_config_exits_1(tmp_path: Path) -> None:
 # run profile - run_profile raises ValueError
 
 
-def test_run_profile_value_error_from_runner_exits_1(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_profile_value_error_from_runner_exits_1(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """restic-profile <profile> exits 1 when run_profile raises ValueError."""
     config_file = _write_config(tmp_path, _VALID_TOML)
 
@@ -356,9 +336,7 @@ def test_dry_run_notify_routes_to_run_profile_with_force_notify(
     assert call_kwargs["force_notify"] is True
 
 
-def test_dry_run_notify_requires_profile_name(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_dry_run_notify_requires_profile_name(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """--dry-run notify without a profile name exits with error."""
     config_file = _write_config(tmp_path, _VALID_TOML)
     with pytest.raises(SystemExit) as exc_info:
@@ -390,9 +368,7 @@ def test_unlock_runs_named_profile(tmp_path: Path) -> None:
     assert mock_unlock.call_args.kwargs["dry_run"] is False
 
 
-def test_unlock_requires_profile_name(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_unlock_requires_profile_name(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """--unlock without a profile name exits with a usage error."""
     config_file = _write_config(tmp_path, _VALID_TOML)
 

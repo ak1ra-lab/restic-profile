@@ -529,9 +529,7 @@ def test_profile_empty_password_raises_validation_error() -> None:
         Repository(name="nopw", repository="rest:https://example.com/", password="")
 
 
-def test_retention_only_profile_with_no_retention_action_raises_validation_error() -> (
-    None
-):
+def test_retention_only_profile_with_no_retention_action_raises_validation_error() -> None:
     """Profile raises ValidationError for retention-only profile with no keep_* and prune=false."""
     repo = Repository(name="r1", repository="rest:https://example.com/", password="pw")
     with pytest.raises(ValidationError, match="retention"):

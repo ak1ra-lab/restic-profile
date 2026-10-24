@@ -329,9 +329,7 @@ def _build_success_facts(
         facts["diff_removed_files"] = removed.get("files", 0)
         facts["diff_removed_dirs"] = removed.get("dirs", 0)
         facts["diff_removed_bytes"] = _human_bytes(removed.get("bytes"))
-        facts["diff_changes"] = [
-            (c.get("modifier", "?"), c.get("path", "?")) for c in diff_changes
-        ]
+        facts["diff_changes"] = [(c.get("modifier", "?"), c.get("path", "?")) for c in diff_changes]
     else:
         facts["diff_has_parent"] = False
 
@@ -490,9 +488,7 @@ def try_notify_success(
                 markdown=markdown,
             )
         except Exception:  # notifications are best-effort
-            logger.exception(
-                "Failed to send success notification for profile %s", profile.name
-            )
+            logger.exception("Failed to send success notification for profile %s", profile.name)
 
 
 def try_notify_failure(profile: Profile, error_msg: str) -> None:
@@ -518,6 +514,4 @@ def try_notify_failure(profile: Profile, error_msg: str) -> None:
                 markdown=markdown,
             )
         except Exception:  # do not mask the original failure
-            logger.exception(
-                "Failed to send failure notification for profile %s", profile.name
-            )
+            logger.exception("Failed to send failure notification for profile %s", profile.name)

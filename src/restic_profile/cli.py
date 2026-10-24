@@ -59,9 +59,7 @@ def _resolve_profile_or_exit(args: argparse.Namespace):
         raise ValueError("profile_name is required")
 
     if args.profile_name not in cfg.profiles:
-        logger.error(
-            "Profile %r not found in config %s", args.profile_name, args.config
-        )
+        logger.error("Profile %r not found in config %s", args.profile_name, args.config)
         sys.exit(1)
 
     return cfg.profiles[args.profile_name]
@@ -122,16 +120,9 @@ def _cmd_list(args: argparse.Namespace) -> None:
         return
 
     for name, profile in cfg.profiles.items():
-        repo_url = (
-            profile.resolved_repository.repository
-            if profile.resolved_repository
-            else "N/A"
-        )
+        repo_url = profile.resolved_repository.repository if profile.resolved_repository else "N/A"
         schedule = profile.on_calendar or "manual"
-        print(
-            f"{name}  type={_profile_type(profile)}  "
-            f"schedule={schedule}  repository={repo_url}"
-        )
+        print(f"{name}  type={_profile_type(profile)}  schedule={schedule}  repository={repo_url}")
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -173,8 +164,7 @@ def _build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         metavar="PATH",
-        help="Path to TOML config file"
-        " (searches $XDG_CONFIG_HOME then /etc/restic-profile if not set)",
+        help="Path to TOML config file (searches $XDG_CONFIG_HOME then /etc/restic-profile if not set)",
     )
     parser.add_argument(
         "-n",
@@ -218,9 +208,7 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if not args.profile_name:
-        parser.error(
-            "provide a profile name or one of --list/--check/--unlock/--dry-run"
-        )
+        parser.error("provide a profile name or one of --list/--check/--unlock/--dry-run")
 
     if args.dry_run == "notify":
         _cmd_run(args, is_dry_run=True, force_notify=True)

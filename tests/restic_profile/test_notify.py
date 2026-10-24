@@ -428,9 +428,7 @@ def test_query_snapshot_by_tag_host_returns_latest():
 
 def test_query_snapshot_nonzero_return():
     with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=1, stdout="", stderr="query failed"
-        )
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="query failed")
         result = _query_snapshot(
             snapshot_id="abc",
             env={},
@@ -457,9 +455,7 @@ def test_query_repo_stats_returns_data():
 
 def test_query_repo_stats_nonzero_return():
     with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(
-            returncode=1, stdout="", stderr="stats failed"
-        )
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="stats failed")
         result = _query_repo_stats(
             env={},
             restic_executable="restic",

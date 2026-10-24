@@ -414,9 +414,7 @@ def run_hooks(
     return True
 
 
-def run_backup(
-    profile: Profile, *, dry_run: bool = False, force_notify: bool = False
-) -> None:
+def run_backup(profile: Profile, *, dry_run: bool = False, force_notify: bool = False) -> None:
     """Run ``restic backup`` and any configured inline retention for *profile*.
 
     Parameters
@@ -431,9 +429,7 @@ def run_backup(
         at the end. Without *dry_run* this flag has no effect.
     """
     if not profile.is_backup or not profile.backup:
-        raise ValueError(
-            f"Profile {profile.name!r} has no backup block, cannot run backup"
-        )
+        raise ValueError(f"Profile {profile.name!r} has no backup block, cannot run backup")
 
     hooks = profile.hooks
     env = build_env(profile)
@@ -461,9 +457,7 @@ def run_backup(
         raise WorkflowError(msg) from exc
 
     # prevalidate: run before checking / mounting the backup location
-    if not run_hooks(
-        "prevalidate", hooks.prevalidate, env, hooks.shell, dry_run=dry_run
-    ):
+    if not run_hooks("prevalidate", hooks.prevalidate, env, hooks.shell, dry_run=dry_run):
         _fail(f"Profile {profile.name!r}: prevalidate hook failed")
 
     sources = _existing_backup_sources(profile)
@@ -509,9 +503,7 @@ def run_backup(
                     repo_url,
                 )
             else:
-                _fail(
-                    f"Profile {profile.name!r}: repository initialization failed", exc
-                )
+                _fail(f"Profile {profile.name!r}: repository initialization failed", exc)
 
     # before: run after location checks, before the backup starts
     if not run_hooks("before", hooks.before, env, hooks.shell, dry_run=dry_run):
@@ -560,9 +552,8 @@ def run_backup(
             result = _run(backup_cmd, env, capture_output=capture)
             if capture:
                 stdout_text = result.stdout
-                if isinstance(stdout_text, str):
-                    if m := _BACKUP_SNAPSHOT_RE.search(stdout_text):
-                        snapshot_id = m.group(1)
+                if isinstance(stdout_text, str) and (m := _BACKUP_SNAPSHOT_RE.search(stdout_text)):
+                    snapshot_id = m.group(1)
 
         if profile.retention:
             failed_stage = "retention"
@@ -637,9 +628,7 @@ def run_retention(
         When the profile has no retention block or no retention action.
     """
     if not profile.retention:
-        raise ValueError(
-            f"Profile {profile.name!r} has no retention block, cannot run retention"
-        )
+        raise ValueError(f"Profile {profile.name!r} has no retention block, cannot run retention")
 
     forget_cmd = _build_forget_command(
         profile,
@@ -648,9 +637,7 @@ def run_retention(
     )
     command = forget_cmd or _build_prune_command(profile)
     if not command:
-        raise ValueError(
-            f"Profile {profile.name!r} has no retention action, cannot run retention"
-        )
+        raise ValueError(f"Profile {profile.name!r} has no retention action, cannot run retention")
 
     env = build_env(profile)
 
@@ -670,9 +657,7 @@ def run_retention(
         try:
             _run(command, env, capture_output=capture)
         except _CommandError as exc:
-            raise WorkflowError(
-                f"Profile {profile.name!r}: retention command failed"
-            ) from exc
+            raise WorkflowError(f"Profile {profile.name!r}: retention command failed") from exc
 
 
 def run_unlock(profile: Profile, *, dry_run: bool = False) -> None:
@@ -695,9 +680,7 @@ def run_unlock(profile: Profile, *, dry_run: bool = False) -> None:
         _run(unlock_cmd, env, capture_output=capture)
 
 
-def run_profile(
-    profile: Profile, *, dry_run: bool = False, force_notify: bool = False
-) -> None:
+def run_profile(profile: Profile, *, dry_run: bool = False, force_notify: bool = False) -> None:
     """Run the configured workflow for *profile*."""
     if profile.is_backup:
         run_backup(profile, dry_run=dry_run, force_notify=force_notify)
@@ -707,6 +690,4 @@ def run_profile(
         run_retention(profile, dry_run=dry_run)
         return
 
-    raise ValueError(
-        f"Profile {profile.name!r} has no runnable backup or retention configuration"
-    )
+    raise ValueError(f"Profile {profile.name!r} has no runnable backup or retention configuration")

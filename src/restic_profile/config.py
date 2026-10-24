@@ -222,17 +222,13 @@ class Profile(_StrictModel):
     resolved_template_dir: str = ""
 
     @model_validator(mode="after")
-    def _validate_and_set_defaults(self) -> "Profile":
+    def _validate_and_set_defaults(self) -> Profile:
         if not self.tag:
             self.tag = self.name
         if not self.backup and not self.retention:
-            raise ValueError(
-                f"Profile {self.name!r}: must configure at least one of 'backup' or 'retention'"
-            )
+            raise ValueError(f"Profile {self.name!r}: must configure at least one of 'backup' or 'retention'")
         if self.backup and not self.backup.sources:
-            raise ValueError(
-                f"Profile {self.name!r}: backup section configured but 'sources' list is empty"
-            )
+            raise ValueError(f"Profile {self.name!r}: backup section configured but 'sources' list is empty")
         if self.retention and not self.retention.has_action:
             raise ValueError(
                 f"Profile {self.name!r}: retention section configured but has no action "
@@ -266,12 +262,8 @@ class ResticProfileConfig(_StrictModel):
 
 
 _KNOWN_TOP_LEVEL_SECTIONS = frozenset({"global", "repositories", "notify", "profiles"})
-_TABLE_ADAPTER: TypeAdapter[dict[str, dict[str, Any]]] = TypeAdapter(
-    dict[str, dict[str, Any]]
-)
-_NOTIFY_ADAPTER: TypeAdapter[dict[str, NotifierConfig]] = TypeAdapter(
-    dict[str, NotifierConfig]
-)
+_TABLE_ADAPTER: TypeAdapter[dict[str, dict[str, Any]]] = TypeAdapter(dict[str, dict[str, Any]])
+_NOTIFY_ADAPTER: TypeAdapter[dict[str, NotifierConfig]] = TypeAdapter(dict[str, NotifierConfig])
 
 
 def load_config(path: Path) -> ResticProfileConfig:
@@ -329,18 +321,14 @@ def load_config(path: Path) -> ResticProfileConfig:
         if not profile.repository_ref:
             raise ValueError(f"Profile {profile.name!r}: repository_ref is required")
         if profile.repository_ref not in repositories_data:
-            raise ValueError(
-                f"Profile {profile.name!r}: referenced repository {profile.repository_ref!r} not found"
-            )
+            raise ValueError(f"Profile {profile.name!r}: referenced repository {profile.repository_ref!r} not found")
 
         profile.resolved_repository = repositories_data[profile.repository_ref]
 
         # Resolve notify reference
         if profile.notify_ref:
             if profile.notify_ref not in notify_data:
-                raise ValueError(
-                    f"Profile {profile.name!r}: referenced notifier {profile.notify_ref!r} not found"
-                )
+                raise ValueError(f"Profile {profile.name!r}: referenced notifier {profile.notify_ref!r} not found")
             profile.resolved_notifier = notify_data[profile.notify_ref]
 
         profile.resolved_template_dir = global_config.template_dir

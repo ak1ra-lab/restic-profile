@@ -91,9 +91,7 @@ state:
 """
 
 
-def _query_unit(
-    module: AnsibleModule, unit: str, scope: str, runtime_uid: str
-) -> dict[str, Any]:
+def _query_unit(module: AnsibleModule, unit: str, scope: str, runtime_uid: str) -> dict[str, Any]:
     """Run ``systemctl show`` for one unit and parse its properties."""
     systemctl = module.get_bin_path("systemctl", required=True)
     cmd: list[str] = [systemctl]

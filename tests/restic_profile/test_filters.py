@@ -12,17 +12,13 @@ from typing import Any
 
 import pytest
 
-_FILTER_PATH = (
-    Path(__file__).resolve().parents[2] / "plugins" / "filter" / "restic_profile.py"
-)
+_FILTER_PATH = Path(__file__).resolve().parents[2] / "plugins" / "filter" / "restic_profile.py"
 
 
 @pytest.fixture(scope="session")
 def filters() -> Any:
     """Load the filter plugin module for direct function testing."""
-    spec = importlib.util.spec_from_file_location(
-        "restic_profile_filters", _FILTER_PATH
-    )
+    spec = importlib.util.spec_from_file_location("restic_profile_filters", _FILTER_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -87,18 +83,14 @@ def profiles() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def test_plan_includes_only_enabled_profiles(
-    filters: Any, profiles: dict, repositories: dict
-) -> None:
+def test_plan_includes_only_enabled_profiles(filters: Any, profiles: dict, repositories: dict) -> None:
     plan = filters.deployment_plan(profiles, repositories, CONFIG_DIR, UNIT_PREFIX)
     names = [u["profile_name"] for u in plan["service_units"]]
     assert "disabled_app" not in names
     assert sorted(names) == ["myapp", "no_timer", "prune_only", "shared_repo"]
 
 
-def test_plan_service_unit_fields(
-    filters: Any, profiles: dict, repositories: dict
-) -> None:
+def test_plan_service_unit_fields(filters: Any, profiles: dict, repositories: dict) -> None:
     plan = filters.deployment_plan(profiles, repositories, CONFIG_DIR, UNIT_PREFIX)
     myapp = next(u for u in plan["service_units"] if u["profile_name"] == "myapp")
     assert myapp["unit_name"] == "restic-profile-myapp"
@@ -107,18 +99,14 @@ def test_plan_service_unit_fields(
     assert myapp["profile"] is profiles["myapp"]
 
 
-def test_plan_has_timer_false_when_timer_enabled_false(
-    filters: Any, profiles: dict, repositories: dict
-) -> None:
+def test_plan_has_timer_false_when_timer_enabled_false(filters: Any, profiles: dict, repositories: dict) -> None:
     plan = filters.deployment_plan(profiles, repositories, CONFIG_DIR, UNIT_PREFIX)
     no_timer = next(u for u in plan["service_units"] if u["profile_name"] == "no_timer")
     assert no_timer["timer_enabled"] is False
     assert no_timer["has_timer"] is False
 
 
-def test_plan_has_timer_false_when_on_calendar_empty(
-    filters: Any, profiles: dict, repositories: dict
-) -> None:
+def test_plan_has_timer_false_when_on_calendar_empty(filters: Any, profiles: dict, repositories: dict) -> None:
     plan = filters.deployment_plan(
         {"p": {"repository_ref": "r1", "enabled": True, "on_calendar": ""}},
         repositories,
@@ -128,9 +116,7 @@ def test_plan_has_timer_false_when_on_calendar_empty(
     assert plan["service_units"][0]["has_timer"] is False
 
 
-def test_plan_has_timer_false_when_on_calendar_whitespace(
-    filters: Any, profiles: dict, repositories: dict
-) -> None:
+def test_plan_has_timer_false_when_on_calendar_whitespace(filters: Any, profiles: dict, repositories: dict) -> None:
     plan = filters.deployment_plan(
         {"p": {"repository_ref": "r1", "enabled": True, "on_calendar": "  "}},
         repositories,
@@ -145,21 +131,15 @@ def test_plan_has_timer_false_when_on_calendar_whitespace(
 # ---------------------------------------------------------------------------
 
 
-def test_plan_exclude_files_only_for_profiles_with_content(
-    filters: Any, profiles: dict, repositories: dict
-) -> None:
+def test_plan_exclude_files_only_for_profiles_with_content(filters: Any, profiles: dict, repositories: dict) -> None:
     plan = filters.deployment_plan(profiles, repositories, CONFIG_DIR, UNIT_PREFIX)
     names = [f["profile_name"] for f in plan["exclude_files"]]
     assert names == ["myapp"]
-    assert plan["exclude_files"][0]["path"] == (
-        "/etc/restic-profile/restic-profile-myapp.exclude"
-    )
+    assert plan["exclude_files"][0]["path"] == ("/etc/restic-profile/restic-profile-myapp.exclude")
     assert plan["exclude_files"][0]["profile"] is profiles["myapp"]
 
 
-def test_plan_exclude_files_skips_empty_content(
-    filters: Any, repositories: dict
-) -> None:
+def test_plan_exclude_files_skips_empty_content(filters: Any, repositories: dict) -> None:
     profiles = {
         "p": {
             "repository_ref": "r1",
@@ -171,9 +151,7 @@ def test_plan_exclude_files_skips_empty_content(
     assert plan["exclude_files"] == []
 
 
-def test_plan_exclude_files_skips_profiles_without_backup(
-    filters: Any, repositories: dict
-) -> None:
+def test_plan_exclude_files_skips_profiles_without_backup(filters: Any, repositories: dict) -> None:
     profiles = {
         "p": {
             "repository_ref": "r1",
@@ -190,9 +168,7 @@ def test_plan_exclude_files_skips_profiles_without_backup(
 # ---------------------------------------------------------------------------
 
 
-def test_plan_env_files_deduplicated_by_ref(
-    filters: Any, profiles: dict, repositories: dict
-) -> None:
+def test_plan_env_files_deduplicated_by_ref(filters: Any, profiles: dict, repositories: dict) -> None:
     plan = filters.deployment_plan(profiles, repositories, CONFIG_DIR, UNIT_PREFIX)
     # r1 is referenced by myapp, no_timer, shared_repo - should appear once
     # r2 is referenced by prune_only - should appear once
@@ -200,9 +176,7 @@ def test_plan_env_files_deduplicated_by_ref(
     assert refs == ["r1", "r2"]
 
 
-def test_plan_env_files_include_repo_data_and_path(
-    filters: Any, profiles: dict, repositories: dict
-) -> None:
+def test_plan_env_files_include_repo_data_and_path(filters: Any, profiles: dict, repositories: dict) -> None:
     plan = filters.deployment_plan(profiles, repositories, CONFIG_DIR, UNIT_PREFIX)
     r1 = next(f for f in plan["env_files"] if f["key"] == "r1")
     assert r1["value"] == repositories["r1"]
@@ -214,9 +188,7 @@ def test_plan_env_files_include_repo_data_and_path(
 # ---------------------------------------------------------------------------
 
 
-def test_plan_expected_unit_names(
-    filters: Any, profiles: dict, repositories: dict
-) -> None:
+def test_plan_expected_unit_names(filters: Any, profiles: dict, repositories: dict) -> None:
     plan = filters.deployment_plan(profiles, repositories, CONFIG_DIR, UNIT_PREFIX)
     assert sorted(plan["expected_unit_names"]) == [
         "restic-profile-myapp",
@@ -226,18 +198,12 @@ def test_plan_expected_unit_names(
     ]
 
 
-def test_plan_expected_exclude_paths(
-    filters: Any, profiles: dict, repositories: dict
-) -> None:
+def test_plan_expected_exclude_paths(filters: Any, profiles: dict, repositories: dict) -> None:
     plan = filters.deployment_plan(profiles, repositories, CONFIG_DIR, UNIT_PREFIX)
-    assert plan["expected_exclude_paths"] == [
-        "/etc/restic-profile/restic-profile-myapp.exclude"
-    ]
+    assert plan["expected_exclude_paths"] == ["/etc/restic-profile/restic-profile-myapp.exclude"]
 
 
-def test_plan_expected_env_paths(
-    filters: Any, profiles: dict, repositories: dict
-) -> None:
+def test_plan_expected_env_paths(filters: Any, profiles: dict, repositories: dict) -> None:
     plan = filters.deployment_plan(profiles, repositories, CONFIG_DIR, UNIT_PREFIX)
     assert plan["expected_env_paths"] == [
         "/etc/restic-profile/restic-profile-r1.env",
@@ -250,9 +216,7 @@ def test_plan_expected_env_paths(
 # ---------------------------------------------------------------------------
 
 
-def test_plan_profile_names_filter(
-    filters: Any, profiles: dict, repositories: dict
-) -> None:
+def test_plan_profile_names_filter(filters: Any, profiles: dict, repositories: dict) -> None:
     plan = filters.deployment_plan(
         profiles,
         repositories,
@@ -264,12 +228,8 @@ def test_plan_profile_names_filter(
     assert sorted(names) == ["myapp", "shared_repo"]
 
 
-def test_plan_profile_names_excludes_disabled_even_if_listed(
-    filters: Any, profiles: dict, repositories: dict
-) -> None:
-    plan = filters.deployment_plan(
-        profiles, repositories, CONFIG_DIR, UNIT_PREFIX, profile_names=["disabled_app"]
-    )
+def test_plan_profile_names_excludes_disabled_even_if_listed(filters: Any, profiles: dict, repositories: dict) -> None:
+    plan = filters.deployment_plan(profiles, repositories, CONFIG_DIR, UNIT_PREFIX, profile_names=["disabled_app"])
     assert plan["service_units"] == []
 
 
@@ -393,9 +353,7 @@ def test_user_scope_users_missing_systemd_user_raises(filters: Any) -> None:
 # --- deployment_targets: system scope ---
 
 
-def test_targets_system_scope_paths(
-    filters: Any, scope_profiles: dict, passwd: dict
-) -> None:
+def test_targets_system_scope_paths(filters: Any, scope_profiles: dict, passwd: dict) -> None:
     targets = filters.deployment_targets(scope_profiles, passwd)
     sys_root = [t for t in targets if t["key"] == "system:root"]
     assert len(sys_root) == 1
@@ -420,18 +378,14 @@ def test_targets_system_scope_paths(
 # --- deployment_targets: user scope ---
 
 
-def test_targets_user_scope_xdg_paths(
-    filters: Any, scope_profiles: dict, passwd: dict
-) -> None:
+def test_targets_user_scope_xdg_paths(filters: Any, scope_profiles: dict, passwd: dict) -> None:
     targets = filters.deployment_targets(scope_profiles, passwd)
-    alice = [t for t in targets if t["key"] == "user:alice"][0]
+    alice = next(t for t in targets if t["key"] == "user:alice")
     assert alice["is_user_scope"] is True
     assert alice["home"] == "/home/alice"
     assert alice["uid"] == 1001
     assert alice["config_dir"] == "/home/alice/.config/restic-profile"
-    assert alice["config_file"] == (
-        "/home/alice/.config/restic-profile/restic-profile.toml"
-    )
+    assert alice["config_file"] == ("/home/alice/.config/restic-profile/restic-profile.toml")
     assert alice["hooks_dir"] == "/home/alice/.config/restic-profile/hooks.d"
     assert alice["state_dir"] == "/home/alice/.local/share/restic-profile"
     assert alice["unit_dir"] == "/home/alice/.config/systemd/user"
@@ -443,9 +397,7 @@ def test_targets_user_scope_xdg_paths(
     assert sorted(alice["profile_names"]) == ["userapp", "userapp2"]
 
 
-def test_targets_groups_by_scope_user(
-    filters: Any, scope_profiles: dict, passwd: dict
-) -> None:
+def test_targets_groups_by_scope_user(filters: Any, scope_profiles: dict, passwd: dict) -> None:
     targets = filters.deployment_targets(scope_profiles, passwd)
     keys = [t["key"] for t in targets]
     assert "system:root" in keys
@@ -509,7 +461,7 @@ def test_orphans_system_root_fallback(filters: Any) -> None:
     orphans = filters.orphan_targets(current, registered, 2)
     keys = [o["key"] for o in orphans]
     assert "system:root" in keys
-    sys_root = [o for o in orphans if o["key"] == "system:root"][0]
+    sys_root = next(o for o in orphans if o["key"] == "system:root")
     assert sys_root["unit_dir"] == "/etc/systemd/system"
     assert sys_root["profile_names"] == []
 
